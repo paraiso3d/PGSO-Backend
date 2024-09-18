@@ -1,0 +1,183 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\UserAccount;
+use App\Models\UserType;
+use App\Models\CollegeOffice;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Throwable;
+
+class UserAccountController extends Controller
+{
+    /**
+     * Create a new user account.
+     */
+    public function createUserAccount(Request $request)
+    {
+        try {
+            $validator = UserAccount::validateUserAccount($request->all());
+
+            if ($validator->fails()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors()
+                ];
+                $this->logAPICalls('createUserAccount', "", $request->all(), $response);
+                return response()->json($response, 422);
+            }
+
+            $userAccount = UserAccount::create([
+                'firstname' => $request->firstname,
+                'middleinital' => $request->middleinital,
+                'lastname' => $request->lastname,
+                'email' => $request->email,
+                'usertype' => $request->usertype,
+                'office_college' => $request->office_college,
+                'password' => Hash::make($request->password),
+            ]);
+
+            $response = [
+                'isSuccess' => true,
+                'message' => 'UserAccount successfully created.',
+                'data' => $userAccount
+            ];
+            $this->logAPICalls('createUserAccount', $userAccount->id, $request->all(), $response);
+            return response()->json($response, 201);
+        }
+        catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to create the UserAccount.',
+                'error' => $e->getMessage()
+            ];
+            $this->logAPICalls('createUserAccount', "", $request->all(), $response);
+            return response()->json($response, 500);
+        }
+    }
+
+    /**
+     * Read: Get all user accounts.
+     */
+    public function getUserAccounts()
+    {
+        try {
+            $userAccounts = UserAccount::all();
+            $response = [
+                'isSuccess' => true,
+                'message' => 'User accounts retrieved successfully.',
+                'data' => $userAccounts
+            ];
+            $this->logAPICalls('getUserAccounts', "", [], $response);
+            return response()->json($response, 200);
+        }
+        catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve user accounts.',
+                'error' => $e->getMessage()
+            ];
+            $this->logAPICalls('getUserAccounts', "", [], $response);
+            return response()->json($response, 500);
+        }
+    }
+
+    /**
+     * Update an existing user account.
+     */
+    public function updateUserAccount(Request $request, $id)
+    {
+        try {
+            $userAccount = UserAccount::findOrFail($id);
+
+            $validator = UserAccount::validateUserAccount($request->all());
+
+            if ($validator->fails()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors()
+                ];
+                $this->logAPICalls('updateUserAccount', $id, $request->all(), $response);
+                return response()->json($response, 422);
+            }
+
+            $userAccount->update([
+                'firstname' => $request->firstname,
+                'middleinital' => $request->middleinital,
+                'lastname' => $request->lastname,
+                'email' => $request->email,
+                'usertype' => $request->usertype,
+                'office_college' => $request->office_college,
+                'password' => Hash::make($request->password),
+            ]);
+
+            $response = [
+                'isSuccess' => true,
+                'message' => 'UserAccount successfully updated.',
+                'data' => $userAccount
+            ];
+            $this->logAPICalls('updateUserAccount', $id, $request->all(), $response);
+            return response()->json($response, 200);
+        }
+        catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to update the UserAccount.',
+                'error' => $e->getMessage()
+            ];
+            $this->logAPICalls('updateUserAccount', $id, $request->all(), $response);
+            return response()->json($response, 500);
+        }
+    }
+
+    /**
+     * Delete a user account.
+     */
+    public function deleteUserAccount($id)
+    {
+        try {
+            $userAccount = UserAccount::findOrFail($id);
+
+            $userAccount->delete();
+
+            $response = [
+                'isSuccess' => true,
+                'message' => 'UserAccount successfully deleted.'
+            ];
+            $this->logAPICalls('deleteUserAccount', $id, [], $response);
+            return response()->json($response, 204);
+        }
+        catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to delete the UserAccount.',
+                'error' => $e->getMessage()
+            ];
+            $this->logAPICalls('deleteUserAccount', $id, [], $response);
+            return response()->json($response, 500);
+        }
+    }
+
+    /**
+     * Log all API calls.
+     */
+    public function logAPICalls(string $methodName, string $userId, array $param, array $resp)
+    {
+        // Log the API calls to a log system or table (e.g., ApiLog model).
+        // You can adjust the logic here based on your ApiLog implementation.
+        try {
+            \App\Models\ApiLog::create([
+                'method_name' => $methodName,
+                'user_id' => $userId,
+                'api_request' => json_encode($param),
+                'api_response' => json_encode($resp),
+            ]);
+        } catch (Throwable $e) {
+            return false;
+        }
+        return true;
+    }
+}

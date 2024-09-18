@@ -1,35 +1,33 @@
 <?php
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Controller as Controller;
+use App\Http\Controllers\Controller;
 use App\Models\ApiLog;
 use Carbon\Carbon;
 use App\Models\Session;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 use DB;
-
 
 class BaseController extends Controller
 {
     /**
-     * success response method.
-     *
-     * @return \Illuminate\Http\Response
+     * Create a new user.
      */
-
     public function createUser(Request $request)
     {
-        try
-        {
+        try {
             $request->validate([
-                'name' => ['required','string'],
-                'email'=> ['string','required','email','unique:users,email'],
+                'name' => ['required', 'string'],
+                'email'=> ['string', 'required', 'email', 'unique:users,email'],
                 'password' => ['required', 'string', 'min:8']
             ]);
 
-            User::create([
+            $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password)
@@ -37,153 +35,180 @@ class BaseController extends Controller
 
             $response = [
                 'isSuccess' => true,
-                'message' => "You have successfully created a customer."
+                'message' => "User successfully created."
+            ];
+            $this->logAPICalls('createUser', $user->id, $request->all(), [$response]);
+            return response()->json($response, 201);
+        }
+        catch (ValidationException $v) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Invalid input data.",
+                'error' => $v->errors()
             ];
             $this->logAPICalls('createUser', "", $request->all(), [$response]);
-            return response()->json($response, 200);
+            return response()->json($response, 422);
         }
-        catch (ValidationException $v) 
-        {
+        catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message'=> "Unable to create a user. Please check your inputs.",
-                'error'=> $v->getMessage()
-            ];
-            $this->logAPICalls('storeSection', "", $request->all(), [$response]);
-            return response()->json($response, 500);
-        }
-        catch(Throwable $ex)
-        {
-            $response = [
-                'isSuccess' => false,
-                'message'=> "Unable to create a user. Please try again.",
-                'error'=> $e->getMessage()
+                'message' => "Failed to create a user. Please try again.",
+                'error' => $e->getMessage()
             ];
             $this->logAPICalls('createUser', "", $request->all(), [$response]);
             return response()->json($response, 500);
         }
     }
 
-    public function updateUser(Request $request, $id) //$request includes the SessionId/Token
+    /**
+     * Update an existing user.
+     */
+    public function updateUser(Request $request, $id)
     {
-        try
-        {
-            //depends on your middleware
-            //you should have validation here on the session, get the user_id of that user based on the session(to be pass on the $userId on logApiCalls)
-            $user = User::where('id', $id)->first(); //can use firstOrFail()
-            if ($user)
-            {
-                $user::update([
-                    'name' => $request->name,
-                    'email' => $request->email
-                ]);
-            }   
+        try {
+           
+            $user = User::findOrFail($id); // Find the user or throw 404
+
+            $user->update([
+                'name' => $request->name,
+                'email' => $request->email
+            ]);
+
             $response = [
                 'isSuccess' => true,
-                'message' => "You have successfully updated a user."
+                'message' => "User successfully updated."
             ];
-            $this->logAPICalls('updateUser', $userId, $request->all(), [$response]);
+            $this->logAPICalls('updateUser', $user->id, $request->all(), [$response]);
             return response()->json($response, 200);
         }
-        catch(Throwable $ex)
-        {
+        catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
-                'message'=> "Unable to update a user. Please try again.",
-                'error'=> $e->getMessage()
+                'message' => "Invalid input data.",
+                'error' => $v->errors()
             ];
-            $this->logAPICalls('updateUser', $userId, $request->all(), [$response]);
+            $this->logAPICalls('updateUser', "", $request->all(), [$response]);
+            return response()->json($response, 422);
+        }
+        catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to update the user.",
+                'error' => $e->getMessage()
+            ];
+            $this->logAPICalls('updateUser', "", $request->all(), [$response]);
             return response()->json($response, 500);
         }
     }
 
+    /**
+     * Get all active users.
+     */
     public function getUsers()
     {
-        try
-        {
-            $users = User::where('status', 'A')->get(); //can use
+        try {
+            $users = User::where('status', 'A')->get(); // Assuming 'A' is for active users
 
             $response = [
                 'isSuccess' => true,
-                'message' => "Customers:",
-                'data' => $customers ?? []
+                'message' => "Users list:",
+                'data' => $users
             ];
-            $this->logAPICalls('getUsers', $userId, [], [$response]);
+            $this->logAPICalls('getUsers', "", [], [$response]);
             return response()->json($response, 200);
         }
-        catch(Throwable $ex)
-        {
+        catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message'=> "Unable to list users.",
-                'error'=> $e->getMessage()
+                'message' => "Failed to retrieve users.",
+                'error' => $e->getMessage()
             ];
             $this->logAPICalls('getUsers', "", [], [$response]);
             return response()->json($response, 500);
         }
     }
 
-    public function insertSession(string $code, string $userId)
-    {
-        $dateTime = Carbon::now();
-        $dt = $dateTime->toDateTimeString();
-        try
-        {
-                Session::create([
-                'session_code' => $code,
-                'user_id' => $userId,
-                'login_date' => $dt,  
-            ]);
-            return true;
-        }
-        catch(Throwable $ex)
-        {
-            return false;
-        }
+    /**
+     * Insert a new session for a user.
+     */
+    public function insertSession(Request $request)
+{
+    $request->validate([
+        'user_id' => 'required|string|exists:users,id'
+    ]);
+
+    $sessionCode = Str::uuid();  
+    $dateTime = Carbon::now()->toDateTimeString();
+
+    try {
+        Session::create([
+            'session_code' => $sessionCode,
+            'user_id' => $request->user_id,
+            'login_date' => $dateTime
+        ]);
+        return response()->json(['isSuccess' => true, 'message' => 'Session successfully created.', 'session_code' => $sessionCode], 201);
+    } catch (Throwable $e) {
+        return response()->json(['isSuccess' => false, 'message' => 'Failed to create session.', 'error' => $e->getMessage()], 500);
     }
+}
+
+
+    /**
+     * Log all API calls.
+     */
     public function logAPICalls(string $methodName, string $userId, array $param, array $resp)
     {
-        try
-        {
+        try {
             ApiLog::create([
                 'method_name' => $methodName,
                 'user_id' => $userId,
-                'api_request' =>  json_encode($param),
-                'api_response' =>  json_encode($resp)
+                'api_request' => json_encode($param),
+                'api_response' => json_encode($resp)
             ]);
         }
-        catch(Throwable $ex){
+        catch (Throwable $e) {
             return false;
         }
         return true;
     }
+
+    /**
+     * Get a setting value by its code.
+     */
     public function getSetting(string $code)
     {
-        try
-        { 
-           $value = DB::table('settings')
-                    ->where('setting_code',$code)
-                    ->value('setting_value');
+        try {
+            $value = DB::table('settings')
+                ->where('setting_code', $code)
+                ->value('setting_value');
         }
-        catch(Throwable $ex){
-            return $ex;
+        catch (Throwable $e) {
+            return $e->getMessage();
         }
         return $value;
     }
+
+    /**
+     * Standard response method.
+     */
     public function sendResponse($result, $message)
     {
-    	$response = [
+        $response = [
             'isSuccess' => true,
             'message' => $message,
-            'data'    => $result,
+            'data' => $result
         ];
         return response($response, 200);
     }
+
+    /**
+     * Test method to verify API functionality.
+     */
     public function test()
     {
-    	return response()->json([
+        return response()->json([
             'isSuccess' => true,
-            'message' => 'test'
+            'message' => 'Test successful'
         ], 200);
     }
 }
