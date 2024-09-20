@@ -4,12 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Laravel\Sanctum\HasApiTokens;
 
 class UserAccount extends Model
 {
-    use HasFactory;
+    use HasApiTokens, Notifiable, HasFactory;
 
     protected $fillable = [
         'firstname',

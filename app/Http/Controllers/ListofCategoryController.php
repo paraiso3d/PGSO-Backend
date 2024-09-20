@@ -2,40 +2,38 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CollegeOffice;
+use App\Models\list_of_category;
 use App\Models\ApiLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
-class CollegeOfficeController extends Controller
+class ListofCategoryController extends Controller
 {
     /**
      * Create a new college office.
      */
-    public function createCollegeOffice(Request $request)
+    public function createCategory(Request $request)
     {
         try {
             $request->validate([
-                'officename' => ['required', 'string'],
-                'abbreviation' => ['required', 'string'],
-                'officetype' => ['required', 'in:Academic,Non-academic'],
+                'category_name' => ['required', 'string'],
+                'division' => ['required', 'string'],
             ]);
 
-            $collegeOffice = CollegeOffice::create([
-                'officename' => $request->officename,
-                'abbreviation' => $request->abbreviation,
-                'officetype' => $request->officetype,
+            $categoryname = list_of_category::create([
+                'category_name' => $request->category_name,
+                'division' => $request->division,
             ]);
 
             $response = [
                 'isSuccess' => true,
-                'message' => "College Office successfully created.",
-                'data' => $collegeOffice
+                'message' => "Category successfully created.",
+                'data' => $categoryname
             ];
-            $this->logAPICalls('createCollegeOffice', $collegeOffice->id, $request->all(), [$response]);
-            return response()->json($response, 201);
+            $this->logAPICalls('createCategory', $categoryname->id, $request->all(), [$response]);
+            return response()->json($response, 200);
         } 
         catch (ValidationException $v) {
             $response = [
@@ -43,16 +41,16 @@ class CollegeOfficeController extends Controller
                 'message' => "Invalid input data.",
                 'error' => $v->errors()
             ];
-            $this->logAPICalls('createCollegeOffice', "", $request->all(), [$response]);
-            return response()->json($response, 422);
+            $this->logAPICalls('createCategory', "", $request->all(), [$response]);
+            return response()->json($response, 500);
         } 
         catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to create the College Office.",
+                'message' => "Failed to create the Category.",
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('createCollegeOffice', "", $request->all(), [$response]);
+            $this->logAPICalls('createCategory', "", $request->all(), [$response]);
             return response()->json($response, 500);
         }
     }
@@ -60,29 +58,27 @@ class CollegeOfficeController extends Controller
     /**
      * Update an existing college office.
      */
-    public function updateCollegeOffice(Request $request, $id)
+    public function updateCategory(Request $request, $id)
     {
         try {
-            $collegeOffice = CollegeOffice::findOrFail($id);
+            $categoryname = list_of_category::findOrFail($id);
 
             $request->validate([
-                'officename' => ['sometimes', 'required', 'string'],
-                'abbreviation' => ['sometimes', 'required', 'string'],
-                'officetype' => ['sometimes', 'required', 'in:academic,non-academic'],
+                'category_name' => ['sometimes', 'required', 'string'],
+                'division' => ['sometimes', 'required', 'string'],
             ]);
 
-            $collegeOffice->update([
-                'officename' => $request->officename,
-                'abbreviation' => $request->abbreviation,
-                'officetype' => $request->officetype,
+            $categoryname->update([
+                'category_name' => $request->category_name,
+                'division' => $request->division,
             ]);
 
             $response = [
                 'isSuccess' => true,
-                'message' => "College Office successfully updated.",
-                'data' => $collegeOffice
+                'message' => "Category successfully updated.",
+                'data' => $categoryname
             ];
-            $this->logAPICalls('updateCollegeOffice', $id, $request->all(), [$response]);
+            $this->logAPICalls('updateCategory', $id, $request->all(), [$response]);
             return response()->json($response, 200);
         } 
         catch (ValidationException $v) {
@@ -91,16 +87,16 @@ class CollegeOfficeController extends Controller
                 'message' => "Invalid input data.",
                 'error' => $v->errors()
             ];
-            $this->logAPICalls('updateCollegeOffice', "", $request->all(), [$response]);
-            return response()->json($response, 422);
+            $this->logAPICalls('updateCategory', "", $request->all(), [$response]);
+            return response()->json($response, 500);
         } 
         catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to update the College Office.",
+                'message' => "Failed to update the Category.",
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('updateCollegeOffice', "", $request->all(), [$response]);
+            $this->logAPICalls('updateCategory', "", $request->all(), [$response]);
             return response()->json($response, 500);
         }
     }
@@ -108,26 +104,26 @@ class CollegeOfficeController extends Controller
     /**
      * Get all college offices.
      */
-    public function getCollegeOffices()
+    public function getCategories()
     {
         try {
-            $collegeOffices = CollegeOffice::all();
+            $categoryname = list_of_category::all();
 
             $response = [
                 'isSuccess' => true,
-                'message' => "College Offices list:",
-                'data' => $collegeOffices
+                'message' => "Category names list:",
+                'data' => $categoryname
             ];
-            $this->logAPICalls('getCollegeOffices', "", [], [$response]);
+            $this->logAPICalls('getCategories', "", [], [$response]);
             return response()->json($response, 200);
         } 
         catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to retrieve College Offices.",
+                'message' => "Failed to retrieve Category Names.",
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('getCollegeOffices', "", [], [$response]);
+            $this->logAPICalls('list_of_category', "", [], [$response]);
             return response()->json($response, 500);
         }
     }
@@ -135,27 +131,27 @@ class CollegeOfficeController extends Controller
     /**
      * Delete a college office.
      */
-    public function deleteCollegeOffice($id)
+    public function deleteCategory($id)
     {
         try {
-            $collegeOffice = CollegeOffice::findOrFail($id);
+            $categoryname = list_of_category::findOrFail($id);
 
-            $collegeOffice->delete();
+            $categoryname->delete();
 
             $response = [
                 'isSuccess' => true,
-                'message' => "College Office successfully deleted."
+                'message' => "Category successfully deleted."
             ];
-            $this->logAPICalls('deleteCollegeOffice', $id, [], [$response]);
-            return response()->json($response, 204);
+            $this->logAPICalls('deleteCategory', $id, [], [$response]);
+            return response()->json($response, 200);
         } 
         catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to delete the College Office.",
+                'message' => "Failed to delete the Category Name.",
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('deleteCollegeOffice', "", [], [$response]);
+            $this->logAPICalls('deleteCategory', "", [], [$response]);
             return response()->json($response, 500);
         }
     }

@@ -2,149 +2,157 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\UserType;
+use App\Models\division_name;
 use App\Models\ApiLog;
-use Throwable;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
-class UserTypeController extends Controller
+
+class DivisionNameController extends Controller
 {
     /**
-     * Create a new user type.
+     * Create a new college office.
      */
-    public function createUserType(Request $request)
+    public function createDivision(Request $request)
     {
         try {
             $request->validate([
-                'name' => ['required'],
+                'div_name' => ['required', 'string'],
+                'note' => ['required', 'string'],
             ]);
 
-            $usertype = UserType::create([
-                'name' => $request->name,
+            $divname = division_name::create([
+                'div_name' => $request->div_name,
+                'note' => $request->note,
             ]);
 
             $response = [
                 'isSuccess' => true,
-                'message' => "UserType successfully created.",
-                'data' => $usertype
+                'message' => "Division successfully created.",
+                'data' => $divname
             ];
-            $this->logAPICalls('createUserType', $usertype->id, $request->all(), [$response]);
+            $this->logAPICalls('createDivision', $divname->id, $request->all(), [$response]);
             return response()->json($response, 201);
-        }
+        } 
         catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
                 'error' => $v->errors()
             ];
-            $this->logAPICalls('createUserType', "", $request->all(), [$response]);
+            $this->logAPICalls('createDivision', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        }
+        } 
         catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to create the UserType.",
+                'message' => "Failed to create the Division.",
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('createUserType', "", $request->all(), [$response]);
+            $this->logAPICalls('createDivision', "", $request->all(), [$response]);
             return response()->json($response, 500);
         }
     }
 
     /**
-     * Update an existing user type.
+     * Update an existing college office.
      */
-    public function updateUserType(Request $request, $id)
+    public function updateDivision(Request $request, $id)
     {
         try {
-            $usertype = UserType::findOrFail($id); // Find the user type or throw 404
+            $divname = division_name::findOrFail($id);
 
             $request->validate([
-                'name' => ['required','string' ],
+                'div_name' => ['sometimes', 'required', 'string'],
+                'note' => ['sometimes', 'required', 'string'],
             ]);
 
-            $usertype->update([
-                'name' => $request->name,
+            $divname->update([
+                'div_name' => $request->div_name,
+                'note' => $request->note,
             ]);
 
             $response = [
                 'isSuccess' => true,
-                'message' => "UserType successfully updated.",
-                'data' => $usertype
+                'message' => "Division successfully updated.",
+                'data' => $divname
             ];
-            $this->logAPICalls('updateUserType', $id, $request->all(), [$response]);
+            $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
             return response()->json($response, 200);
-        }
+        } 
         catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
                 'error' => $v->errors()
             ];
-            $this->logAPICalls('updateUserType', "", $request->all(), [$response]);
+            $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        }
+        } 
         catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to update the UserType.",
+                'message' => "Failed to update the Division.",
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('updateUserType', "", $request->all(), [$response]);
-            return response()->json($response, 500);
-        }
-    }
-
-    public function getUserTypes()
-    {
-        try {
-            $usertypes = UserType::all();
-
-            $response = [
-                'isSuccess' => true,
-                'message' => "UserTypes list:",
-                'data' => $usertypes
-            ];
-            $this->logAPICalls('getUserTypes', "", [], [$response]);
-            return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Failed to retrieve UserTypes.",
-                'error' => $e->getMessage()
-            ];
-            $this->logAPICalls('getUserTypes', "", [], [$response]);
+            $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
             return response()->json($response, 500);
         }
     }
 
     /**
-     * Delete a user type.
+     * Get all college offices.
      */
-    public function deleteUserType($id)
+    public function getDivisions()
     {
         try {
-            $usertype = UserType::findOrFail($id); // Find or throw 404
-
-            $usertype->delete();
+            $divnames = division_name::all();
 
             $response = [
                 'isSuccess' => true,
-                'message' => "UserType successfully deleted."
+                'message' => "Division names list:",
+                'data' => $divnames
             ];
-            $this->logAPICalls('deleteUserType', $id, [], [$response]);
-            return response()->json($response, 204);
-        }
+            $this->logAPICalls('getDivisions', "", [], [$response]);
+            return response()->json($response, 200);
+        } 
         catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to delete the UserType.",
+                'message' => "Failed to retrieve Division Names.",
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('deleteUserType', "", [], [$response]);
+            $this->logAPICalls('division_name', "", [], [$response]);
+            return response()->json($response, 500);
+        }
+    }
+
+    /**
+     * Delete a college office.
+     */
+    public function deleteDivision($id)
+    {
+        try {
+            $divname = division_name::findOrFail($id);
+
+            $divname->delete();
+
+            $response = [
+                'isSuccess' => true,
+                'message' => "Division successfully deleted."
+            ];
+            $this->logAPICalls('deleteDivision', $id, [], [$response]);
+            return response()->json($response, 200);
+        } 
+        catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to delete the Division Name.",
+                'error' => $e->getMessage()
+            ];
+            $this->logAPICalls('deleteDivision', "", [], [$response]);
             return response()->json($response, 500);
         }
     }
@@ -161,8 +169,9 @@ class UserTypeController extends Controller
                 'api_request' => json_encode($param),
                 'api_response' => json_encode($resp)
             ]);
-        }
+        } 
         catch (Throwable $e) {
+            // Handle logging error if necessary
             return false;
         }
         return true;
@@ -179,3 +188,4 @@ class UserTypeController extends Controller
         ], 200);
     }
 }
+
