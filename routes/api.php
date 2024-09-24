@@ -195,6 +195,10 @@ Route::controller(BaseController::class)->group(function () {
 Route::post('createCustomer', 'createCustomer');
 Route::post('createCustomer', 'updateCustomer');
 Route::get('getCustomers', 'getCustomers');
+Route::post('user', 'createUser');        // For creating a user
+Route::post('user/{id}', 'updateUser');    // For updating a user
+Route::get('users',  'getUsers');          // For fetching users
+//Route::post('session',  'insertSession');  // For inserting a session
 
 });
 
