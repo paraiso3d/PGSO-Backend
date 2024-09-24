@@ -67,12 +67,19 @@ Route::controller(AuthController::class)->group(function () {
     });
 
 
-    // Route::middleware(['auth:sanctum', 'UserTypeAuth'])->group(function () {
+    Route::middleware(['auth:sanctum', 'UserTypeAuth'])->group(function () {
+        Route::middleware('auth:sanctum')->get('profile', [AuthController::class, 'viewProfile']);
+        Route::middleware('auth:sanctum')->put('profile', [AuthController::class, 'editProfile']);
+        Route::middleware('auth:sanctum')->post('change-password', [AuthController::class, 'changePassword']);
+    
+    
+    
     //     Route::get('/admin/dashboard', [AuthController::class, 'admin']);
     //     Route::get('/supervisor/dashboard', [AuthController::class, 'supervisor']);
     //     Route::get('/teamleader/dashboard', [AuthController::class, 'teamleader']);
     //     Route::get('/controller/dashboard', [AuthController::class, 'controller']);
     //     Route::get('/dean/dashboard', [AuthController::class, 'dean'])
+    });
 
 
 /*
