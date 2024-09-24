@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Validator;
 
 class Category extends Model
 {
@@ -11,4 +12,20 @@ class Category extends Model
     protected $fillable = [
         'category_name', 'division'
     ];
+
+
+    public static function validateCategory($data)
+    {
+        $division = Division::pluck('div_name')->toArray();
+        
+
+        $validator = Validator::make($data, [
+            'category_name' => ['required', 'string','alpha'],
+            'division' => ['required', 'in:' . implode(',', $division)],
+            'isarchive' => ['nullable','in: A, I']
+        ]);
+
+        return $validator;
+    }
 }
+

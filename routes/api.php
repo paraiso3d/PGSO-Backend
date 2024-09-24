@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DivisionController;
+use App\Http\Controllers\LocationController;
+use App\Http\Controllers\RequestController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -32,8 +35,8 @@ use App\Http\Controllers\AuthController;
 
 
 
-//---- TEST --\\
-Route::post('/upload', [FileUploadController::class, 'upload']);
+//---- TEST FILE --\\
+Route::post('/  ', [FileUploadController::class, 'upload']);
 
 
 
@@ -54,12 +57,16 @@ Route::controller( DivisionController::class)->group( function (){
 
 
 
-
+/*
+|--------------------LOGIN API-----------------------\
+*/
 
 Route::controller(AuthController::class)->group(function () {
     Route::post('login',  'login');
     Route::post('session',  'insertSession');
     });
+
+
     // Route::middleware(['auth:sanctum', 'UserTypeAuth'])->group(function () {
     //     Route::get('/admin/dashboard', [AuthController::class, 'admin']);
     //     Route::get('/supervisor/dashboard', [AuthController::class, 'supervisor']);
@@ -78,6 +85,48 @@ Route::controller(AuthController::class)->group(function () {
 
 
 
+/*
+|--------------------Request API-----------------------\
+*/ 
+    
+Route::controller( RequestController::class)->group( function (){
+    Route::post('createrequest', 'createRequest');               
+    Route::post('updaterequest/{id}', 'updateRequest');    
+    Route::get('getrequest',  'getRequests');    
+    Route::get('getrequest/{id}',  'getRequestById');    
+    Route::delete('delete-category/{id}', 'deleteCategory');
+});
+
+
+   
+/*
+|--------------------Category API-----------------------\
+*/ 
+
+    Route::controller( CategoryController::class)->group( function (){
+        Route::post('createcategory', 'createCategory');        // For creating a user
+        Route::post('updatecategory/{id}', 'updateCategory');    // For updating a user
+        Route::get('getcategories',  'getCategories');    
+        Route::delete('delete-category/{id}', 'deleteCategory');
+    
+    });
+
+
+/*
+|--------------------Location API-----------------------\
+*/
+
+    Route::controller( LocationController::class)->group( function (){
+        Route::post('createlocation', 'createlocation');        // For creating a user
+        Route::post('updatelocation/{id}', 'updateocation');    // For updating a user
+        Route::get('getlocations',  'getlocations');    
+        Route::delete('delete-location/{id}', 'deletelocation');
+    
+    });
+
+
+
+
 
 
 
@@ -85,8 +134,6 @@ Route::controller(AuthController::class)->group(function () {
 /*
 |--------------------ManPower API-----------------------\
 */
-
-
 
 Route::controller( ManpowerController::class)->group( function (){
     Route::post('createmanpower', 'createmanpower');        

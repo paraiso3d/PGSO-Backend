@@ -18,40 +18,38 @@ class CategoryController extends Controller
     public function createCategory(Request $request)
     {
         try {
-            $request->validate([
-                'category_name' => ['required', 'string'],
-                'division' => ['required', 'string'],
-            ]);
+            $validator = Category::validateCategory($request->all());
 
-            $categoryname = Category::create([
+            if ($validator->fails()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors()
+                ];
+                $this->logAPICalls('createCategory', "", $request->all(), $response);
+                return response()->json($response, 500);
+            }
+
+            $userAccount = Category::create([
                 'category_name' => $request->category_name,
                 'division' => $request->division,
             ]);
 
             $response = [
                 'isSuccess' => true,
-                'message' => "Category successfully created.",
-                'data' => $categoryname
+                'message' => 'Category successfully created.',
+                'data' => $userAccount
             ];
-            $this->logAPICalls('createCategory', $categoryname->id, $request->all(), [$response]);
+            $this->logAPICalls('createCategory', $userAccount->id, $request->all(), $response);
             return response()->json($response, 200);
-        } 
-        catch (ValidationException $v) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Invalid input data.",
-                'error' => $v->errors()
-            ];
-            $this->logAPICalls('createCategory', "", $request->all(), [$response]);
-            return response()->json($response, 500);
-        } 
+        }
         catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to create the Category.",
+                'message' => 'Failed to create the Category.',
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('createCategory', "", $request->all(), [$response]);
+            $this->logAPICalls('createCategory', "", $request->all(), $response);
             return response()->json($response, 500);
         }
     }
