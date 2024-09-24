@@ -54,7 +54,6 @@ class RequestController extends Controller
                 'fiscal_year' => $request->input('fiscal_year'),
                 'file_name' => $filePath, // Save the path to the database
                 'status' => $status,
-                'user_id' => $request->input('user_id'),
             ]);
     
             $response = [

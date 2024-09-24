@@ -75,16 +75,6 @@ Route::controller(AuthController::class)->group(function () {
     //     Route::get('/dean/dashboard', [AuthController::class, 'dean'])
 
 
-
-
-
-
-
-
-
-
-
-
 /*
 |--------------------Request API-----------------------\
 */ 

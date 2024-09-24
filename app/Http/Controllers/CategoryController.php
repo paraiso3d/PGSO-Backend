@@ -13,7 +13,7 @@ use Throwable;
 class CategoryController extends Controller
 {
     /**
-     * Create a new college office.
+     * Create a new Category
      */
     public function createCategory(Request $request)
     {
@@ -55,7 +55,7 @@ class CategoryController extends Controller
     }
 
     /**
-     * Update an existing college office.
+     * Update an existing Category
      */
     public function updateCategory(Request $request, $id)
     {
@@ -101,7 +101,7 @@ class CategoryController extends Controller
     }
 
     /**
-     * Get all college offices.
+     * Get all Category.
      */
     public function getCategories()
     {
@@ -128,7 +128,7 @@ class CategoryController extends Controller
     }
 
     /**
-     * Delete a college office.
+     * Delete a Category
      */
     public function deleteCategory($id)
     {
