@@ -32,35 +32,20 @@ class AuthController extends Controller
                 //Generate token based on usertype
                 $token = null;
                 switch ($user->user_type) {
-<<<<<<< HEAD
-                    case 'Admin':
-                        $token = $user->createToken('admin-token', ['Admin'])->plainTextToken;
-=======
                     case 'Administrator':
                         $token = $user->createToken('admin-token', ['administrator'])->plainTextToken;
->>>>>>> f3b7c4cefab5cafc00037331c3698ba4dddac415
                         break;
                     case 'Supervisor':
-                        $token = $user->createToken('supervisor-token', ['Supervisor'])->plainTextToken;
+                        $token = $user->createToken('supervisor-token', ['supervisor'])->plainTextToken;
                         break;
-<<<<<<< HEAD
-                    case 'Teamleader':
-                        $token = $user->createToken('teamleader-token', ['Teamleader'])->plainTextToken;
-=======
                     case 'TeamLeader':
                         $token = $user->createToken('teamleader-token', ['teamleader'])->plainTextToken;
->>>>>>> f3b7c4cefab5cafc00037331c3698ba4dddac415
                         break;
                     case 'Controller':
-                        $token = $user->createToken('controller-token', ['Controller'])->plainTextToken;
+                        $token = $user->createToken('controller-token', ['controller'])->plainTextToken;
                         break;
-<<<<<<< HEAD
-                    case 'Dean':
-                        $token = $user->createToken('dean-token', ['Dean'])->plainTextToken;
-=======
                     case 'DeanHead':
-                        $token = $user->createToken('dean-token', ['dean'])->plainTextToken;
->>>>>>> f3b7c4cefab5cafc00037331c3698ba4dddac415
+                        $token = $user->createToken('dean-token', ['deanhead'])->plainTextToken;
                         break;
                     default:
                         $response = ['message' => 'Unauthorized'];
@@ -73,18 +58,10 @@ class AuthController extends Controller
 
                 //Log successful login
                 $response = [
-<<<<<<< HEAD
                     'message' => ucfirst($user->user_type) . ' logged in successfully',
                     'token' => $token,  
                     'user' => $user->only(['id', 'email']),
                     'user_type' => $user->user_type,
-=======
-                    'isSuccess' => true,
-                    'message' => ucfirst($user->user_type) . ' logged in successfully',
-                    'token' => $token,  
-                    'user' => $user->only(['id', 'email']),
-                    'usertype' => $user->user_type,
->>>>>>> f3b7c4cefab5cafc00037331c3698ba4dddac415
                     'session' => $sessionResponse->getData(),
                 ];
                 $this->logAPICalls('login', $user->id, $request->except(['password']), $response);
@@ -111,7 +88,6 @@ class AuthController extends Controller
 }
 }
 
-<<<<<<< HEAD
 public function viewProfile(Request $request)
 {
 try {
@@ -272,13 +248,6 @@ public function logout(Request $request)
 }
 
 
-=======
-public function test(Request $request)
-{
-   return 'response called';
-}
-
->>>>>>> f3b7c4cefab5cafc00037331c3698ba4dddac415
     // Method to insert session
     public function insertSession(Request $request)
     {

@@ -39,10 +39,7 @@ Route::options('/{any}', function (Request $request) {
 
 //---- TEST FILE --\\
 Route::post('upload  ', [FileUploadController::class, 'upload']);
-<<<<<<< HEAD
-=======
 Route::post('test', [AuthController::class,'test']);
->>>>>>> f3b7c4cefab5cafc00037331c3698ba4dddac415
 
 
 
