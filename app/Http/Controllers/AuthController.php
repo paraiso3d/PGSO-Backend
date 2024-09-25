@@ -45,7 +45,7 @@ class AuthController extends Controller
                         $token = $user->createToken('controller-token', ['controller'])->plainTextToken;
                         break;
                     case 'DeanHead':
-                        $token = $user->createToken('dean-token', ['dean'])->plainTextToken;
+                        $token = $user->createToken('dean-token', ['deanhead'])->plainTextToken;
                         break;
                     default:
                         $response = ['message' => 'Unauthorized'];
@@ -111,10 +111,10 @@ public function test(Request $request)
                 'login_date' => $dateTime
             ]);
 
-            return response()->json(['isSuccess' => true, 'message' => 'Session successfully created.', 'session_code' => $sessionCode], 201);
+            return response()->json([ 'message' => 'Session successfully created.', 'session_code' => $sessionCode], 201);
 
         } catch (Throwable $e) {
-            return response()->json(['isSuccess' => false, 'message' => 'Failed to create session.', 'error' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to create session.', 'error' => $e->getMessage()], 500);
         }
     }
 

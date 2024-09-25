@@ -81,7 +81,8 @@ class RequestController extends Controller
         try {
             $perPage = $request->input('per_page', 10);
             $requests = Requests::paginate($perPage);
-
+            $requests = Requests::select('location_name');
+            $requests = Requests::select('status');
             $response = [
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
