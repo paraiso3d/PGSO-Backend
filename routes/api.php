@@ -37,7 +37,7 @@ use App\Http\Controllers\AuthController;
 
 //---- TEST FILE --\\
 Route::post('/  ', [FileUploadController::class, 'upload']);
-Route::post('test', [FileUploadController::class,'test']);
+Route::post('test', [AuthController::class,'test']);
 
 
 
