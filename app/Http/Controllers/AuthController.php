@@ -32,19 +32,19 @@ class AuthController extends Controller
                 //Generate token based on usertype
                 $token = null;
                 switch ($user->user_type) {
-                    case 'Admin':
-                        $token = $user->createToken('admin-token', ['admin'])->plainTextToken;
+                    case 'Administrator':
+                        $token = $user->createToken('admin-token', ['administrator'])->plainTextToken;
                         break;
                     case 'Supervisor':
                         $token = $user->createToken('supervisor-token', ['supervisor'])->plainTextToken;
                         break;
-                    case 'Teamleader':
+                    case 'TeamLeader':
                         $token = $user->createToken('teamleader-token', ['teamleader'])->plainTextToken;
                         break;
                     case 'Controller':
                         $token = $user->createToken('controller-token', ['controller'])->plainTextToken;
                         break;
-                    case 'Dean':
+                    case 'DeanHead':
                         $token = $user->createToken('dean-token', ['dean'])->plainTextToken;
                         break;
                     default:
@@ -58,10 +58,11 @@ class AuthController extends Controller
 
                 //Log successful login
                 $response = [
-                    'message' => ucfirst($user->usertype) . ' logged in successfully',
+                    'isSuccess' => true,
+                    'message' => ucfirst($user->user_type) . ' logged in successfully',
                     'token' => $token,  
                     'user' => $user->only(['id', 'email']),
-                    'usertype' => $user->usertype,
+                    'usertype' => $user->user_type,
                     'session' => $sessionResponse->getData(),
                 ];
             $this->logAPICalls('login', $user->id, $request->all(), $response); // Log API call

@@ -18,7 +18,7 @@ class UsertypeController extends Controller
     {
         try {
             $request->validate([
-                'name' => ['required', 'alpha'],
+                'name' => ['required', 'alpha_spaces'],
             ]);
 
             $usertype = user_type::create([
@@ -61,6 +61,7 @@ class UsertypeController extends Controller
 
             $request->validate([
                 'name' => ['required', 'string', 'alpha'], // Ensure the 'name' is a string
+                'description' => ['required', 'string', 'alpha'],
             ]);
 
             $usertype->update([
@@ -100,7 +101,9 @@ class UsertypeController extends Controller
     public function getUserTypes()
     {
         try {
-            $usertypes = user_type::select('name', 'description');
+            $usertypes = user_type::select('id','name')
+            ->get();
+
 
             $response = [
                 'isSuccess' => true,
