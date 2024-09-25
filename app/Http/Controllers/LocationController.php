@@ -34,8 +34,7 @@ class LocationController extends Controller
             ];
             $this->logAPICalls('createlocation', $location->id, $request->all(), [$response]);
             return response()->json($response, 200);
-        }
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -43,8 +42,7 @@ class LocationController extends Controller
             ];
             $this->logAPICalls('createlocation', "", $request->all(), [$response]);
             return response()->json($response, 500);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to create the location.",
@@ -62,17 +60,17 @@ class LocationController extends Controller
     {
         try {
             $location = location::findOrFail($id); // Find the user type or throw 404
-    
+
             $request->validate([
-               'location_name' => ['required','string'],
-                'note' => ['required','string'],
+                'location_name' => ['required', 'string'],
+                'note' => ['required', 'string'],
             ]);
-    
+
             $location->update([
                 'location_name' => $request->location_name,
                 'note' => $request->note,
             ]);
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => "UserType successfully updated.",
@@ -80,8 +78,7 @@ class LocationController extends Controller
             ];
             $this->logAPICalls('updatelocation', $id, $request->all(), [$response]);
             return response()->json($response, 200);
-        }
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -89,8 +86,7 @@ class LocationController extends Controller
             ];
             $this->logAPICalls('updatelocation', "", $request->all(), [$response]);
             return response()->json($response, 500);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to update the location.",
@@ -100,7 +96,7 @@ class LocationController extends Controller
             return response()->json($response, 500);
         }
     }
-    
+
 
     /**
      * Get all user types.
@@ -110,31 +106,31 @@ class LocationController extends Controller
         try {
             // Set the number of items per page (default to 10 if not provided)
             $perPage = $request->input('per_page', 10);
-    
+
             // Fetch paginated locations
             $locations = Location::paginate($perPage);
-    
+            $locations = location::select('category_name','division');
+
             $response = [
                 'isSuccess' => true,
                 'message' => "Location list:",
                 'data' => $locations
             ];
-    
+
             // Log API calls
             $this->logAPICalls('getlocations', "", [], [$response]);
-    
+
             return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to retrieve Location.",
                 'error' => $e->getMessage()
             ];
-    
+
             // Log API calls
             $this->logAPICalls('getlocations', "", [], [$response]);
-    
+
             return response()->json($response, 500);
         }
     }
@@ -155,8 +151,7 @@ class LocationController extends Controller
             ];
             $this->logAPICalls('deletelocation', $request->id, [], [$response]);
             return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to delete the Location.",
@@ -179,8 +174,7 @@ class LocationController extends Controller
                 'api_request' => json_encode($param),
                 'api_response' => json_encode($resp)
             ]);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             return false;
         }
         return true;

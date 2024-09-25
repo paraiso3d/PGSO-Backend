@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\user_type;
 use App\Models\Session;
 use App\Models\ApiLog;
 use Illuminate\Support\Facades\Hash;
@@ -85,6 +86,11 @@ class AuthController extends Controller
     $this->logAPICalls('login', $request->email, $request->all(), $response); 
     return response()->json($response, 500);
 }
+}
+
+public function test(Request $request)
+{
+   return 'response called';
 }
 
     // Method to insert session

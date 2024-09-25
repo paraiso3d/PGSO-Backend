@@ -18,14 +18,14 @@ class ManpowerController extends Controller
     {
         try {
             $request->validate([
-                'first_name' => ['required','string'],
-                'last_name'=> ['required','string'],
+                'first_name' => ['required', 'string'],
+                'last_name' => ['required', 'string'],
             ]);
 
             $manpower = Manpower::create([
                 'first_name' => $request->first_name,
-                'last_name'=> $request->last_name,
-                
+                'last_name' => $request->last_name,
+
             ]);
 
             $response = [
@@ -35,8 +35,7 @@ class ManpowerController extends Controller
             ];
             $this->logAPICalls('createmanpower', $manpower->id, $request->all(), [$response]);
             return response()->json($response, 201);
-        }
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -44,8 +43,7 @@ class ManpowerController extends Controller
             ];
             $this->logAPICalls('createmanpower', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to create the manpower.",
@@ -62,18 +60,18 @@ class ManpowerController extends Controller
     public function updatemanpower(Request $request, $id)
     {
         try {
-            $manpower = Manpower::findOrFail($id); 
-    
+            $manpower = Manpower::findOrFail($id);
+
             $request->validate([
-                'first_name' => ['required', 'string'], 
-                'last_name'=> ['required', 'string'],
+                'first_name' => ['required', 'string'],
+                'last_name' => ['required', 'string'],
             ]);
-    
+
             $manpower->update([
                 'first_name' => $request->first_name,
-                'last_name'=> $request->last_name,
+                'last_name' => $request->last_name,
             ]);
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => "Manpower successfully updated.",
@@ -81,8 +79,7 @@ class ManpowerController extends Controller
             ];
             $this->logAPICalls('updatemanpower', $id, $request->all(), [$response]);
             return response()->json($response, 200);
-        }
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -90,8 +87,7 @@ class ManpowerController extends Controller
             ];
             $this->logAPICalls('updatemanpower', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to update the Manpower.",
@@ -101,47 +97,46 @@ class ManpowerController extends Controller
             return response()->json($response, 500);
         }
     }
-    
+
 
     /**
      * List manpower
      */
     public function getmanpowers(Request $request)
-{
-    try {
-        // Set default pagination value or use the one provided in the request
-        $perPage = $request->input('per_page', 10);  // Default to 10 items per page
+    {
+        try {
+            // Set default pagination value or use the one provided in the request
+            $perPage = $request->input('per_page', 10);  // Default to 10 items per page
 
-        // Fetch manpowers with pagination
-        $manpowers = Manpower::paginate($perPage);
+            // Fetch manpowers with pagination
+            $manpowers = Manpower::paginate($perPage);
 
-        $response = [
-            'isSuccess' => true,
-            'message' => "Manpower list retrieved successfully.",
-            'data' => $manpowers->items(),  // Get the paginated data
-            'pagination' => [
-                'total' => $manpowers->total(),
-                'per_page' => $manpowers->perPage(),
-                'current_page' => $manpowers->currentPage(),
-                'last_page' => $manpowers->lastPage(),
-                'next_page_url' => $manpowers->nextPageUrl(),
-                'prev_page_url' => $manpowers->previousPageUrl(),
-            ]
-        ];
+            $response = [
+                'isSuccess' => true,
+                'message' => "Manpower list retrieved successfully.",
+                'data' => $manpowers->items(),  // Get the paginated data
+                'pagination' => [
+                    'total' => $manpowers->total(),
+                    'per_page' => $manpowers->perPage(),
+                    'current_page' => $manpowers->currentPage(),
+                    'last_page' => $manpowers->lastPage(),
+                    'next_page_url' => $manpowers->nextPageUrl(),
+                    'prev_page_url' => $manpowers->previousPageUrl(),
+                ]
+            ];
 
-        $this->logAPICalls('getmanpowers', "", [], [$response]);
-        return response()->json($response, 200);
+            $this->logAPICalls('getmanpowers', "", [], [$response]);
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to retrieve Manpowers.",
+                'error' => $e->getMessage()
+            ];
+            $this->logAPICalls('getmanpowers', "", [], [$response]);
+            return response()->json($response, 500);
+        }
     }
-    catch (Throwable $e) {
-        $response = [
-            'isSuccess' => false,
-            'message' => "Failed to retrieve Manpowers.",
-            'error' => $e->getMessage()
-        ];
-        $this->logAPICalls('getmanpowers', "", [], [$response]);
-        return response()->json($response, 500);
-    }
-}
 
     /**
      * Delete a manpower
@@ -159,8 +154,7 @@ class ManpowerController extends Controller
             ];
             $this->logAPICalls('deletemanpower', $id, [], [$response]);
             return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to delete the Manpower.",
@@ -183,8 +177,7 @@ class ManpowerController extends Controller
                 'api_request' => json_encode($param),
                 'api_response' => json_encode($resp)
             ]);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             return false;
         }
         return true;

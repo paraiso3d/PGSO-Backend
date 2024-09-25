@@ -37,6 +37,7 @@ use App\Http\Controllers\AuthController;
 
 //---- TEST FILE --\\
 Route::post('/  ', [FileUploadController::class, 'upload']);
+Route::post('test', [FileUploadController::class,'test']);
 
 
 
@@ -116,7 +117,7 @@ Route::controller( RequestController::class)->group( function (){
 
 
 
-
+    Route::post('createmanpower', 'createmanpower');  
 
 
 

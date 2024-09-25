@@ -47,8 +47,7 @@ class UserController extends Controller
             ];
             $this->logAPICalls('createUserAccount', $userAccount->id, $request->all(), $response);
             return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to create the UserAccount.',
@@ -65,12 +64,14 @@ class UserController extends Controller
     public function getUserAccounts(Request $request)
     {
         try {
-           
-            $perPage = $request->input('per_page', 10); 
-    
+
+            $perPage = $request->input('per_page', 10);
+            
             // Fetch user accounts with pagination
             $userAccounts = User::paginate($perPage);
-    
+            $userAccounts = User::select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'office', 'designation', 'user_type')
+            ->get();
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'User accounts retrieved successfully.',
@@ -78,8 +79,7 @@ class UserController extends Controller
             ];
             $this->logAPICalls('getUserAccounts', "", [], $response);
             return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve user accounts.',
@@ -128,8 +128,7 @@ class UserController extends Controller
             ];
             $this->logAPICalls('updateUserAccount', $id, $request->all(), $response);
             return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to update the UserAccount.',
@@ -154,10 +153,9 @@ class UserController extends Controller
                 'isSuccess' => true,
                 'message' => 'UserAccount successfully deleted.'
             ];
-            $this->logAPICalls('deleteUserAccount', $userAccount->id , [], $response);
+            $this->logAPICalls('deleteUserAccount', $userAccount->id, [], $response);
             return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to delete the UserAccount.',

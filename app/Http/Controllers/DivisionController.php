@@ -35,8 +35,7 @@ class DivisionController extends Controller
             ];
             $this->logAPICalls('createDivision', $divname->id, $request->all(), [$response]);
             return response()->json($response, 201);
-        } 
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -44,8 +43,7 @@ class DivisionController extends Controller
             ];
             $this->logAPICalls('createDivision', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to create the Division.",
@@ -66,7 +64,7 @@ class DivisionController extends Controller
 
             $request->validate([
                 'div_name' => ['sometimes', 'required', 'string'],
-                'note' => ['sometimes' , 'required', 'string'],
+                'note' => ['sometimes', 'required', 'string'],
             ]);
 
             $divname->update([
@@ -81,8 +79,7 @@ class DivisionController extends Controller
             ];
             $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
             return response()->json($response, 200);
-        } 
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -90,8 +87,7 @@ class DivisionController extends Controller
             ];
             $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to update the Division.",
@@ -110,31 +106,30 @@ class DivisionController extends Controller
         try {
             // Set the number of items per page (default to 10 if not provided)
             $perPage = $request->input('per_page', 10);
-    
+
             // Fetch paginated division names
             $divnames = Division::paginate($perPage);
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => "Division names list:",
                 'data' => $divnames
             ];
-    
+
             // Log API calls
             $this->logAPICalls('getDivisions', "", [], [$response]);
-    
+
             return response()->json($response, 200);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to retrieve Division Names.",
                 'error' => $e->getMessage()
             ];
-    
+
             // Log API calls
             $this->logAPICalls('getDivisions', "", [], [$response]);
-    
+
             return response()->json($response, 500);
         }
     }
@@ -155,8 +150,7 @@ class DivisionController extends Controller
             ];
             $this->logAPICalls('deleteDivision', $divname->id, [], [$response]);
             return response()->json($response, 200);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to delete the Division Name.",
@@ -179,8 +173,7 @@ class DivisionController extends Controller
                 'api_request' => json_encode($param),
                 'api_response' => json_encode($resp)
             ]);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             // Handle logging error if necessary
             return false;
         }
