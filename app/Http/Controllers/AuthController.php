@@ -58,25 +58,24 @@ class AuthController extends Controller
 
                 //Log successful login
                 $response = [
-                    'isSuccess' => true,
                     'message' => ucfirst($user->user_type) . ' logged in successfully',
                     'token' => $token,  
                     'user' => $user->only(['id', 'email']),
-                    'usertype' => $user->user_type,
+                    'user_type' => $user->user_type,
                     'session' => $sessionResponse->getData(),
                 ];
-            $this->logAPICalls('login', $user->id, $request->all(), $response); // Log API call
-            return response()->json($response, 200);
+                $this->logAPICalls('login', $user->id, $request->except(['password']), $response);
+                return response()->json($response, 200);
 
         } else {
                     
             $response = ['message' => 'Invalid credentials'];
-            $this->logAPICalls('login', $request->email, $request->all(), $response); 
+            $this->logAPICalls('login', $request->email,$request->except(['password']), $response);
             return response()->json($response, 401); 
         }
     } else {
         $response = ['message' => 'Invalid credentials'];
-        $this->logAPICalls('login', $request->email, $request->all(), $response);
+        $this->logAPICalls('login', $request->email, $request->except(['password']), $response);
         return response()->json($response, 401); 
     }
 } catch (Throwable $e) {
@@ -89,10 +88,165 @@ class AuthController extends Controller
 }
 }
 
-public function test(Request $request)
+public function viewProfile(Request $request)
 {
-   return 'response called';
+try {
+    $user = $request->user(); // Get the authenticated user
+
+    // Return the user's profile information
+    return response()->json([
+        'message' => 'Profile retrieved successfully',
+        'user' => $user->only([ 'email', 'last_name', 'first_name', 'middle_initial','profile_image','signature']), // Include new fields
+    ], 200);
+} catch (Throwable $e) {
+    // Prepare the error response
+    $response = [
+        'message' => 'Failed to retrieve profile',
+        'error' => $e->getMessage(),
+    ];
+
+    // Log API call with error information
+    $this->logAPICalls('viewProfile', $request->user()->email, $request->all(), $response);
+
+    return response()->json($response, 500);
 }
+}
+
+public function editProfile(Request $request)
+{
+    $user = $request->user(); // Get the authenticated user
+
+    // Validate request input
+    $request->validate([
+        'last_name' => 'required|string',
+        'first_name' => 'required|string',
+        'middle_initial' => 'nullable|string',
+        'email' => 'required|email|unique:users,email,' . $user->id,
+        'profile_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // Adjust size as needed
+        'signature' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // Adjust size as needed
+    ]);
+
+    try {
+        // Update user information
+        $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email']));
+
+        // Handle profile image upload
+        if ($request->hasFile('profile_image')) {
+            $profileImagePath = $request->file('profile_image')->store('profile_images', 'public');
+            $user->update(['profile_image' => $profileImagePath]);
+        }
+
+        // Handle signature upload
+        if ($request->hasFile('signature')) {
+            $signaturePath = $request->file('signature')->store('signatures', 'public');
+            $user->update(['signature' => $signaturePath]);
+        }
+
+        // Prepare response
+        $response = [
+            'message' => 'Profile updated successfully',
+            'user' => $user->only(['last_name', 'first_name', 'middle_initial', 'email']),
+        ];
+
+        // Log API call
+        $this->logAPICalls('editProfile', $user->email, $request->all(), $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'message' => 'An error occurred',
+            'error' => $e->getMessage(),
+        ];
+
+        // Log API call
+        $this->logAPICalls('editProfile', $user->email, $request->all(), $response);
+
+        return response()->json($response, 500);
+    }
+}
+
+public function changePassword(Request $request)
+{
+
+    $user = $request->user(); // Get the authenticated user
+
+// Validate the input
+$request->validate([
+    'password' => 'required',
+    'new_password' => 'required|min:8|confirmed', 
+    'new_password_confirmation'=> 'required|min:8',
+]);
+
+try {
+    // Check if the current password is correct
+    if (!Hash::check($request->password, $user->password)) {
+        $response = ['message' => 'Current password is incorrect'];
+        $this->logAPICalls('changePassword', $user->email, $request->except(['password', 'new_password', 'new_password_confirmation']), $response); // Log API call
+        return response()->json($response, 400); // 400 Bad Request
+    }
+
+    // Update the password
+    $user->password = Hash::make($request->new_password); // Hash the new password
+    $user->save(); // Save the updated user data
+
+    // Prepare response
+    $response = ['message' => 'Password changed successfully'];
+
+    // Exclude passwords from being logged
+    $this->logAPICalls('changePassword', $user->email, $request->except(['password','new_password', 'new_password_confirmation']), $response); // Log API call
+    return response()->json($response, 200); // 200 OK
+} catch (Throwable $e) {
+    // Prepare error response
+    $response = [
+        'message' => 'Failed to change password',
+        'error' => $e->getMessage(),
+    ];
+
+    // Exclude passwords from being logged
+    $this->logAPICalls('changePassword', $user->email, $request->except(['password','new_password', 'new_password_confirmation']), $response);
+
+    return response()->json($response, 500); // 500 Internal Server Error
+}
+}
+
+public function logout(Request $request)
+{
+    try {
+        $user = $request->user();  // Get the authenticated user
+
+        if ($user) {
+            Log::info('User logging out:', ['name' => $user->email]);
+
+            // Find the latest session for this user with a null logout_date
+            $session = Session::where('user_id', $user->id)
+                              ->whereNull('logout_date') // Find session where logout hasn't been set
+                              ->latest()  // Get the latest session
+                              ->first();
+
+            if ($session) {
+                // Update the session with the current logout date
+                $session->update([
+                    'logout_date' => Carbon::now()->toDateTimeString(), // Set logout date to current time
+                ]);
+            }
+
+            // Revoke the user's current access token
+            $user->currentAccessToken()->delete();
+
+            $response = ['message' => 'User logged out successfully'];
+            $this->logAPICalls('logout', $user->id, [], $response);
+            return response()->json($response, 200);
+        }
+
+        return response()->json(['message' => 'Unauthenticated'], 401);
+    } catch (Throwable $e) {
+        return response()->json([
+            'message' => 'Failed to log out',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
 
     // Method to insert session
     public function insertSession(Request $request)
