@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\user_type;
 use App\Models\Session;
 use App\Models\ApiLog;
 use Illuminate\Support\Facades\Hash;
@@ -32,19 +33,19 @@ class AuthController extends Controller
                 $token = null;
                 switch ($user->user_type) {
                     case 'Admin':
-                        $token = $user->createToken('admin-token', ['admin'])->plainTextToken;
+                        $token = $user->createToken('admin-token', ['Admin'])->plainTextToken;
                         break;
                     case 'Supervisor':
-                        $token = $user->createToken('supervisor-token', ['supervisor'])->plainTextToken;
+                        $token = $user->createToken('supervisor-token', ['Supervisor'])->plainTextToken;
                         break;
                     case 'Teamleader':
-                        $token = $user->createToken('teamleader-token', ['teamleader'])->plainTextToken;
+                        $token = $user->createToken('teamleader-token', ['Teamleader'])->plainTextToken;
                         break;
                     case 'Controller':
-                        $token = $user->createToken('controller-token', ['controller'])->plainTextToken;
+                        $token = $user->createToken('controller-token', ['Controller'])->plainTextToken;
                         break;
                     case 'Dean':
-                        $token = $user->createToken('dean-token', ['dean'])->plainTextToken;
+                        $token = $user->createToken('dean-token', ['Dean'])->plainTextToken;
                         break;
                     default:
                         $response = ['message' => 'Unauthorized'];
@@ -57,10 +58,10 @@ class AuthController extends Controller
 
                 //Log successful login
                 $response = [
-                    'message' => ucfirst($user->usertype) . ' logged in successfully',
+                    'message' => ucfirst($user->user_type) . ' logged in successfully',
                     'token' => $token,  
                     'user' => $user->only(['id', 'email']),
-                    'usertype' => $user->usertype,
+                    'user_type' => $user->user_type,
                     'session' => $sessionResponse->getData(),
                 ];
                 $this->logAPICalls('login', $user->id, $request->except(['password']), $response);
@@ -69,12 +70,12 @@ class AuthController extends Controller
         } else {
                     
             $response = ['message' => 'Invalid credentials'];
-            $this->logAPICalls('login', $request->email, $request->all(), $response); 
+            $this->logAPICalls('login', $request->email,$request->except(['password']), $response);
             return response()->json($response, 401); 
         }
     } else {
         $response = ['message' => 'Invalid credentials'];
-        $this->logAPICalls('login', $request->email, $request->all(), $response);
+        $this->logAPICalls('login', $request->email, $request->except(['password']), $response);
         return response()->json($response, 401); 
     }
 } catch (Throwable $e) {
@@ -117,29 +118,28 @@ public function editProfile(Request $request)
 
     // Validate request input
     $request->validate([
-        'lastname' => 'required|string',
-        'firstname' => 'required|string',
-        'middleinitial' => 'nullable|string',
-        'email' => 'required|email|unique:user_accounts,email,' . $user->id,
+        'last_name' => 'required|string',
+        'first_name' => 'required|string',
+        'middle_initial' => 'nullable|string',
+        'email' => 'required|email|unique:users,email,' . $user->id,
         'profile_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // Adjust size as needed
         'signature' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // Adjust size as needed
     ]);
 
     try {
-        
         // Update user information
-        $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email','profile_image','signature']));
+        $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email']));
 
         // Handle profile image upload
         if ($request->hasFile('profile_image')) {
-        $profileImagePath = $request->file('profile_image')->store('profile_images', 'public');
-        $dataToUpdate['profile_image'] = $profileImagePath; // Add the path to the data to update
+            $profileImagePath = $request->file('profile_image')->store('profile_images', 'public');
+            $user->update(['profile_image' => $profileImagePath]);
         }
 
         // Handle signature upload
         if ($request->hasFile('signature')) {
-        $signaturePath = $request->file('signature')->store('signatures', 'public');
-        $dataToUpdate['signature'] = $signaturePath; // Add the path to the data to update
+            $signaturePath = $request->file('signature')->store('signatures', 'public');
+            $user->update(['signature' => $signaturePath]);
         }
 
         // Prepare response
@@ -149,7 +149,7 @@ public function editProfile(Request $request)
         ];
 
         // Log API call
-        $this->logAPICalls('editProfile', $user->email, $request->all(), $response); 
+        $this->logAPICalls('editProfile', $user->email, $request->all(), $response);
 
         return response()->json($response, 200);
     } catch (Throwable $e) {
@@ -159,7 +159,7 @@ public function editProfile(Request $request)
         ];
 
         // Log API call
-        $this->logAPICalls('editProfile', $user->email, $request->all(), $response); 
+        $this->logAPICalls('editProfile', $user->email, $request->all(), $response);
 
         return response()->json($response, 500);
     }
@@ -167,7 +167,8 @@ public function editProfile(Request $request)
 
 public function changePassword(Request $request)
 {
-$user = $request->user(); // Get the authenticated user
+
+    $user = $request->user(); // Get the authenticated user
 
 // Validate the input
 $request->validate([
@@ -206,6 +207,44 @@ try {
 
     return response()->json($response, 500); // 500 Internal Server Error
 }
+}
+
+public function logout(Request $request)
+{
+    try {
+        $user = $request->user();  // Get the authenticated user
+
+        if ($user) {
+            Log::info('User logging out:', ['name' => $user->email]);
+
+            // Find the latest session for this user with a null logout_date
+            $session = Session::where('user_id', $user->id)
+                              ->whereNull('logout_date') // Find session where logout hasn't been set
+                              ->latest()  // Get the latest session
+                              ->first();
+
+            if ($session) {
+                // Update the session with the current logout date
+                $session->update([
+                    'logout_date' => Carbon::now()->toDateTimeString(), // Set logout date to current time
+                ]);
+            }
+
+            // Revoke the user's current access token
+            $user->currentAccessToken()->delete();
+
+            $response = ['message' => 'User logged out successfully'];
+            $this->logAPICalls('logout', $user->id, [], $response);
+            return response()->json($response, 200);
+        }
+
+        return response()->json(['message' => 'Unauthenticated'], 401);
+    } catch (Throwable $e) {
+        return response()->json([
+            'message' => 'Failed to log out',
+            'error' => $e->getMessage()
+        ], 500);
+    }
 }
 
 

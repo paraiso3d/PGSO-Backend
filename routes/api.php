@@ -36,7 +36,7 @@ use App\Http\Controllers\AuthController;
 
 
 //---- TEST FILE --\\
-Route::post('/  ', [FileUploadController::class, 'upload']);
+Route::post('upload  ', [FileUploadController::class, 'upload']);
 
 
 
@@ -69,8 +69,8 @@ Route::controller(AuthController::class)->group(function () {
 
     Route::middleware(['auth:sanctum', 'UserTypeAuth'])->group(function () {
         Route::middleware('auth:sanctum')->get('profile', [AuthController::class, 'viewProfile']);
-        Route::middleware('auth:sanctum')->put('profile', [AuthController::class, 'editProfile']);
-        Route::middleware('auth:sanctum')->post('change-password', [AuthController::class, 'changePassword']);
+        Route::middleware('auth:sanctum')->post('profile/edit', [AuthController::class, 'editProfile']);
+        Route::middleware('auth:sanctum')->post('editpassword', [AuthController::class, 'changePassword']);
     
     
     
@@ -80,6 +80,17 @@ Route::controller(AuthController::class)->group(function () {
     //     Route::get('/controller/dashboard', [AuthController::class, 'controller']);
     //     Route::get('/dean/dashboard', [AuthController::class, 'dean'])
     });
+
+/*
+|--------------------LOGOUT API-----------------------\
+*/
+
+Route::middleware('auth:sanctum')->post('/logout/{id}', [AuthController::class, 'logout']);
+
+Route::middleware(['auth:sanctum', 'session.expiry'])->group(function () {
+    Route::get('/some-protected-route', [AuthController::class, 'someMethod']);
+
+});
 
 
 /*
