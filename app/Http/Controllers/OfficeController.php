@@ -36,8 +36,7 @@ class OfficeController extends Controller
             ];
             $this->logAPICalls('createOffice', $collegeOffice->id, $request->all(), [$response]);
             return response()->json($response, 201);
-        } 
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -45,8 +44,7 @@ class OfficeController extends Controller
             ];
             $this->logAPICalls('createOffice', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to create the Office.",
@@ -84,8 +82,7 @@ class OfficeController extends Controller
             ];
             $this->logAPICalls('updateOffice', $id, $request->all(), [$response]);
             return response()->json($response, 200);
-        } 
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -93,8 +90,7 @@ class OfficeController extends Controller
             ];
             $this->logAPICalls('updateOffice', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to update the College Office.",
@@ -111,33 +107,32 @@ class OfficeController extends Controller
     public function getOffices(Request $request)
     {
         try {
-          
+
             $perPage = $request->input('per_page', 10);
-    
+
             // Fetch paginated college offices
             $collegeOffices = Office::paginate($perPage);
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => "Offices list:",
                 'data' => $collegeOffices
             ];
-    
+
             // Log API calls
             $this->logAPICalls('getOffices', "", [], [$response]);
-    
+
             return response()->json($response, 200);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to retrieve College Offices.",
                 'error' => $e->getMessage()
             ];
-    
+
             // Log API calls
             $this->logAPICalls('getOffices', "", [], [$response]);
-    
+
             return response()->json($response, 500);
         }
     }
@@ -157,8 +152,7 @@ class OfficeController extends Controller
             ];
             $this->logAPICalls('deleteOffice', $collegeOffice->id, [], [$response]);
             return response()->json($response, 204);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to delete the Office.",
@@ -181,8 +175,7 @@ class OfficeController extends Controller
                 'api_request' => json_encode($param),
                 'api_response' => json_encode($resp)
             ]);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             // Handle logging error if necessary
             return false;
         }

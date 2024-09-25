@@ -42,8 +42,7 @@ class CategoryController extends Controller
             ];
             $this->logAPICalls('createCategory', $userAccount->id, $request->all(), $response);
             return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to create the Category.',
@@ -79,8 +78,7 @@ class CategoryController extends Controller
             ];
             $this->logAPICalls('updateCategory', $id, $request->all(), [$response]);
             return response()->json($response, 200);
-        } 
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -88,8 +86,7 @@ class CategoryController extends Controller
             ];
             $this->logAPICalls('updateCategory', "", $request->all(), [$response]);
             return response()->json($response, 500);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to update the Category.",
@@ -106,7 +103,7 @@ class CategoryController extends Controller
     public function getCategories()
     {
         try {
-            $categoryname = Category::all();
+            $categoryname = Category::select('category_name','division');
 
             $response = [
                 'isSuccess' => true,
@@ -115,8 +112,7 @@ class CategoryController extends Controller
             ];
             $this->logAPICalls('getCategories', "", [], [$response]);
             return response()->json($response, 200);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to retrieve Category Names.",
@@ -143,8 +139,7 @@ class CategoryController extends Controller
             ];
             $this->logAPICalls('deleteCategory', $id, [], [$response]);
             return response()->json($response, 200);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to delete the Category Name.",
@@ -167,8 +162,7 @@ class CategoryController extends Controller
                 'api_request' => json_encode($param),
                 'api_response' => json_encode($resp)
             ]);
-        } 
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             // Handle logging error if necessary
             return false;
         }

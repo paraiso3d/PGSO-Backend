@@ -18,7 +18,7 @@ class UsertypeController extends Controller
     {
         try {
             $request->validate([
-                'name' => ['required', 'alpha'],
+                'name' => ['required', 'alpha_spaces'],
             ]);
 
             $usertype = user_type::create([
@@ -32,8 +32,7 @@ class UsertypeController extends Controller
             ];
             $this->logAPICalls('createUserType', $usertype->id, $request->all(), [$response]);
             return response()->json($response, 201);
-        }
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -41,8 +40,7 @@ class UsertypeController extends Controller
             ];
             $this->logAPICalls('createUserType', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to create the UserType.",
@@ -60,15 +58,16 @@ class UsertypeController extends Controller
     {
         try {
             $usertype = user_type::findOrFail($id); // Find the user type or throw 404
-    
+
             $request->validate([
-                'name' => ['required', 'string','alpha'], // Ensure the 'name' is a string
+                'name' => ['required', 'string', 'alpha'], // Ensure the 'name' is a string
+                'description' => ['required', 'string', 'alpha'],
             ]);
-    
+
             $usertype->update([
                 'name' => $request->name,
             ]);
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => "UserType successfully updated.",
@@ -76,8 +75,7 @@ class UsertypeController extends Controller
             ];
             $this->logAPICalls('updateUserType', $id, $request->all(), [$response]);
             return response()->json($response, 200);
-        }
-        catch (ValidationException $v) {
+        } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -85,8 +83,7 @@ class UsertypeController extends Controller
             ];
             $this->logAPICalls('updateUserType', "", $request->all(), [$response]);
             return response()->json($response, 422);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to update the UserType.",
@@ -96,7 +93,7 @@ class UsertypeController extends Controller
             return response()->json($response, 500);
         }
     }
-    
+
 
     /**
      * Get all user types.
@@ -104,7 +101,9 @@ class UsertypeController extends Controller
     public function getUserTypes()
     {
         try {
-            $usertypes = user_type::all();
+            $usertypes = user_type::select('id','name')
+            ->get();
+
 
             $response = [
                 'isSuccess' => true,
@@ -113,8 +112,7 @@ class UsertypeController extends Controller
             ];
             $this->logAPICalls('getUserTypes', "", [], [$response]);
             return response()->json($response, 200);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to retrieve UserTypes.",
@@ -141,8 +139,7 @@ class UsertypeController extends Controller
             ];
             $this->logAPICalls('deleteUserType', $id, [], [$response]);
             return response()->json($response, 204);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to delete the UserType.",
@@ -165,8 +162,7 @@ class UsertypeController extends Controller
                 'api_request' => json_encode($param),
                 'api_response' => json_encode($resp)
             ]);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             return false;
         }
         return true;

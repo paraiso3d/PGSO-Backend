@@ -51,14 +51,14 @@ class User extends Authenticatable
         $office = Office::pluck('acronym')->toArray();
 
         $validator = Validator::make($data, [
-            'first_name' => ['required', 'string','alpha'],
-            'middle_initial' => ['required', 'string','alpha', 'max:5'],
-            'last_name' => ['required', 'string','alpha'],
+            'first_name' => ['required', 'string', 'alpha_spaces'],
+            'middle_initial' => ['required', 'string', 'alpha_spaces', 'max:5'],
+            'last_name' => ['required', 'string', 'alpha_spaces'],
             'email' => ['required', 'email', 'unique:users,email'],
             'user_type' => ['required', 'in:' . implode(',', $user_type)],
             'office' => ['required', 'in:' . implode(',', $office)],
             'password' => ['required', 'string', 'min:8'],
-            'isarchive' => ['nullable','in: A, I']
+            'isarchive' => ['nullable', 'in: A, I']
         ]);
 
         return $validator;

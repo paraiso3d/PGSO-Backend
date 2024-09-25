@@ -17,7 +17,7 @@ class RequestController extends Controller
     {
         // Validate the incoming request data using the model's validateRequest method
         $validator = Requests::validateRequest($request->all());
-    
+
         if ($validator->fails()) {
             $response = [
                 'isSuccess' => false,
@@ -27,20 +27,20 @@ class RequestController extends Controller
             $this->logAPICalls('createRequest', '', $request->all(), $response);
             return response()->json($response, 400);
         }
-    
+
         // Generate control number
         $controlNo = Requests::generateControlNo();
-    
+
         // Initialize file path
         $filePath = null;
         if ($request->hasFile('file_name')) {
             // Store the file and get the path
             $filePath = $request->file('file_name')->store('public/uploads'); // Store in public directory
         }
-    
+
         // Set default status if not provided
         $status = $request->input('status', 'Pending');
-    
+
         // Store the validated request data
         try {
             $newRequest = Requests::create([
@@ -55,14 +55,14 @@ class RequestController extends Controller
                 'file_name' => $filePath, // Save the path to the database
                 'status' => $status,
             ]);
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request successfully created.',
                 'data' => $newRequest,
             ];
             $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
-    
+
             return response()->json($response, 201);
         } catch (Throwable $e) {
             $response = [
@@ -157,7 +157,7 @@ class RequestController extends Controller
                 'file' => $request->file('file') ? $request->file('file')->store('storage/uploads') : $existingRequest->file,
                 'status' => $request->input('status'),
                 'user_id' => $request->input('user_id'),
-                
+
             ]);
 
             $response = [
