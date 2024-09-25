@@ -21,7 +21,7 @@ class UserTypeAuth
          if (Auth::check()) {
              $user = Auth::user();
  
-             if (in_array($user->usertype, ['Admin', 'Supervisor', 'Teamleader', 'Controller', 'Dean'])) {
+             if (in_array($user->user_type, ['Administrator', 'Supervisor', 'TeamLeader', 'Controller', 'DeanHead'])) {
                  return $next($request);
              } else {
                  return response()->json(['message' => 'Unauthorized user type'], 403);
