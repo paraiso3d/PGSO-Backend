@@ -31,9 +31,9 @@ use App\Http\Controllers\AuthController;
 */
 
 
-Route::options('/{any}', function (Request $request) {
-    return response()->json(['status' => 'OK'], 200);
-})->where('any', '.*');
+// Route::options('/{any}', function (Request $request) {
+//     return response()->json(['status' => 'OK'], 200);
+// })->where('any', '.*');
 
 
 
@@ -103,7 +103,13 @@ Route::middleware(['auth:sanctum', 'session.expiry'])->group(function () {
 Route::controller( RequestController::class)->group( function (){
     Route::post('createrequest', 'createRequest');               
     Route::post('updaterequest/{id}', 'updateRequest');    
-    Route::get('getrequest',  'getRequests');    
+    Route::get('getrequest',  'getRequests');
+    Route::get('getrequestlocations',  'getRequestLocations');
+    Route::get('getrequestdivision',  'getRequestDivision');
+    Route::get('getrequeststatus',  'getRequestStatus');
+    Route::get('getrequestyear',  'getRequestYear');
+
+        
     Route::get('getrequest/{id}',  'getRequestById');    
     Route::delete('delete-category/{id}', 'deleteCategory');
 });

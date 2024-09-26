@@ -1,12 +1,10 @@
 <?php
 
-
 namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\ApiLog;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -18,8 +16,10 @@ class CategoryController extends Controller
     public function createCategory(Request $request)
     {
         try {
+            // Validate the request using the model's static method
             $validator = Category::validateCategory($request->all());
 
+            // Check if validation fails
             if ($validator->fails()) {
                 $response = [
                     'isSuccess' => false,
@@ -27,29 +27,33 @@ class CategoryController extends Controller
                     'errors' => $validator->errors()
                 ];
                 $this->logAPICalls('createCategory', "", $request->all(), $response);
-                return response()->json($response, 500);
+                return response()->json($response, 422);  // 422 for validation errors
             }
 
-            $userAccount = Category::create([
-                'category_name' => $request->category_name,
-                'division' => $request->division,
-            ]);
+            // Create multiple categories based on the array of category_name
+            $categories = [];
+            foreach ($request->category_name as $name) {
+                $categories[] = Category::create([
+                    'category_name' => $name,
+                    'division' => $request->division,
+                ]);
+            }
 
             $response = [
                 'isSuccess' => true,
-                'message' => 'Category successfully created.',
-                'data' => $userAccount
+                'message' => 'Categories successfully created.',
+                'data' => $categories
             ];
-            $this->logAPICalls('createCategory', $userAccount->id, $request->all(), $response);
-            return response()->json($response, 200);
+            $this->logAPICalls('createCategory', "", $request->all(), $response);
+            return response()->json($response, 201);  // 201 for successful resource creation
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to create the Category.',
+                'message' => 'Failed to create the Categories.',
                 'error' => $e->getMessage()
             ];
             $this->logAPICalls('createCategory', "", $request->all(), $response);
-            return response()->json($response, 500);
+            return response()->json($response, 500);  // 500 for internal server error
         }
     }
 
@@ -59,94 +63,107 @@ class CategoryController extends Controller
     public function updateCategory(Request $request, $id)
     {
         try {
-            $categoryname = Category::findOrFail($id);
+            $category = Category::findOrFail($id);
 
-            $request->validate([
-                'category_name' => ['sometimes', 'required', 'string'],
-                'division' => ['sometimes', 'required', 'string'],
-            ]);
+            // Validate the request using the model's static method
+            $validator = Category::validateCategory($request->all());
 
-            $categoryname->update([
-                'category_name' => $request->category_name,
+            // Check if validation fails
+            if ($validator->fails()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors()
+                ];
+                $this->logAPICalls('updateCategory', "", $request->all(), $response);
+                return response()->json($response, 422);  // 422 for validation errors
+            }
+
+            // Update category (handles single category updates)
+            $category->update([
+                'category_name' => $request->category_name[0],  // Updating the first name in case of array
                 'division' => $request->division,
             ]);
 
             $response = [
                 'isSuccess' => true,
                 'message' => "Category successfully updated.",
-                'data' => $categoryname
+                'data' => $category
             ];
-            $this->logAPICalls('updateCategory', $id, $request->all(), [$response]);
-            return response()->json($response, 200);
-        } catch (ValidationException $v) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Invalid input data.",
-                'error' => $v->errors()
-            ];
-            $this->logAPICalls('updateCategory', "", $request->all(), [$response]);
-            return response()->json($response, 500);
+            $this->logAPICalls('updateCategory', $id, $request->all(), $response);
+            return response()->json($response, 200);  // 200 for successful updates
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to update the Category.",
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('updateCategory', "", $request->all(), [$response]);
-            return response()->json($response, 500);
+            $this->logAPICalls('updateCategory', "", $request->all(), $response);
+            return response()->json($response, 500);  // 500 for internal server error
         }
     }
 
     /**
-     * Get all Category.
+     * Get a list of all categories or a specific category by ID
      */
-    public function getCategories()
+    public function getCategory($id = null)
     {
         try {
-            $categoryname = Category::select('category_name','division');
+            // If an ID is provided, get the specific category
+            if ($id) {
+                $category = Category::findOrFail($id);
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'Category found.',
+                    'data' => $category
+                ];
+            } 
+            // Otherwise, return all categories
+            else {
+                $categories = Category::all();
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'List of all categories.',
+                    'data' => $categories
+                ];
+            }
 
-            $response = [
-                'isSuccess' => true,
-                'message' => "Category names list:",
-                'data' => $categoryname
-            ];
-            $this->logAPICalls('getCategories', "", [], [$response]);
-            return response()->json($response, 200);
+            $this->logAPICalls('getCategory', "", [], $response);
+            return response()->json($response, 200);  // 200 for success
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to retrieve Category Names.",
+                'message' => 'Failed to retrieve categories.',
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('list_of_category', "", [], [$response]);
-            return response()->json($response, 500);
+            $this->logAPICalls('getCategory', "", [], $response);
+            return response()->json($response, 500);  // 500 for internal server error
         }
     }
 
     /**
-     * Delete a Category
+     * Delete a Category by ID
      */
     public function deleteCategory($id)
     {
         try {
-            $categoryname = Category::findOrFail($id);
-
-            $categoryname->delete();
+            $category = Category::findOrFail($id);
+            $category->delete();
 
             $response = [
                 'isSuccess' => true,
-                'message' => "Category successfully deleted."
+                'message' => 'Category successfully deleted.'
             ];
-            $this->logAPICalls('deleteCategory', $id, [], [$response]);
-            return response()->json($response, 200);
+            $this->logAPICalls('deleteCategory', $id, [], $response);
+            return response()->json($response, 200);  // 200 for success
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to delete the Category Name.",
+                'message' => 'Failed to delete the Category.',
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('deleteCategory', "", [], [$response]);
-            return response()->json($response, 500);
+            $this->logAPICalls('deleteCategory', "", [], $response);
+            return response()->json($response, 500);  // 500 for internal server error
         }
     }
 
