@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
+use App\Models\Division;
 use App\Models\Requests;
 use Illuminate\Http\Request;
 use Throwable;
@@ -75,13 +77,14 @@ class RequestController extends Controller
         }
     }
 
+    
     // Method to retrieve all requests
-    public function getRequests(Request $request)
+
+    public function getRequests (Request $request)
     {
         try {
             $perPage = $request->input('per_page', 10);
             $requests = Requests::paginate($perPage);
-
             $response = [
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
@@ -100,6 +103,144 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     }
+
+
+
+    public function getRequestLocations(Request $request)
+    {
+        try {
+            $perPage = $request->input('per_page', 10);
+            $requests = Requests::paginate($perPage);
+            $requests = Requests::select('id','location_name',)
+            ->get();
+           
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Requests retrieved successfully.',
+                'data' => $requests,
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve the requests.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+            return response()->json($response, 500);
+        }
+    }
+
+    public function getRequestStatus(Request $request)
+    {
+        try {
+            $perPage = $request->input('per_page', 10);
+            $requests = Requests::paginate($perPage);
+            $requests = Requests::select('id','status')
+            ->get();
+           
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Requests retrieved successfully.',
+                'data' => $requests,
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve the requests.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+            return response()->json($response, 500);
+        }
+    }
+
+    public function getRequestDivision(Request $request)
+    {
+        try {
+            $perPage = $request->input('per_page', 10);
+            $requests = Requests::paginate($perPage);
+            $requests = Category::select('id','category_name','division')
+            ->get();
+           
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Requests retrieved successfully.',
+                'data' => $requests,
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve the requests.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+            return response()->json($response, 500);
+        }
+    }
+
+    public function getRequestCategory(Request $request)
+    {
+        try {
+            $perPage = $request->input('per_page', 10);
+            $requests = Requests::paginate($perPage);
+            $requests = Requests::select('id','category_name')
+            ->get();
+           
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Requests retrieved successfully.',
+                'data' => $requests,
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve the requests.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+            return response()->json($response, 500);
+        }
+    }
+
+    public function getRequestYear(Request $request)
+    {
+        try {
+            $perPage = $request->input('per_page', 10);
+            $requests = Requests::paginate($perPage);
+            $requests = Requests::select('id','fiscal_year')
+            ->get();
+           
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Requests retrieved successfully.',
+                'data' => $requests,
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve the requests.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('getRequests', '', [], $response);
+            return response()->json($response, 500);
+        }
+    }
+
 
     // Method to retrieve a specific request by ID
     public function getRequestById($id)

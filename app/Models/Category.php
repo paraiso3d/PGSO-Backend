@@ -20,7 +20,8 @@ class Category extends Model
         
 
         $validator = Validator::make($data, [
-            'category_name' => ['required', 'string','alpha'],
+            'category_name' => ['required', 'array'],
+            'category_name.*' => ['required', 'string'],  
             'division' => ['required', 'in:' . implode(',', $division)],
             'isarchive' => ['nullable','in: A, I']
         ]);
