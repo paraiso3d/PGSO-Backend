@@ -43,9 +43,9 @@ class UserController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'UserAccount successfully created.',
-                'data' => $userAccount
+                'user' => $userAccount
             ];
-            $this->logAPICalls('createUserAccount', $userAccount->id, $request->all(), $response);
+            $this->logAPICalls('createUserAccount', $userAccount->id, $request->except(['password']), $response);
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -53,7 +53,7 @@ class UserController extends Controller
                 'message' => 'Failed to create the UserAccount.',
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('createUserAccount', "", $request->all(), $response);
+            $this->logAPICalls('createUserAccount', $userAccount->id, $request->except(['password']), $response);
             return response()->json($response, 500);
         }
     }
@@ -75,7 +75,7 @@ class UserController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'User accounts retrieved successfully.',
-                'data' => $userAccounts
+                'user' => $userAccounts
             ];
             $this->logAPICalls('getUserAccounts', "", [], $response);
             return response()->json($response, 200);
@@ -124,7 +124,7 @@ class UserController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'UserAccount successfully updated.',
-                'data' => $userAccount
+                'user' => $userAccount
             ];
             $this->logAPICalls('updateUserAccount', $id, $request->all(), $response);
             return response()->json($response, 200);

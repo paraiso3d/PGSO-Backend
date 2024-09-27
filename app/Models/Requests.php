@@ -67,7 +67,7 @@ class Requests extends Model
             'fiscal_year' => ['required', 'string'],
             'user_id' => 'get|string|exists:Requests,id',
 
-            'file_name' => [
+            'file_path' => [
                 'required',
                 'file',
                 'mimes:pdf,jpg,png,docx',

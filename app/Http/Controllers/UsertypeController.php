@@ -28,7 +28,7 @@ class UsertypeController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "UserType successfully created.",
-                'data' => $usertype
+                'usertype' => $usertype
             ];
             $this->logAPICalls('createUserType', $usertype->id, $request->all(), [$response]);
             return response()->json($response, 201);
@@ -71,7 +71,7 @@ class UsertypeController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "UserType successfully updated.",
-                'data' => $usertype
+                'usertype' => $usertype
             ];
             $this->logAPICalls('updateUserType', $id, $request->all(), [$response]);
             return response()->json($response, 200);
@@ -108,7 +108,7 @@ class UsertypeController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "UserTypes list:",
-                'data' => $usertypes
+                'usertype' => $usertypes
             ];
             $this->logAPICalls('getUserTypes', "", [], [$response]);
             return response()->json($response, 200);
