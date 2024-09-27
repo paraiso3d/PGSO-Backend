@@ -32,7 +32,7 @@ class OfficeController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Office successfully created.",
-                'data' => $collegeOffice
+                'office' => $collegeOffice
             ];
             $this->logAPICalls('createOffice', $collegeOffice->id, $request->all(), [$response]);
             return response()->json($response, 201);
@@ -78,7 +78,7 @@ class OfficeController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Office successfully updated.",
-                'data' => $collegeOffice
+                'office' => $collegeOffice
             ];
             $this->logAPICalls('updateOffice', $id, $request->all(), [$response]);
             return response()->json($response, 200);
@@ -116,7 +116,7 @@ class OfficeController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Offices list:",
-                'data' => $collegeOffices
+                'office' => $collegeOffices
             ];
 
             // Log API calls

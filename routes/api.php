@@ -54,7 +54,7 @@ Route::controller( DivisionController::class)->group( function (){
     Route::post('createDivision', 'createDivision');        // For creating a user
     Route::post('updateDivision/{id}', 'updateDivision');    // For updating a user
     Route::get('getDivisions',  'getDivisions');    
-    Route::delete('delete-Division/{id}','deleteDivision');
+    Route::post('delete-Division/{id}','deleteDivision');
 
 });
 
@@ -103,15 +103,12 @@ Route::middleware(['auth:sanctum', 'session.expiry'])->group(function () {
 Route::controller( RequestController::class)->group( function (){
     Route::post('createrequest', 'createRequest');               
     Route::post('updaterequest/{id}', 'updateRequest');    
-    Route::get('getrequest',  'getRequests');
-    Route::get('getrequestlocations',  'getRequestLocations');
-    Route::get('getrequestdivision',  'getRequestDivision');
-    Route::get('getrequeststatus',  'getRequestStatus');
-    Route::get('getrequestyear',  'getRequestYear');
+    Route::post('getrequest',  'getRequests');
+
 
         
     Route::get('getrequest/{id}',  'getRequestById');    
-    Route::delete('delete-category/{id}', 'deleteCategory');
+    Route::post('delete-category/{id}', 'deleteCategory');
 });
 
 
@@ -123,8 +120,8 @@ Route::controller( RequestController::class)->group( function (){
     Route::controller( CategoryController::class)->group( function (){
         Route::post('createcategory', 'createCategory');        // For creating a user
         Route::post('updatecategory/{id}', 'updateCategory');    // For updating a user
-        Route::get('getcategories',  'getCategories');    
-        Route::delete('delete-category/{id}', 'deleteCategory');
+        Route::get('getcategories',  'getCategory');    
+        Route::post('delete-category/{id}', 'deleteCategory');
     
     });
 
@@ -137,7 +134,7 @@ Route::controller( RequestController::class)->group( function (){
         Route::post('createlocation', 'createlocation');        // For creating a user
         Route::post('updatelocation/{id}', 'updateocation');    // For updating a user
         Route::get('getlocations',  'getlocations');    
-        Route::delete('delete-location/{id}', 'deletelocation');
+        Route::post('delete-location/{id}', 'deletelocation');
     
     });
 
@@ -155,7 +152,7 @@ Route::controller( ManpowerController::class)->group( function (){
     Route::post('createmanpower', 'createmanpower');        
     Route::post('updmanpower/{id}', 'updatemanpower');    
     Route::get('listmanpower',  'getmanpowers');    
-    Route::delete('del-manpower/{id}','deletemanpower');
+    Route::post('del-manpower/{id}','deletemanpower');
 
 });
 
@@ -172,7 +169,7 @@ Route::controller( OfficeController::class)->group( function (){
     Route::post('createoffice', 'createOffice');        
     Route::post('updoffice/{id}', 'updateOffice');    
     Route::get('listoffices',  'getOffices');    
-    Route::delete('del-offices/{id}','deleteOffice');
+    Route::post('del-offices/{id}','deleteOffice');
 
 });
 
@@ -187,7 +184,7 @@ Route::controller( UserTypeController::class)->group( function (){
     Route::post('usertype', 'createUserType');        
     Route::post('usertypeup/{id}', 'updateUserType');    
     Route::get('usertypes',  'getUserTypes');    
-    Route::delete('user-types/{id}','deleteUserType');
+    Route::post('user-types/{id}','deleteUserType');
 
 });
 

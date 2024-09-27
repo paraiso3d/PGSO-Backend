@@ -28,13 +28,21 @@ class ManpowerController extends Controller
 
             ]);
 
+            $manpowerResponse = [
+                'id' => $manpower->id,
+                'first_name' => $manpower->first_name,
+                'last_name' => $manpower->last_name,
+                'created_at' => $manpower->created_at,
+                'updated_at' => $manpower->updated_at,
+            ];
+
             $response = [
                 'isSuccess' => true,
                 'message' => "Manpower successfully created.",
-                'data' => $manpower
+                'manpower' => $manpowerResponse
             ];
             $this->logAPICalls('createmanpower', $manpower->id, $request->all(), [$response]);
-            return response()->json($response, 201);
+            return response()->json($response, 200);
         } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
@@ -42,7 +50,7 @@ class ManpowerController extends Controller
                 'error' => $v->errors()
             ];
             $this->logAPICalls('createmanpower', "", $request->all(), [$response]);
-            return response()->json($response, 422);
+            return response()->json($response, 500);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -63,8 +71,8 @@ class ManpowerController extends Controller
             $manpower = Manpower::findOrFail($id);
 
             $request->validate([
-                'first_name' => ['required', 'string'],
-                'last_name' => ['required', 'string'],
+                'first_name' => ['sometimes','required', 'string'],
+                'last_name' => ['sometimes', 'required', 'string'],
             ]);
 
             $manpower->update([
@@ -75,7 +83,7 @@ class ManpowerController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Manpower successfully updated.",
-                'data' => $manpower
+                'manpower' => $manpower
             ];
             $this->logAPICalls('updatemanpower', $id, $request->all(), [$response]);
             return response()->json($response, 200);
@@ -86,7 +94,7 @@ class ManpowerController extends Controller
                 'error' => $v->errors()
             ];
             $this->logAPICalls('updatemanpower', "", $request->all(), [$response]);
-            return response()->json($response, 422);
+            return response()->json($response, 500);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -114,7 +122,7 @@ class ManpowerController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Manpower list retrieved successfully.",
-                'data' => $manpowers->items(),  // Get the paginated data
+                'manpower' => $manpowers->items(),  // Get the paginated data
                 'pagination' => [
                     'total' => $manpowers->total(),
                     'per_page' => $manpowers->perPage(),

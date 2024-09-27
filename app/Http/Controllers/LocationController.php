@@ -30,7 +30,7 @@ class LocationController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "location successfully created.",
-                'data' => $location
+                'location' => $location
             ];
             $this->logAPICalls('createlocation', $location->id, $request->all(), [$response]);
             return response()->json($response, 200);
@@ -74,7 +74,7 @@ class LocationController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "UserType successfully updated.",
-                'data' => $location
+                'location' => $location
             ];
             $this->logAPICalls('updatelocation', $id, $request->all(), [$response]);
             return response()->json($response, 200);
@@ -114,7 +114,7 @@ class LocationController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Location list:",
-                'data' => $locations
+                'location' => $locations
             ];
 
             // Log API calls

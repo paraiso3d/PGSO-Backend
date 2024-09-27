@@ -23,7 +23,7 @@ class CreateRequestsTable extends Migration
             $table->string('area');
             $table->boolean('overtime');
             $table->string('category_name');
-            $table->string('file_name')->nullable();
+            $table->string('file_path')->nullable();
             $table->string('status')->default('Pending');
             $table->string('fiscal_year');
             $table->timestamps();

@@ -31,7 +31,7 @@ class DivisionController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Division successfully created.",
-                'data' => $divname
+                'division' => $divname
             ];
             $this->logAPICalls('createDivision', $divname->id, $request->all(), [$response]);
             return response()->json($response, 201);
@@ -75,7 +75,7 @@ class DivisionController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Division successfully updated.",
-                'data' => $divname
+                'division' => $divname
             ];
             $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
             return response()->json($response, 200);
@@ -113,7 +113,7 @@ class DivisionController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Division names list:",
-                'data' => $divnames
+                'division' => $divnames
             ];
 
             // Log API calls

@@ -42,7 +42,7 @@ class CategoryController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Categories successfully created.',
-                'data' => $categories
+                'category' => $categories
             ];
             $this->logAPICalls('createCategory', "", $request->all(), $response);
             return response()->json($response, 201);  // 201 for successful resource creation
@@ -88,7 +88,7 @@ class CategoryController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Category successfully updated.",
-                'data' => $category
+                'category' => $category
             ];
             $this->logAPICalls('updateCategory', $id, $request->all(), $response);
             return response()->json($response, 200);  // 200 for successful updates
@@ -115,7 +115,7 @@ class CategoryController extends Controller
                 $response = [
                     'isSuccess' => true,
                     'message' => 'Category found.',
-                    'data' => $category
+                    'category' => $category
                 ];
             } 
             // Otherwise, return all categories
@@ -124,7 +124,7 @@ class CategoryController extends Controller
                 $response = [
                     'isSuccess' => true,
                     'message' => 'List of all categories.',
-                    'data' => $categories
+                    'category' => $categories
                 ];
             }
 
