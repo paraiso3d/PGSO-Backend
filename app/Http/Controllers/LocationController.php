@@ -101,39 +101,50 @@ class LocationController extends Controller
     /**
      * Get all user types.
      */
-    public function getlocations(Request $request)
+    public function getLocations(Request $request)
     {
         try {
-            // Set the number of items per page (default to 10 if not provided)
+        
             $perPage = $request->input('per_page', 10);
-
-            // Fetch paginated locations
-            $locations = Location::paginate($perPage);
-            $locations = location::select('category_name','division');
-
+    
+            $locations = Location::select('location_name', 'note')
+                ->where('is_archived', 'A')
+                ->paginate($perPage);  
+    
+            // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => "Location list:",
-                'location' => $locations
+                'location' => $locations->items(),  // Get the paginated items
+                'pagination' => [
+                    'total' => $locations->total(),
+                    'per_page' => $locations->perPage(),
+                    'current_page' => $locations->currentPage(),
+                    'last_page' => $locations->lastPage(),
+                    'next_page_url' => $locations->nextPageUrl(),
+                    'prev_page_url' => $locations->previousPageUrl(),
+                ]
             ];
-
+    
             // Log API calls
-            $this->logAPICalls('getlocations', "", [], [$response]);
-
+            $this->logAPICalls('getLocations', "", $request->all(), $response);
+    
             return response()->json($response, 200);
         } catch (Throwable $e) {
+            // Prepare the error response
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to retrieve Location.",
+                'message' => "Failed to retrieve locations.",
                 'error' => $e->getMessage()
             ];
-
+    
             // Log API calls
-            $this->logAPICalls('getlocations', "", [], [$response]);
-
+            $this->logAPICalls('getLocations', "", $request->all(), $response);
+    
             return response()->json($response, 500);
         }
     }
+    
 
     /**
      * Delete a user type.
@@ -143,7 +154,7 @@ class LocationController extends Controller
         try {
             $location = location::find($request->id); // Find or throw 404
 
-            $location->update(['isarchive' => "I"]);
+            $location->update(['is_archived' => "I"]);
 
             $response = [
                 'isSuccess' => true,

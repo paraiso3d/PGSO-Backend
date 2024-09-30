@@ -28,12 +28,12 @@ class User extends Authenticatable
         'designation',
         'user_type',
         'password',
-        'isarchive'
+        'is_archived'
     ];
 
 
     protected $attributes = [
-        'isarchive' => 'A',  // Default value
+        'is_archived' => 'A',  // Default value
     ];
     /**
      * The attributes that should be hidden for serialization.
@@ -58,7 +58,7 @@ class User extends Authenticatable
             'user_type' => ['required', 'in:' . implode(',', $user_type)],
             'office' => ['required', 'in:' . implode(',', $office)],
             'password' => ['required', 'string', 'min:8'],
-            'isarchive' => ['nullable', 'in: A, I']
+            'is_archived' => ['nullable', 'in: A, I']
         ]);
 
         return $validator;

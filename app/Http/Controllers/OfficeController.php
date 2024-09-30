@@ -110,13 +110,21 @@ class OfficeController extends Controller
 
             $perPage = $request->input('per_page', 10);
 
-            // Fetch paginated college offices
-            $collegeOffices = Office::paginate($perPage);
+            // Fetch paginated college offices;
+            $collegeOffices = Office::where('is_archived', 'A')->paginate($perPage);
 
             $response = [
                 'isSuccess' => true,
                 'message' => "Offices list:",
-                'office' => $collegeOffices
+                'office' => $collegeOffices,
+                'pagination' => [
+                    'total' => $collegeOffices->total(),
+                    'per_page' => $collegeOffices->perPage(),
+                    'current_page' => $collegeOffices->currentPage(),
+                    'last_page' => $collegeOffices->lastPage(),
+                    'next_page_url' => $collegeOffices->nextPageUrl(),
+                    'prev_page_url' => $collegeOffices->previousPageUrl(),
+                ]
             ];
 
             // Log API calls

@@ -11,6 +11,7 @@ class Division extends Model
     protected $guard = [];
     protected $fillable = [
         'div_name',
-        'note'
+        'note',
+        'is_archived'
     ];
 }

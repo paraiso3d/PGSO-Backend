@@ -16,10 +16,8 @@ class CategoryController extends Controller
     public function createCategory(Request $request)
     {
         try {
-            // Validate the request using the model's static method
             $validator = Category::validateCategory($request->all());
 
-            // Check if validation fails
             if ($validator->fails()) {
                 $response = [
                     'isSuccess' => false,
@@ -27,10 +25,9 @@ class CategoryController extends Controller
                     'errors' => $validator->errors()
                 ];
                 $this->logAPICalls('createCategory', "", $request->all(), $response);
-                return response()->json($response, 422);  // 422 for validation errors
+                return response()->json($response, 422); 
             }
 
-            // Create multiple categories based on the array of category_name
             $categories = [];
             foreach ($request->category_name as $name) {
                 $categories[] = Category::create([
@@ -57,6 +54,66 @@ class CategoryController extends Controller
         }
     }
 
+    public function getCategory(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'per_page' => 'nullable|integer',
+                'is_archived' => 'nullable|in:A,I', 
+                'search' => 'nullable|string',      
+            ]);
+            
+        
+            $query = Category::select('id', 'category_name', 'description', 'division');
+    
+         
+            if (!empty($validated['is_archived'])) {
+                $query->where('is_archived', $validated['is_archived']);
+            } else {
+        
+                $query->where('is_archived', 'A');
+            }
+    
+            if (!empty($validated['search'])) {
+                $query->where('category_name', 'like', '%' . $validated['search'] . '%');
+            }
+    
+    
+            $perPage = $validated['per_page'] ?? 10;  
+
+            $categories = $query->paginate($perPage);
+    
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Categories retrieved successfully.',
+                'categories' => $categories->items(), // Get the paginated items
+                'pagination' => [
+                    'total' => $categories->total(),
+                    'per_page' => $categories->perPage(),
+                    'current_page' => $categories->currentPage(),
+                    'last_page' => $categories->lastPage(),
+                    'next_page_url' => $categories->nextPageUrl(),
+                    'prev_page_url' => $categories->previousPageUrl(),
+                ]
+            ];
+    
+            // Log the API call
+            $this->logAPICalls('getCategory', "", $request->all(), $response);
+    
+            return response()->json($response, 200);
+    
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve the categories.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('getCategory', "", $request->all(), $response);
+    
+            return response()->json($response, 500);
+        }
+    }
+    
     /**
      * Update an existing Category
      */
@@ -103,43 +160,6 @@ class CategoryController extends Controller
         }
     }
 
-    /**
-     * Get a list of all categories or a specific category by ID
-     */
-    public function getCategory($id = null)
-    {
-        try {
-            // If an ID is provided, get the specific category
-            if ($id) {
-                $category = Category::findOrFail($id);
-                $response = [
-                    'isSuccess' => true,
-                    'message' => 'Category found.',
-                    'category' => $category
-                ];
-            } 
-            // Otherwise, return all categories
-            else {
-                $categories = Category::all();
-                $response = [
-                    'isSuccess' => true,
-                    'message' => 'List of all categories.',
-                    'category' => $categories
-                ];
-            }
-
-            $this->logAPICalls('getCategory', "", [], $response);
-            return response()->json($response, 200);  // 200 for success
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve categories.',
-                'error' => $e->getMessage()
-            ];
-            $this->logAPICalls('getCategory', "", [], $response);
-            return response()->json($response, 500);  // 500 for internal server error
-        }
-    }
 
     /**
      * Delete a Category by ID
@@ -148,7 +168,7 @@ class CategoryController extends Controller
     {
         try {
             $category = Category::findOrFail($id);
-            $category->delete();
+            $category->update(['is_archived' => "I"]);
 
             $response = [
                 'isSuccess' => true,
