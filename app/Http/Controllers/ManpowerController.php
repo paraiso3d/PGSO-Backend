@@ -113,12 +113,12 @@ class ManpowerController extends Controller
     public function getmanpowers(Request $request)
     {
         try {
-            // Set default pagination value or use the one provided in the request
+          
             $perPage = $request->input('per_page', 10);  // Default to 10 items per page
-
-            // Fetch manpowers with pagination
-            $manpowers = Manpower::paginate($perPage);
-
+    
+            
+            $manpowers = Manpower::where('is_archived', 'A')->paginate($perPage);
+    
             $response = [
                 'isSuccess' => true,
                 'message' => "Manpower list retrieved successfully.",
@@ -132,7 +132,8 @@ class ManpowerController extends Controller
                     'prev_page_url' => $manpowers->previousPageUrl(),
                 ]
             ];
-
+    
+            // Log the API call
             $this->logAPICalls('getmanpowers', "", [], [$response]);
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -141,26 +142,30 @@ class ManpowerController extends Controller
                 'message' => "Failed to retrieve Manpowers.",
                 'error' => $e->getMessage()
             ];
+    
+            // Log the API call with failure response
             $this->logAPICalls('getmanpowers', "", [], [$response]);
             return response()->json($response, 500);
         }
     }
+    
 
     /**
      * Delete a manpower
      */
-    public function deletemanpower($id)
+    public function deletemanpower(Request $request)
     {
         try {
-            $usertype = Manpower::findOrFail($id);
-
-            $usertype->delete();
-
+            
+            $manpower = Manpower::findOrFail($request->id);
+            $manpower->update(['is_archived' => "I"]);
             $response = [
                 'isSuccess' => true,
                 'message' => "Manpower successfully deleted."
             ];
-            $this->logAPICalls('deletemanpower', $id, [], [$response]);
+    
+            // Log the API call (assuming this method works properly)
+            $this->logAPICalls('deletemanpower', $manpower->id, [], [$response]);
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -168,10 +173,14 @@ class ManpowerController extends Controller
                 'message' => "Failed to delete the Manpower.",
                 'error' => $e->getMessage()
             ];
+    
+            // Log the API call with failure response
             $this->logAPICalls('deletemanpower', "", [], [$response]);
+    
             return response()->json($response, 500);
         }
     }
+    
 
     /**
      * Log all API calls.
@@ -183,7 +192,7 @@ class ManpowerController extends Controller
                 'method_name' => $methodName,
                 'user_id' => $userId,
                 'api_request' => json_encode($param),
-                'api_response' => json_encode($resp)
+                'api_response' => json_encode($resp),
             ]);
         } catch (Throwable $e) {
             return false;

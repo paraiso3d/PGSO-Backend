@@ -21,6 +21,7 @@ class DivisionController extends Controller
             $request->validate([
                 'div_name' => ['required', 'string'],
                 'note' => ['required', 'string'],
+                'is_archived' => ['nullable', 'in: A, I']
             ]);
 
             $divname = Division::create([
@@ -104,36 +105,46 @@ class DivisionController extends Controller
     public function getDivisions(Request $request)
     {
         try {
-            // Set the number of items per page (default to 10 if not provided)
             $perPage = $request->input('per_page', 10);
+            $query = Division::select('id', 'div_name', 'note');
+    
+            $query->where('is_archived', 'A');
 
-            // Fetch paginated division names
-            $divnames = Division::paginate($perPage);
-
+            $divnames = $query->paginate($perPage);
+    
             $response = [
                 'isSuccess' => true,
                 'message' => "Division names list:",
-                'division' => $divnames
+                'division' => $divnames->items(), // Get the paginated items
+                'pagination' => [
+                    'total' => $divnames->total(),
+                    'per_page' => $divnames->perPage(),
+                    'current_page' => $divnames->currentPage(),
+                    'last_page' => $divnames->lastPage(),
+                    'next_page_url' => $divnames->nextPageUrl(),
+                    'prev_page_url' => $divnames->previousPageUrl(),
+                ]
             ];
-
+    
             // Log API calls
             $this->logAPICalls('getDivisions', "", [], [$response]);
-
+    
             return response()->json($response, 200);
         } catch (Throwable $e) {
+            // Prepare the error response
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to retrieve Division Names.",
                 'error' => $e->getMessage()
             ];
-
+    
             // Log API calls
             $this->logAPICalls('getDivisions', "", [], [$response]);
-
+    
             return response()->json($response, 500);
         }
     }
-
+    
     /**
      * Delete a college office.
      */

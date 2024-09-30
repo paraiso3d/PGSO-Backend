@@ -10,6 +10,11 @@ class Location extends Model
     use HasFactory;
     protected $fillable = [
         'location_name',
-        'note'
+        'note',
+        'is_archived'
+    ];
+
+    protected $attributes = [
+        'is_archived' => 'A',  // Default value
     ];
 }

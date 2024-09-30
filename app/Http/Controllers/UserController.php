@@ -58,37 +58,55 @@ class UserController extends Controller
         }
     }
 
-    /**
-     * Read: Get all user accounts.
-     */
+
+    
     public function getUserAccounts(Request $request)
-    {
-        try {
+{
+    try {
+        // Set the number of items per page (default to 10 if not provided)
+        $perPage = $request->input('per_page', 10);
 
-            $perPage = $request->input('per_page', 10);
-            
-            // Fetch user accounts with pagination
-            $userAccounts = User::paginate($perPage);
-            $userAccounts = User::select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'office', 'designation', 'user_type')
-            ->get();
+        // Build the query to fetch active user accounts (not archived)
+        $query = User::select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'office', 'designation', 'user_type')
+            ->where('is_archived', 'A'); // Make sure to filter for active accounts here
 
-            $response = [
-                'isSuccess' => true,
-                'message' => 'User accounts retrieved successfully.',
-                'user' => $userAccounts
-            ];
-            $this->logAPICalls('getUserAccounts', "", [], $response);
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve user accounts.',
-                'error' => $e->getMessage()
-            ];
-            $this->logAPICalls('getUserAccounts', "", [], $response);
-            return response()->json($response, 500);
-        }
+        // Paginate the query result
+        $userAccounts = $query->paginate($perPage);
+
+        // Build the response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'User accounts retrieved successfully.',
+            'user' => $userAccounts->items(), // Return only the data without the pagination details
+            'pagination' => [
+                'total' => $userAccounts->total(),
+                'per_page' => $userAccounts->perPage(),
+                'current_page' => $userAccounts->currentPage(),
+                'last_page' => $userAccounts->lastPage(),
+                'next_page_url' => $userAccounts->nextPageUrl(),
+                'prev_page_url' => $userAccounts->previousPageUrl(),
+            ]
+        ];
+
+        // Log the API call
+        $this->logAPICalls('getUserAccounts', "", [], $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        // Handle the error response
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve user accounts.',
+            'error' => $e->getMessage()
+        ];
+
+        // Log the error
+        $this->logAPICalls('getUserAccounts', "", [], $response);
+
+        return response()->json($response, 500);
     }
+}
+
 
     /**
      * Update an existing user account.
@@ -147,7 +165,7 @@ class UserController extends Controller
         try {
             $userAccount = User::find($request->id);
 
-            $userAccount->update(['isarchive' => "I"]);
+            $userAccount->update(['is_archived' => "I"]);
 
             $response = [
                 'isSuccess' => true,

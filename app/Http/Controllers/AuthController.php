@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Throwable;
 
 class AuthController extends Controller
@@ -33,19 +34,19 @@ class AuthController extends Controller
                     $token = null;
                     switch ($user->user_type) {
                         case 'Administrator':
-                            $token = $user->createToken('admin-token', ['administrator'])->plainTextToken;
+                            $token = $user->createToken('admin-token', ['Administrator'])->plainTextToken;
                             break;
                         case 'Supervisor':
-                            $token = $user->createToken('supervisor-token', ['supervisor'])->plainTextToken;
+                            $token = $user->createToken('supervisor-token', ['Supervisor'])->plainTextToken;
                             break;
                         case 'TeamLeader':
-                            $token = $user->createToken('teamleader-token', ['teamleader'])->plainTextToken;
+                            $token = $user->createToken('teamleader-token', ['TeamLeader'])->plainTextToken;
                             break;
                         case 'Controller':
-                            $token = $user->createToken('controller-token', ['controller'])->plainTextToken;
+                            $token = $user->createToken('controller-token', ['Controller'])->plainTextToken;
                             break;
                         case 'DeanHead':
-                            $token = $user->createToken('dean-token', ['deanhead'])->plainTextToken;
+                            $token = $user->createToken('dean-token', ['DeaHead'])->plainTextToken;
                             break;
                         default:
                             $response = ['message' => 'Unauthorized'];
@@ -58,7 +59,7 @@ class AuthController extends Controller
 
                     //Log successful login
                     $response = [
-                        'isSuccess'=> true,
+                        'isSuccess' => true,
                         'message' => ucfirst($user->user_type) . ' logged in successfully',
                         'token' => $token,
                         'user' => $user->only(['id', 'email']),
@@ -85,30 +86,6 @@ class AuthController extends Controller
                 'error' => $e->getMessage() // Return the specific error message
             ];
             $this->logAPICalls('login', $request->email, $request->all(), $response);
-            return response()->json($response, 500);
-        }
-    }
-
-    public function viewProfile(Request $request)
-    {
-        try {
-            $user = $request->user(); // Get the authenticated user
-
-            // Return the user's profile information
-            return response()->json([
-                'message' => 'Profile retrieved successfully',
-                'user' => $user->only(['email', 'last_name', 'first_name', 'middle_initial', 'profile_image', 'signature']), // Include new fields
-            ], 200);
-        } catch (Throwable $e) {
-            // Prepare the error response
-            $response = [
-                'message' => 'Failed to retrieve profile',
-                'error' => $e->getMessage(),
-            ];
-
-            // Log API call with error information
-            $this->logAPICalls('viewProfile', $request->user()->email, $request->all(), $response);
-
             return response()->json($response, 500);
         }
     }
@@ -145,6 +122,7 @@ class AuthController extends Controller
 
             // Prepare response
             $response = [
+                'isSuccess' => true,
                 'message' => 'Profile updated successfully',
                 'user' => $user->only(['last_name', 'first_name', 'middle_initial', 'email']),
             ];
@@ -155,6 +133,7 @@ class AuthController extends Controller
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
+                'isSuccess' => false,
                 'message' => 'An error occurred',
                 'error' => $e->getMessage(),
             ];
@@ -199,6 +178,7 @@ class AuthController extends Controller
         } catch (Throwable $e) {
             // Prepare error response
             $response = [
+                'isSuccess' => true,
                 'message' => 'Failed to change password',
                 'error' => $e->getMessage(),
             ];
@@ -213,40 +193,45 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         try {
-            $user = $request->user();  // Get the authenticated user
+            $user = Auth::user();  // Get the authenticated user using the Auth facade
 
             if ($user) {
-                Log::info('User logging out:', ['name' => $user->email]);
+                Log::info('User logging out:', ['email' => $user->email]);
 
                 // Find the latest session for this user with a null logout_date
                 $session = Session::where('user_id', $user->id)
-                    ->whereNull('logout_date') // Find session where logout hasn't been set
+                    ->whereNull('logout_date')  // Find session where logout hasn't been set
                     ->latest()  // Get the latest session
                     ->first();
 
                 if ($session) {
                     // Update the session with the current logout date
                     $session->update([
-                        'logout_date' => Carbon::now()->toDateTimeString(), // Set logout date to current time
+                        'logout_date' => Carbon::now()->toDateTimeString(),  // Set logout date to current time
                     ]);
                 }
 
-                // Revoke the user's current access token
-                $user->currentAccessToken()->delete();
+                // Revoke the user's current access token (token-based auth)
+                if ($user->currentAccessToken()) {
+                    $user->currentAccessToken()->delete();
+                }
 
                 $response = ['message' => 'User logged out successfully'];
                 $this->logAPICalls('logout', $user->id, [], $response);
+
                 return response()->json($response, 200);
             }
 
+            // If no authenticated user is found, return unauthenticated response
             return response()->json(['message' => 'Unauthenticated'], 401);
         } catch (Throwable $e) {
             return response()->json([
                 'message' => 'Failed to log out',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
+
 
 
     // Method to insert session

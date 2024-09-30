@@ -19,10 +19,12 @@ class UsertypeController extends Controller
         try {
             $request->validate([
                 'name' => ['required', 'alpha_spaces'],
+                'description'['required']
             ]);
 
             $usertype = user_type::create([
                 'name' => $request->name,
+                'description' => $request->description
             ]);
 
             $response = [
@@ -66,6 +68,7 @@ class UsertypeController extends Controller
 
             $usertype->update([
                 'name' => $request->name,
+                'description' => $request->description
             ]);
 
             $response = [
@@ -101,7 +104,8 @@ class UsertypeController extends Controller
     public function getUserTypes()
     {
         try {
-            $usertypes = user_type::select('id','name')
+            $usertypes = user_type::where('is_archived', 'A');
+            $usertypes = user_type::select('id','name', 'description')
             ->get();
 
 
@@ -109,6 +113,7 @@ class UsertypeController extends Controller
                 'isSuccess' => true,
                 'message' => "UserTypes list:",
                 'usertype' => $usertypes
+                
             ];
             $this->logAPICalls('getUserTypes', "", [], [$response]);
             return response()->json($response, 200);
@@ -131,7 +136,7 @@ class UsertypeController extends Controller
         try {
             $usertype = user_type::findOrFail($id); // Find or throw 404
 
-            $usertype->delete();
+            $usertype->update(['is_archived' => "I"]);
 
             $response = [
                 'isSuccess' => true,
