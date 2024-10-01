@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
+use Auth;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\user_type;
@@ -33,19 +34,19 @@ class AuthController extends Controller
                     $token = null;
                     switch ($user->user_type) {
                         case 'Administrator':
-                            $token = $user->createToken('admin-token', ['administrator'])->plainTextToken;
+                            $token = $user->createToken('admin-token', ['Administrator'])->plainTextToken;
                             break;
                         case 'Supervisor':
-                            $token = $user->createToken('supervisor-token', ['supervisor'])->plainTextToken;
+                            $token = $user->createToken('supervisor-token', ['Supervisor'])->plainTextToken;
                             break;
                         case 'TeamLeader':
-                            $token = $user->createToken('teamleader-token', ['teamleader'])->plainTextToken;
+                            $token = $user->createToken('teamleader-token', ['TeamLeader'])->plainTextToken;
                             break;
                         case 'Controller':
-                            $token = $user->createToken('controller-token', ['controller'])->plainTextToken;
+                            $token = $user->createToken('controller-token', ['Controller'])->plainTextToken;
                             break;
                         case 'DeanHead':
-                            $token = $user->createToken('dean-token', ['deanhead'])->plainTextToken;
+                            $token = $user->createToken('dean-token', ['DeanHead'])->plainTextToken;
                             break;
                         default:
                             $response = ['message' => 'Unauthorized'];
@@ -168,7 +169,7 @@ class AuthController extends Controller
 
     public function changePassword(Request $request)
     {
-
+    
         $user = $request->user(); // Get the authenticated user
 
         // Validate the input

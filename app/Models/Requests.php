@@ -21,7 +21,7 @@ class Requests extends Model
         'area',
         'category_name',
         'fiscal_year',
-        'file_name',
+        'file_path',
         'status',
         'user_id',
     ];
@@ -67,7 +67,7 @@ class Requests extends Model
             'fiscal_year' => ['required', 'string'],
             'user_id' => 'get|string|exists:Requests,id',
 
-            'file_name' => [
+            'file_path' => [
                 'required',
                 'file',
                 'mimes:pdf,jpg,png,docx',
