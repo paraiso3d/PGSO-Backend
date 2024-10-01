@@ -10,6 +10,10 @@ class user_type extends Model
     use HasFactory;
     protected $fillable = [
         'name',
-        'description'
+        'description',
+        'is_archived'
     ] ;
+    protected $attributes = [
+        'is_archived' => 'A',  // Default value
+    ];
 }

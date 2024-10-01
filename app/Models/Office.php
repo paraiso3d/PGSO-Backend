@@ -12,5 +12,6 @@ class Office extends Model
         'officename',
         'acronym',
         'office_type',
+        'is_archived'
     ];
 }

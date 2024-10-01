@@ -10,7 +10,9 @@ class Category extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'category_name', 'division'
+        'category_name', 
+        'division',
+        'is_archived'
     ];
 
 
@@ -23,7 +25,7 @@ class Category extends Model
             'category_name' => ['required', 'array'],
             'category_name.*' => ['required', 'string'],  
             'division' => ['required', 'in:' . implode(',', $division)],
-            'isarchive' => ['nullable','in: A, I']
+            'is_archived' => ['nullable','in: A, I']
         ]);
 
         return $validator;

@@ -88,11 +88,11 @@ class RequestController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request successfully created.',
-                'data' => $newRequest,
+                'request' => $newRequest,
             ];
             $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
 
-            return response()->json($response, 201);
+            return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -105,112 +105,61 @@ class RequestController extends Controller
     }
 
 
+
     // Method to retrieve all requests
 
     public function getRequests(Request $request)
     {
         try {
-            // Validation for filters (optional)
-            $validated = $request->validate([
-                'per_page' => 'nullable|integer',
-                'status' => 'nullable|string',
-                'file_path' => 'nullable|string',
-                'location_name' => 'nullable|string',
-                'category_name' => 'nullable|string',
-                'fiscal_year' => 'nullable|string',
-                'division' => 'nullable|string',
-                'search' => 'nullable|string',
-            ]);
-
-            // Initialize query
+            // Initialize query to get all requests
             $query = Requests::query();
-
+    
             // Select specific fields from both tables
-            $query->select('requests.id', 'requests.control_no', 'requests.description', 'requests.officename', 'requests.location_name', 'requests.overtime', 'requests.file_path', 'requests.area', 'requests.category_name', 'requests.fiscal_year', 'requests.status', 'categories.division')
-                ->join('categories', 'requests.category_name', '=', 'categories.category_name');
-
-            // Apply filters dynamically if present
-            if (!empty($validated['status'])) {
-                $query->where('requests.status', $validated['status']);
-            }
-
-            if (!empty($validated['location_name'])) {
-                $query->where('requests.location_name', 'like', '%' . $validated['location_name'] . '%');
-            }
-
-            if (!empty($validated['category_name'])) {
-                $query->where('requests.category_name', $validated['category_name']);
-            }
-
-            if (!empty($validated['fiscal_year'])) {
-                $query->where('requests.fiscal_year', $validated['fiscal_year']);
-            }
-
-            if (!empty($validated['division'])) {
-                $query->where('categories.division', 'like', '%' . $validated['division'] . '%');
-            }
-
-            if (!empty($validated['search'])) {
-                $query->where('requests.description', 'like', '%' . $validated['search'] . '%');
-            }
-
-            // Pagination
-            $perPage = $validated['per_page'] ?? 10;
-
-            // Sort by division and paginate
-            $requests = $query->orderBy('categories.division', 'asc')->paginate($perPage);
-
+            $query->select(
+                'requests.id',
+                'requests.control_no',
+                'requests.description',
+                'requests.officename',
+                'requests.location_name',
+                'requests.overtime',
+                // 'requests.file_path',
+                'requests.area',
+                // 'requests.category_name',
+                // 'requests.fiscal_year',
+                'requests.updated_at',
+                'requests.status',
+                // 'categories.division'
+            )
+            ->join('categories', 'requests.category_name', '=', 'categories.category_name');
+    
+            // Basic pagination (default per page = 10)
+            $perPage = 10;
+            $requests = $query->paginate($perPage);
+    
             // Response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
-                'data' => $requests,
+                'request' => $requests,
             ];
-
-            $this->logAPICalls('getRequests', '', $request->all(), $response);
-
+    
+            $this->logAPICalls('getRequests', '', [], $response);
+    
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
+            // Error handling
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve the requests.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('getRequests', '', $request->all(), $response);
-
+            $this->logAPICalls('getRequests', '', [], $response);
+    
             return response()->json($response, 500);
         }
     }
-
-
-
-
-
-    // Method to retrieve a specific request by ID
-    public function getRequestById($id)
-    {
-        try {
-            $requestRecord = Requests::findOrFail($id);
-
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Request retrieved successfully.',
-                'data' => $requestRecord,
-            ];
-            $this->logAPICalls('getRequestById', $id, [], $response);
-
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve the request.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('getRequestById', $id, [], $response);
-            return response()->json($response, 404);
-        }
-    }
+    
 
     // Method to update an existing request
     public function updateRequest(Request $request, $id)
@@ -249,7 +198,7 @@ class RequestController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request updated successfully.',
-                'data' => $existingRequest,
+                'request' => $existingRequest,
             ];
             $this->logAPICalls('updateRequest', $id, $request->all(), $response);
 
@@ -270,7 +219,7 @@ class RequestController extends Controller
     {
         try {
             $requestRecord = Requests::findOrFail($id);
-            $requestRecord->update(['isarchive' => 'I']);
+            $requestRecord->update(['is_archived' => 'I']);
 
             $response = [
                 'isSuccess' => true,
