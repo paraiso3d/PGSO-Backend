@@ -28,10 +28,9 @@ class CategoryController extends Controller
                 return response()->json($response, 422); 
             }
 
-            $categories = [];
-            foreach ($request->category_name as $name) {
+           {
                 $categories[] = Category::create([
-                    'category_name' => $name,
+                    'category_name' => $request->category_name,
                     'division' => $request->division,
                 ]);
             }

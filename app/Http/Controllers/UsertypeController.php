@@ -18,8 +18,8 @@ class UsertypeController extends Controller
     {
         try {
             $request->validate([
-                'name' => ['required', 'alpha_spaces'],
-                'description'['required']
+                'name' => ['required', 'string', 'alpha_spaces'], 
+                'description' => ['required', 'string'],
             ]);
 
             $usertype = user_type::create([
@@ -62,8 +62,8 @@ class UsertypeController extends Controller
             $usertype = user_type::findOrFail($id); // Find the user type or throw 404
 
             $request->validate([
-                'name' => ['required', 'string', 'alpha'], // Ensure the 'name' is a string
-                'description' => ['required', 'string', 'alpha'],
+                'name' => ['required', 'string', 'alpha_spaces'], // Ensure the 'name' is a string
+                'description' => ['required', 'string'],
             ]);
 
             $usertype->update([

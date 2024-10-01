@@ -111,7 +111,20 @@ class RequestController extends Controller
     public function getRequests(Request $request)
     {
         try {
-            // Initialize query to get all requests
+            // Validation for filters (optional)
+            $validated = $request->validate([
+                'per_page' => 'nullable|integer',
+                'status' => 'nullable|string',
+                'file_path' => 'nullable|string',
+                'location_name' => 'nullable|string',
+                'category_name' => 'nullable|string',
+                'fiscal_year' => 'nullable|string',
+                'division' => 'nullable|string',
+                'search' => 'nullable|string',
+                'is_archived' => 'nullable|in:A,I', 
+            ]);
+    
+            // Initialize query
             $query = Requests::query();
     
             // Select specific fields from both tables
@@ -122,19 +135,53 @@ class RequestController extends Controller
                 'requests.officename',
                 'requests.location_name',
                 'requests.overtime',
-                // 'requests.file_path',
+                'requests.file_path',
                 'requests.area',
-                // 'requests.category_name',
-                // 'requests.fiscal_year',
-                'requests.updated_at',
+                'requests.category_name',
+                'requests.fiscal_year',
                 'requests.status',
-                // 'categories.division'
+                'categories.division'
             )
             ->join('categories', 'requests.category_name', '=', 'categories.category_name');
     
-            // Basic pagination (default per page = 10)
-            $perPage = 10;
-            $requests = $query->paginate($perPage);
+            // Apply filters dynamically if present
+            if (!empty($validated['status'])) {
+                $query->where('requests.status', $validated['status']);
+            }
+    
+            if (!empty($validated['location_name'])) {
+                $query->where('requests.location_name', 'like', '%' . $validated['location_name'] . '%');
+            }
+    
+            if (!empty($validated['category_name'])) {
+                $query->where('requests.category_name', $validated['category_name']);
+            }
+    
+            if (!empty($validated['fiscal_year'])) {
+                $query->where('requests.fiscal_year', $validated['fiscal_year']);
+            }
+    
+            if (!empty($validated['division'])) {
+                $query->where('categories.division', 'like', '%' . $validated['division'] . '%');
+            }
+    
+            if (!empty($validated['search'])) {
+                $query->where('requests.description', 'like', '%' . $validated['search'] . '%');
+            }
+    
+            // Apply is_archived filter (active = 'A', archived = 'I')
+            if (!empty($validated['is_archived'])) {
+                $query->where('requests.is_archived', $validated['is_archived']);
+            } else {
+                // Default behavior: get active requests (is_archived = 'A') if no filter is provided
+                $query->where('requests.is_archived', 'A');
+            }
+    
+            // Pagination
+            $perPage = $validated['per_page'] ?? 10;
+    
+            // Sort by division and paginate
+            $requests = $query->orderBy('categories.division', 'asc')->paginate($perPage);
     
             // Response
             $response = [
@@ -143,18 +190,17 @@ class RequestController extends Controller
                 'request' => $requests,
             ];
     
-            $this->logAPICalls('getRequests', '', [], $response);
+            $this->logAPICalls('getRequests', '', $request->all(), $response);
     
             return response()->json($response, 200);
     
         } catch (Throwable $e) {
-            // Error handling
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve the requests.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('getRequests', '', [], $response);
+            $this->logAPICalls('getRequests', '', $request->all(), $response);
     
             return response()->json($response, 500);
         }

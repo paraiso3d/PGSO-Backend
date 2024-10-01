@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\location;
+use App\Models\Location;
 use App\Models\ApiLog;
 use Throwable;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +22,7 @@ class LocationController extends Controller
                 'note' => ['required'],
             ]);
 
-            $location = location::create([
+            $location = Location::create([
                 'location_name' => $request->location_name,
                 'note' => $request->note,
             ]);
@@ -59,7 +59,7 @@ class LocationController extends Controller
     public function updatelocation(Request $request, $id)
     {
         try {
-            $location = location::findOrFail($id); // Find the user type or throw 404
+            $location = Location::findOrFail($id); // Find the user type or throw 404
 
             $request->validate([
                 'location_name' => ['required', 'string'],
@@ -152,7 +152,7 @@ class LocationController extends Controller
     public function deletelocation(Request $request)
     {
         try {
-            $location = location::find($request->id); // Find or throw 404
+            $location = Location::find($request->id); // Find or throw 404
 
             $location->update(['is_archived' => "I"]);
 
