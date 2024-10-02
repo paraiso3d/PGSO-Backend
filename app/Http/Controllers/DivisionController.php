@@ -19,7 +19,7 @@ class DivisionController extends Controller
     {
         try {
             $request->validate([
-                'div_name' => ['required', 'string'],
+                'div_name' => ['required', 'string', 'unique:divisions,div_name,except,id'],
                 'note' => ['required', 'string'],
                 'is_archived' => ['nullable', 'in: A, I']
             ]);
@@ -103,47 +103,59 @@ class DivisionController extends Controller
      * Get all college offices.
      */
     public function getDivisions(Request $request)
-    {
-        try {
-            $perPage = $request->input('per_page', 10);
-            $query = Division::select('id', 'div_name', 'note');
-    
-            $query->where('is_archived', 'A');
+{
+    try {
+        $perPage = $request->input('per_page', 10);
+        $search = $request->input('search'); // Get the search term from the request
 
-            $divnames = $query->paginate($perPage);
-    
-            $response = [
-                'isSuccess' => true,
-                'message' => "Division names list:",
-                'division' => $divnames->items(), // Get the paginated items
-                'pagination' => [
-                    'total' => $divnames->total(),
-                    'per_page' => $divnames->perPage(),
-                    'current_page' => $divnames->currentPage(),
-                    'last_page' => $divnames->lastPage(),
-                    'next_page_url' => $divnames->nextPageUrl(),
-                    'prev_page_url' => $divnames->previousPageUrl(),
-                ]
-            ];
-    
-            // Log API calls
-            $this->logAPICalls('getDivisions', "", [], [$response]);
-    
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            // Prepare the error response
-            $response = [
-                'isSuccess' => false,
-                'message' => "Failed to retrieve Division Names.",
-                'error' => $e->getMessage()
-            ];
-    
-            // Log API calls
-            $this->logAPICalls('getDivisions', "", [], [$response]);
-    
-            return response()->json($response, 500);
+        // Create the query to select divisions
+        $query = Division::select('id', 'div_name', 'note')
+            ->where('is_archived', 'A');
+
+        // Apply search filter if search term is provided
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('div_name', 'LIKE', '%' . $search . '%')
+                  ->orWhere('note', 'LIKE', '%' . $search . '%'); // Search in 'div_name' and 'note'
+            });
         }
+
+        // Paginate the results
+        $divnames = $query->paginate($perPage);
+
+        $response = [
+            'isSuccess' => true,
+            'message' => "Division names list:",
+            'division' => $divnames, // Get the paginated items
+            'pagination' => [
+                'total' => $divnames->total(),
+                'per_page' => $divnames->perPage(),
+                'current_page' => $divnames->currentPage(),
+                'last_page' => $divnames->lastPage(),
+                'next_page_url' => $divnames->nextPageUrl(),
+                'prev_page_url' => $divnames->previousPageUrl(),
+            ]
+        ];
+
+        // Log API calls
+        $this->logAPICalls('getDivisions', "", $request->all(), [$response]);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        // Prepare the error response
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to retrieve Division Names.",
+            'error' => $e->getMessage()
+        ];
+
+        // Log API calls
+        $this->logAPICalls('getDivisions', "", $request->all(), [$response]);
+
+        return response()->json($response, 500);
     }
+}
+
     
     /**
      * Delete a college office.

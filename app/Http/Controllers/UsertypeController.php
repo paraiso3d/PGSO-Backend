@@ -18,8 +18,8 @@ class UsertypeController extends Controller
     {
         try {
             $request->validate([
-                'name' => ['required', 'alpha_spaces'],
-                'description'['required']
+                'name' => ['required', 'string', 'alpha_spaces'], 
+                'description' => ['required', 'string'],
             ]);
 
             $usertype = user_type::create([
@@ -62,8 +62,8 @@ class UsertypeController extends Controller
             $usertype = user_type::findOrFail($id); // Find the user type or throw 404
 
             $request->validate([
-                'name' => ['required', 'string', 'alpha'], // Ensure the 'name' is a string
-                'description' => ['required', 'string', 'alpha'],
+                'name' => ['required', 'string', 'alpha_spaces'], // Ensure the 'name' is a string
+                'description' => ['required', 'string'],
             ]);
 
             $usertype->update([
@@ -101,32 +101,67 @@ class UsertypeController extends Controller
     /**
      * Get all user types.
      */
-    public function getUserTypes()
+    public function getUserTypes(Request $request)
     {
         try {
-            $usertypes = user_type::where('is_archived', 'A');
-            $usertypes = user_type::select('id','name', 'description')
-            ->get();
-
-
+            // Validate the request to include a search term and pagination parameters
+            $validated = $request->validate([
+                'search' => 'nullable|string',  // Search parameter
+                'per_page' => 'nullable|integer|min:1',  // Items per page parameter
+            ]);
+    
+            // Set the default items per page or use the provided 'per_page' parameter
+            $perPage = $validated['per_page'] ?? 10;
+    
+            // Initialize the query
+            $query = user_type::select('id', 'name', 'description')
+                ->where('is_archived', 'A'); // Only get active user types
+    
+            // Apply search filter if provided
+            if (!empty($validated['search'])) {
+                $query->where(function($q) use ($validated) {
+                    $q->where('name', 'like', '%' . $validated['search'] . '%')
+                      ->orWhere('description', 'like', '%' . $validated['search'] . '%');
+                });
+            }
+    
+            // Paginate the user types based on 'per_page'
+            $usertypes = $query->paginate($perPage);
+    
+            // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => "UserTypes list:",
-                'usertype' => $usertypes
-                
+                'usertype' => $usertypes, // Get the paginated items
+                'pagination' => [
+                    'total' => $usertypes->total(),
+                    'per_page' => $usertypes->perPage(),
+                    'current_page' => $usertypes->currentPage(),
+                    'last_page' => $usertypes->lastPage(),
+                    'next_page_url' => $usertypes->nextPageUrl(),
+                    'prev_page_url' => $usertypes->previousPageUrl(),
+                ]
             ];
-            $this->logAPICalls('getUserTypes', "", [], [$response]);
+    
+            // Log API calls
+            $this->logAPICalls('getUserTypes', "", $request->all(), $response);
+    
             return response()->json($response, 200);
         } catch (Throwable $e) {
+            // Prepare the error response
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to retrieve UserTypes.",
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('getUserTypes', "", [], [$response]);
+    
+            // Log API calls
+            $this->logAPICalls('getUserTypes', "", $request->all(), $response);
+    
             return response()->json($response, 500);
         }
     }
+    
 
     /**
      * Delete a user type.

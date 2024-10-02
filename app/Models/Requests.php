@@ -21,7 +21,7 @@ class Requests extends Model
         'area',
         'category_name',
         'fiscal_year',
-        'file_name',
+        'file_path',
         'status',
         'user_id',
         'is_archived'

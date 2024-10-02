@@ -3,18 +3,49 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Location;
+use App\Models\User;
+use DB;
 use App\Models\Division;
+use App\Models\Office;
 use App\Models\Requests;
 use Illuminate\Http\Request;
 use Throwable;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Session;
-
+use Illuminate\Support\Facades\Auth;
 
 class RequestController extends Controller
 {
-    // Method to handle storing a new request
+    public function __construct(Request $request)
+    {
+        // Retrieve the authenticated user
+        $user = $request->user();
+
+        // Apply middleware based on the user type
+        if ($user && $user->user_type === 'Administrator') {
+            $this->middleware('UserTypeAuth:Administrator')->only(['createRequest', 'updateRequest', 'getRequests', 'getRequestById']);
+        }
+
+        if ($user && $user->user_type === 'Supervisor') {
+            $this->middleware('UserTypeAuth:Supervisor')->only(['getRequests']);
+        }
+
+        if ($user && $user->user_type === 'TeamLeader') {
+            $this->middleware('UserTypeAuth:TeamLeader')->only(['getRequests']);
+        }
+
+        if ($user && $user->user_type === 'Controller') {
+            $this->middleware('UserTypeAuth:Controller')->only(['getRequests']);
+        }
+
+        if ($user && $user->user_type === 'DeanHead') {
+            $this->middleware('UserTypeAuth:DeanHead')->only(['createRequest', 'getRequests']);
+        }
+    }
+
+    // Method to create a new request.    
     public function createRequest(Request $request)
     {
         // Validate the incoming request data using the model's validateRequest method
@@ -35,9 +66,9 @@ class RequestController extends Controller
 
         // Initialize file path
         $filePath = null;
-        if ($request->hasFile('file_name')) {
+        if ($request->hasFile('file_path')) {
             // Store the file and get the path
-            $filePath = $request->file('file_name')->store('public/uploads'); // Store in public directory
+            $filePath = $request->file('file_path')->store('public/uploads'); // Store in public directory
         }
 
         // Set default status if not provided
@@ -78,108 +109,106 @@ class RequestController extends Controller
     }
 
 
+
     // Method to retrieve all requests
 
     public function getRequests(Request $request)
-{
-    try {
-        // Validation for filters (optional)
-        $validated = $request->validate([
-            'per_page' => 'nullable|integer',
-            'status' => 'nullable|string',
-            'file_path' => 'nullable|string',
-            'location_name' => 'nullable|string',
-            'category_name' => 'nullable|string',
-            'fiscal_year' => 'nullable|string',
-            'division' => 'nullable|string',
-            'search' => 'nullable|string',
-            'is_archived' => 'nullable|in:A,I', 
-        ]);
+    {
+        try {
+            // Validation for filters (optional)
+            $validated = $request->validate([
+                'per_page' => 'nullable|integer',
+                'status' => 'nullable|string',
+                'file_path' => 'nullable|string',
+                'location_name' => 'nullable|string',
+                'category_name' => 'nullable|string',
+                'fiscal_year' => 'nullable|string',
+                'division' => 'nullable|string',
+                'search' => 'nullable|string',
+                'is_archived' => 'nullable|in:A,I',
+            ]);
 
-        // Initialize query
-        $query = Requests::query();
+            // Initialize query
+            $query = Requests::query();
 
-        // Select specific fields from both tables
-        $query->select(
-            'requests.id',
-            'requests.control_no',
-            'requests.description',
-            'requests.officename',
-            'requests.location_name',
-            'requests.overtime',
-            'requests.file_path',
-            'requests.area',
-            'requests.category_name',
-            'requests.fiscal_year',
-            'requests.status',
-            'categories.division'
-        )
-        ->join('categories', 'requests.category_name', '=', 'categories.category_name');
+            // Select specific fields from both tables
+            $query->select(
+                'requests.id',
+                'requests.control_no',
+                'requests.description',
+                'requests.officename',
+                'requests.location_name',
+                'requests.overtime',
+                'requests.file_path',
+                'requests.area',
+                'requests.category_name',
+                'requests.fiscal_year',
+                'requests.status',
+                'categories.division'
+            )
+                ->join('categories', 'requests.category_name', '=', 'categories.category_name');
 
-        // Apply filters dynamically if present
-        if (!empty($validated['status'])) {
-            $query->where('requests.status', $validated['status']);
+            // Apply filters dynamically if present
+            if (!empty($validated['status'])) {
+                $query->where('requests.status', $validated['status']);
+            }
+
+            if (!empty($validated['location_name'])) {
+                $query->where('requests.location_name', 'like', '%' . $validated['location_name'] . '%');
+            }
+
+            if (!empty($validated['category_name'])) {
+                $query->where('requests.category_name', $validated['category_name']);
+            }
+
+            if (!empty($validated['fiscal_year'])) {
+                $query->where('requests.fiscal_year', $validated['fiscal_year']);
+            }
+
+            if (!empty($validated['division'])) {
+                $query->where('categories.division', 'like', '%' . $validated['division'] . '%');
+            }
+
+            if (!empty($validated['search'])) {
+                $query->where('requests.description', 'like', '%' . $validated['search'] . '%');
+            }
+
+            // Apply is_archived filter (active = 'A', archived = 'I')
+            if (!empty($validated['is_archived'])) {
+                $query->where('requests.is_archived', $validated['is_archived']);
+            } else {
+                // Default behavior: get active requests (is_archived = 'A') if no filter is provided
+                $query->where('requests.is_archived', 'A');
+            }
+
+            // Pagination
+            $perPage = $validated['per_page'] ?? 10;
+
+            // Sort by division and paginate
+            $requests = $query->orderBy('categories.division', 'asc')->paginate($perPage);
+
+            // Response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Requests retrieved successfully.',
+                'request' => $requests,
+            ];
+
+            $this->logAPICalls('getRequests', '', $request->all(), $response);
+
+            return response()->json($response, 200);
+
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve the requests.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('getRequests', '', $request->all(), $response);
+
+            return response()->json($response, 500);
         }
-
-        if (!empty($validated['location_name'])) {
-            $query->where('requests.location_name', 'like', '%' . $validated['location_name'] . '%');
-        }
-
-        if (!empty($validated['category_name'])) {
-            $query->where('requests.category_name', $validated['category_name']);
-        }
-
-        if (!empty($validated['fiscal_year'])) {
-            $query->where('requests.fiscal_year', $validated['fiscal_year']);
-        }
-
-        if (!empty($validated['division'])) {
-            $query->where('categories.division', 'like', '%' . $validated['division'] . '%');
-        }
-
-        if (!empty($validated['search'])) {
-            $query->where('requests.description', 'like', '%' . $validated['search'] . '%');
-        }
-
-        // Apply is_archived filter (active = 'A', archived = 'I')
-        if (!empty($validated['is_archived'])) {
-            $query->where('requests.is_archived', $validated['is_archived']);
-        } else {
-            // Default behavior: get active requests (is_archived = 'A') if no filter is provided
-            $query->where('requests.is_archived', 'A');
-        }
-
-        // Pagination
-        $perPage = $validated['per_page'] ?? 10;
-
-        // Sort by division and paginate
-        $requests = $query->orderBy('categories.division', 'asc')->paginate($perPage);
-
-        // Response
-        $response = [
-            'isSuccess' => true,
-            'message' => 'Requests retrieved successfully.',
-            'request' => $requests,
-        ];
-
-        $this->logAPICalls('getRequests', '', $request->all(), $response);
-
-        return response()->json($response, 200);
-
-    } catch (Throwable $e) {
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to retrieve the requests.',
-            'error' => $e->getMessage(),
-        ];
-        $this->logAPICalls('getRequests', '', $request->all(), $response);
-
-        return response()->json($response, 500);
     }
-}
-
-
-
 
 
     // Method to update an existing request
@@ -259,6 +288,102 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     }
+
+    public function getDropdownOptionsRequests(Request $request)
+    {
+        try {
+
+            $status = Requests::select(DB::raw('MIN(id) as id'), 'status')
+                ->whereIn('status', ['Pending', 'For Inspection', 'On-Going', 'Completed', 'Returned'])
+                ->where('is_archived', 'A')
+                ->groupBy('status')
+                ->get();
+
+            $location = Location::select('id', 'location_name')
+                ->where('is_archived', 'A')
+                ->get();
+            $div_name = Division::select('id', 'div_name')
+                ->where('is_archived', 'A')
+                ->get();
+            $category = Category::select('id', 'category_name')
+                ->where('is_archived', 'A')
+                ->get();
+            $year = Requests::select('id', 'fiscal_year')
+                ->where('is_archived', 'A')
+                ->get();
+
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'status' => $status,
+                'location' => $location,
+                'div_name' => $div_name,
+                'category' => $category,
+                'year' => $year,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
+    public function getDropdownOptionscreateRequests(Request $request)
+    {
+        try {
+
+
+
+            $location = Location::select('id', 'location_name')
+                ->where('is_archived', 'A')
+                ->get();
+            $office = Office::select('id', 'officename')
+                ->where('is_archived', 'A')
+                ->get();
+ 
+ 
+
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'location' => $location,
+                'office' => $office,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
 
     // Log API calls for requests
     public function logAPICalls(string $methodName, string $requestId, array $param, array $resp)

@@ -20,7 +20,7 @@ class OfficeController extends Controller
             $request->validate([
                 'officename' => ['required', 'string'],
                 'acronym' => ['required', 'string'],
-                'office_type' => ['required', 'string'],
+                'office_type' => ['required', 'string', 'in: Academic, non Acadmic'],
             ]);
 
             $collegeOffice = Office::create([
@@ -107,15 +107,27 @@ class OfficeController extends Controller
     public function getOffices(Request $request)
     {
         try {
-
             $perPage = $request->input('per_page', 10);
+            $searchTerm = $request->input('search', null);
 
-            // Fetch paginated college offices;
-            $collegeOffices = Office::where('is_archived', 'A')->paginate($perPage);
+            // Create query to fetch active college offices
+            $query = Office::where('is_archived', 'A');
 
+            // Add search condition if search term is provided
+            if ($searchTerm) {
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('officename', 'like', "%{$searchTerm}%")
+                        ->orWhere('abbreviation', 'like', "%{$searchTerm}%");
+                });
+            }
+
+            // Paginate the result
+            $collegeOffices = $query->paginate($perPage);
+
+            // Prepare the response
             $response = [
                 'isSuccess' => true,
-                'message' => "Offices list:",
+                'message' => 'Offices list:',
                 'office' => $collegeOffices,
                 'pagination' => [
                     'total' => $collegeOffices->total(),
@@ -134,7 +146,7 @@ class OfficeController extends Controller
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to retrieve College Offices.",
+                'message' => 'Failed to retrieve College Offices.',
                 'error' => $e->getMessage()
             ];
 
@@ -170,6 +182,43 @@ class OfficeController extends Controller
             return response()->json($response, 500);
         }
     }
+
+    // public function getDropdownOptionsOffices(Request $request)
+    // {
+       
+    // try {
+    //     // Fetch distinct office types that are either 'Academic' or 'Non-Academic'
+    //     $offices = Office::selectRaw('MIN(id) as id, office_type')
+    //     ->whereIn('office_type', ['Academic', 'Non-Academic'])
+    //     ->where('is_archived', 'A')
+    //     ->groupBy('office_type')
+    //     ->get();
+    
+    //         // Build the response
+    //         $response = [
+    //             'isSuccess' => true,
+    //             'message' => 'Dropdown data retrieved successfully.',
+    //             'offices' => $offices,
+    //         ];
+    
+    //         // Log the API call
+    //         $this->logAPICalls('getDropdownOptionsOffice', "", $request->all(), $response);
+    
+    //         return response()->json($response, 200);
+    //     } catch (Throwable $e) {
+    //         // Handle the error response
+    //         $response = [
+    //             'isSuccess' => false,
+    //             'message' => 'Failed to retrieve dropdown data.',
+    //             'error' => $e->getMessage()
+    //         ];
+    
+    //         // Log the error
+    //         $this->logAPICalls('getDropdownOptionsOffice', "", $request->all(), $response);
+    
+    //         return response()->json($response, 500);
+    //     }
+    // }
 
     /**
      * Log all API calls.

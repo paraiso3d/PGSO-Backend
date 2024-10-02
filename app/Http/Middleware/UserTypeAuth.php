@@ -9,27 +9,33 @@ use Illuminate\Support\Facades\Auth;
 class UserTypeAuth
 {
     /**
-     * 
+     * Handle an incoming request.
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
+     * @param  mixed  ...$allowedUserTypes
      * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
-    
-     public function handle(Request $request, Closure $next)
-     {
-         if (Auth::check()) {
-             $user = Auth::user();
- 
-             if (in_array($user->user_type, ['Administrator', 'Supervisor', 'TeamLeader', 'Controller', 'DeanHead'])) {
-                 return $next($request);
-             } else {
-                 return response()->json(['message' => 'Unauthorized user type'], 403);
-             }
-         }
- 
-         return response()->json(['message' => 'Unauthorized'], 401);
-     }
- }
+    public function handle(Request $request, Closure $next, ...$allowedUserTypes)
+    {
+        $user = Auth::user();
 
+        // Check if the user is logged in
+        if (!$user) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Access denied. You must be logged in to perform this action.',
+            ], 401); // Unauthorized
+        }
 
+        // Check if the user's type is in the allowed list
+        if (in_array($user->user_type, $allowedUserTypes)) {
+            return $next($request);
+        }
+
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Access denied. You do not have permission to perform this action.',
+        ], 403); // Forbidden
+    }
+}
