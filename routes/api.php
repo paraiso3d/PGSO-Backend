@@ -53,8 +53,8 @@ Route::controller(UserController::class)->group(function () {
     Route::post('createUser', 'createUserAccount');        
     Route::post('updateUser/{id}', 'updateUserAccount');    
     Route::get('userList', 'getUserAccounts');
-    Route::get('userDropdown', 'getDropdownOptions');
-    Route::post('deleteUser/{id}', 'deleteUserAccount');        
+    Route::post('deleteUser/{id}', 'deleteUserAccount'); 
+    Route::get('getdropdownUsers','getDropdownOptionsUsers');       
 
 });
 
@@ -75,14 +75,18 @@ Route::controller(DivisionController::class)->group(function () {
 /*
 |--------------------Profile Api-----------------------\
 */
-
-Route::middleware(['auth:sanctum', 'UserTypeAuth'])->group(function () {
-    Route::middleware('auth:sanctum')->get('profile', [AuthController::class, 'viewProfile']);
-    Route::middleware('auth:sanctum')->post('profile/edit', [AuthController::class, 'editProfile']);
-    Route::middleware('auth:sanctum')->post('editpassword', [AuthController::class, 'changePassword']);
-
+Route::controller(AuthController::class)->group(function(){
+    Route::post('editprofile/{id}','editProfile');
 
 });
+
+// Route::middleware(['auth:sanctum', 'UserTypeAuth'])->group(function () {
+//     Route::middleware('auth:sanctum')->get('profile', [AuthController::class, 'viewProfile']);
+//     Route::middleware('auth:sanctum')->post('profile/edit', [AuthController::class, 'editProfile']);
+//     Route::middleware('auth:sanctum')->post('editpassword', [AuthController::class, 'changePassword']);
+
+
+// });
 
 /*
 |--------------------LOGOUT API-----------------------\
@@ -101,24 +105,26 @@ Route::controller(RequestController::class)->group(function () {
     Route::post('updateRequest/{id}', 'updateRequest');
     Route::get('requestList', 'getRequests');
     Route::post('deleteCategory/{id}', 'deleteCategory');
+    Route::get('getdropdownrequestList','getDropdownOptionsRequests');
+    Route::get('getdropdowncreateRequest','getDropdownOptionscreateRequests');
 });
 
-Route::middleware(['auth:sanctum'])->group(function () {
-    // Admin can access all CRUD routes
-    Route::middleware('UserTypeAuth:Administrator')->group(function () {
-        Route::post('admin-createrequest', [RequestController::class, 'createRequest']);
-        Route::post('admin-updaterequest/{id}', [RequestController::class, 'updateRequest']);
-        Route::get('admin-getrequest', [RequestController::class, 'getRequests']);
-    });
-    Route::middleware('UserTypeAuth:Controller,Supervisor,TeamLeader')->group(function () {
-        Route::get('user-getrequest', [RequestController::class, 'getRequests']);
+// Route::middleware(['auth:sanctum'])->group(function () {
+//     // Admin can access all CRUD routes
+//     Route::middleware('UserTypeAuth:Administrator')->group(function () {
+//         Route::post('admin-createrequest', [RequestController::class, 'createRequest']);
+//         Route::post('admin-updaterequest/{id}', [RequestController::class, 'updateRequest']);
+//         Route::get('admin-getrequest', [RequestController::class, 'getRequests']);
+//     });
+//     Route::middleware('UserTypeAuth:Controller,Supervisor,TeamLeader')->group(function () {
+//         Route::get('user-getrequest', [RequestController::class, 'getRequests']);
 
-    });
-    Route::middleware('UserTypeAuth:DeanHead')->group(function () {
-        Route::post('dean-createrequest', [RequestController::class, 'createRequest']);
-        Route::get('dean-getrequest', [RequestController::class, 'getRequests']);
-    });
-});
+//     });
+//     Route::middleware('UserTypeAuth:DeanHead')->group(function () {
+//         Route::post('dean-createrequest', [RequestController::class, 'createRequest']);
+//         Route::get('dean-getrequest', [RequestController::class, 'getRequests']);
+//     });
+// });
 
 /*
 |--------------------Category API-----------------------\
@@ -129,6 +135,7 @@ Route::controller(CategoryController::class)->group(function () {
     Route::post('updateCategory/{id}', 'updateCategory');    
     Route::get('categoryList', 'getCategory');
     Route::post('deleteCategory/{id}', 'deleteCategory');
+    Route::get('getdropdownCategory', 'getDropdownOptionsCategory');
 
 });
 
@@ -171,6 +178,7 @@ Route::controller(OfficeController::class)->group(function () {
     Route::post('updateOffice/{id}', 'updateOffice');
     Route::get('officeList', 'getOffices');
     Route::post('deleteOffice/{id}', 'deleteOffice');
+    // Route::get('getdropdownsOffices','getDropdownOptionsOffices');
 
 });
 
@@ -213,10 +221,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
 */
 
 Route::controller(ActualWorkController::class)->group(function () {
-    Route::post('createworkreport', 'createWorkreport');
-    Route::post('updateworkreport/{id}', 'updateWorkreport');
-    Route::get('getworkreport', 'getWorkreport');
-    Route::post('addmanpowerdeploy','addManpowerDeploy');
+    Route::post('createWorkreport', 'createWorkreport');
+    Route::post('updateWorkreport/{id}', 'updateWorkreport');
+    Route::get('workreportList', 'getWorkreport');
+
+    //MANPOWER DEPLOYMENT API
+
+    Route::post('addManpowerdeploy','addManpowerDeploy');
+    Route::get('manpowerdeployList', 'getManpowerDeploy');
+    Route::post('deleteManpowerdeploy/{id}', 'deletemanpowerdeployment');
 });
 
 /*
@@ -224,9 +237,10 @@ Route::controller(ActualWorkController::class)->group(function () {
 */
 
 Route::controller(InspectionController::class)->group(function () {
-    Route::get('getinspection','getInspections');
-    Route::post('createinspection', 'createInspection');
-    Route::post('updateinspection/{id}', 'updateInspection');
+    Route::get('inspectionList','getInspections');
+    Route::post('createInspection', 'createInspection');
+    Route::post('updateInspection/{id}', 'updateInspection');
+    Route::post('deleteInspection/{id}','deleteInspection');
 });
 
 

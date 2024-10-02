@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
+use App\Models\Location;
 use App\Models\User;
+use DB;
 use App\Models\Division;
+use App\Models\Office;
 use App\Models\Requests;
 use Illuminate\Http\Request;
 use Throwable;
@@ -121,12 +125,12 @@ class RequestController extends Controller
                 'fiscal_year' => 'nullable|string',
                 'division' => 'nullable|string',
                 'search' => 'nullable|string',
-                'is_archived' => 'nullable|in:A,I', 
+                'is_archived' => 'nullable|in:A,I',
             ]);
-    
+
             // Initialize query
             $query = Requests::query();
-    
+
             // Select specific fields from both tables
             $query->select(
                 'requests.id',
@@ -142,33 +146,33 @@ class RequestController extends Controller
                 'requests.status',
                 'categories.division'
             )
-            ->join('categories', 'requests.category_name', '=', 'categories.category_name');
-    
+                ->join('categories', 'requests.category_name', '=', 'categories.category_name');
+
             // Apply filters dynamically if present
             if (!empty($validated['status'])) {
                 $query->where('requests.status', $validated['status']);
             }
-    
+
             if (!empty($validated['location_name'])) {
                 $query->where('requests.location_name', 'like', '%' . $validated['location_name'] . '%');
             }
-    
+
             if (!empty($validated['category_name'])) {
                 $query->where('requests.category_name', $validated['category_name']);
             }
-    
+
             if (!empty($validated['fiscal_year'])) {
                 $query->where('requests.fiscal_year', $validated['fiscal_year']);
             }
-    
+
             if (!empty($validated['division'])) {
                 $query->where('categories.division', 'like', '%' . $validated['division'] . '%');
             }
-    
+
             if (!empty($validated['search'])) {
                 $query->where('requests.description', 'like', '%' . $validated['search'] . '%');
             }
-    
+
             // Apply is_archived filter (active = 'A', archived = 'I')
             if (!empty($validated['is_archived'])) {
                 $query->where('requests.is_archived', $validated['is_archived']);
@@ -176,24 +180,24 @@ class RequestController extends Controller
                 // Default behavior: get active requests (is_archived = 'A') if no filter is provided
                 $query->where('requests.is_archived', 'A');
             }
-    
+
             // Pagination
             $perPage = $validated['per_page'] ?? 10;
-    
+
             // Sort by division and paginate
             $requests = $query->orderBy('categories.division', 'asc')->paginate($perPage);
-    
+
             // Response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
                 'request' => $requests,
             ];
-    
+
             $this->logAPICalls('getRequests', '', $request->all(), $response);
-    
+
             return response()->json($response, 200);
-    
+
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -201,11 +205,11 @@ class RequestController extends Controller
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('getRequests', '', $request->all(), $response);
-    
+
             return response()->json($response, 500);
         }
     }
-    
+
 
     // Method to update an existing request
     public function updateRequest(Request $request, $id)
@@ -284,6 +288,102 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     }
+
+    public function getDropdownOptionsRequests(Request $request)
+    {
+        try {
+
+            $status = Requests::select(DB::raw('MIN(id) as id'), 'status')
+                ->whereIn('status', ['Pending', 'For Inspection', 'On-Going', 'Completed', 'Returned'])
+                ->where('is_archived', 'A')
+                ->groupBy('status')
+                ->get();
+
+            $location = Location::select('id', 'location_name')
+                ->where('is_archived', 'A')
+                ->get();
+            $div_name = Division::select('id', 'div_name')
+                ->where('is_archived', 'A')
+                ->get();
+            $category = Category::select('id', 'category_name')
+                ->where('is_archived', 'A')
+                ->get();
+            $year = Requests::select('id', 'fiscal_year')
+                ->where('is_archived', 'A')
+                ->get();
+
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'status' => $status,
+                'location' => $location,
+                'div_name' => $div_name,
+                'category' => $category,
+                'year' => $year,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
+    public function getDropdownOptionscreateRequests(Request $request)
+    {
+        try {
+
+
+
+            $location = Location::select('id', 'location_name')
+                ->where('is_archived', 'A')
+                ->get();
+            $office = Office::select('id', 'officename')
+                ->where('is_archived', 'A')
+                ->get();
+ 
+ 
+
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'location' => $location,
+                'office' => $office,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
 
     // Log API calls for requests
     public function logAPICalls(string $methodName, string $requestId, array $param, array $resp)

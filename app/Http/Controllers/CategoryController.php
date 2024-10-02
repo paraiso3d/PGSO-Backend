@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\ApiLog;
+use App\Models\Division;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -56,36 +57,35 @@ class CategoryController extends Controller
     public function getCategory(Request $request)
     {
         try {
+            // Validate the incoming request
             $validated = $request->validate([
                 'per_page' => 'nullable|integer',
-                'is_archived' => 'nullable|in:A,I', 
-                'search' => 'nullable|string',      
+                'search' => 'nullable|string',   // Search term
             ]);
-            
-        
+    
+            // Start building the query to select categories
             $query = Category::select('id', 'category_name', 'description', 'division');
     
-         
-            if (!empty($validated['is_archived'])) {
-                $query->where('is_archived', $validated['is_archived']);
-            } else {
-        
-                $query->where('is_archived', 'A');
-            }
+            // Always filter by the hidden is_archived field (default to 'A' for active categories)
+            $query->where('is_archived', 'A');
     
+            // If a search term is provided, search in both category_name and division
             if (!empty($validated['search'])) {
-                $query->where('category_name', 'like', '%' . $validated['search'] . '%');
+                $query->where(function($q) use ($validated) {
+                    $q->where('category_name', 'like', '%' . $validated['search'] . '%')
+                      ->orWhere('division', 'like', '%' . $validated['search'] . '%');
+                });
             }
     
-    
-            $perPage = $validated['per_page'] ?? 10;  
-
+            // Set pagination: use provided per_page value or default to 10
+            $perPage = $validated['per_page'] ?? 10;
             $categories = $query->paginate($perPage);
     
+            // Create the response with pagination details
             $response = [
                 'isSuccess' => true,
                 'message' => 'Categories retrieved successfully.',
-                'categories' => $categories->items(), // Get the paginated items
+                'categories' => $categories, // Return the paginated items
                 'pagination' => [
                     'total' => $categories->total(),
                     'per_page' => $categories->perPage(),
@@ -99,9 +99,11 @@ class CategoryController extends Controller
             // Log the API call
             $this->logAPICalls('getCategory', "", $request->all(), $response);
     
+            // Return the response as JSON
             return response()->json($response, 200);
     
         } catch (Throwable $e) {
+            // Handle any exception and return an error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve the categories.',
@@ -109,6 +111,7 @@ class CategoryController extends Controller
             ];
             $this->logAPICalls('getCategory', "", $request->all(), $response);
     
+            // Return the error response as JSON
             return response()->json($response, 500);
         }
     }
@@ -185,6 +188,42 @@ class CategoryController extends Controller
             return response()->json($response, 500);  // 500 for internal server error
         }
     }
+
+    public function getDropdownOptionsCategory(Request $request)
+    {
+        try {
+    
+    
+            $divisions = Division::select('id', 'div_name')
+            ->where('is_archived', 'A')
+            ->get();
+    
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'div_name' => $divisions,
+            ];
+    
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsDivisions', "", $request->all(), $response);
+    
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+    
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsDivisions', "", $request->all(), $response);
+    
+            return response()->json($response, 500);
+        }
+    }
+
 
     /**
      * Log all API calls.

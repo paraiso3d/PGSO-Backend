@@ -15,32 +15,32 @@ use App\Models\Session;
 class InspectionController extends Controller
 {
 
-    public function __construct(Request $request)
-    {
-        // Retrieve the authenticated user
-        $user = $request->user();
+    // public function __construct(Request $request)
+    // {
+    //     // Retrieve the authenticated user
+    //     $user = $request->user();
 
-        // Apply middleware based on the user type
-        if ($user && $user->user_type === 'Administrator') {
-            $this->middleware('UserTypeAuth:Administrator')->only(['updateReview', 'getReviews']);
-        }
+    //     // Apply middleware based on the user type
+    //     if ($user && $user->user_type === 'Administrator') {
+    //         $this->middleware('UserTypeAuth:Administrator')->only(['updateReview', 'getReviews']);
+    //     }
 
-        if ($user && $user->user_type === 'Supervisor') {
-            $this->middleware('UserTypeAuth:Supervisor')->only(['updateReview', 'getReviews']);
-        }
+    //     if ($user && $user->user_type === 'Supervisor') {
+    //         $this->middleware('UserTypeAuth:Supervisor')->only(['updateReview', 'getReviews']);
+    //     }
 
-        if ($user && $user->user_type === 'TeamLeader') {
-            $this->middleware('UserTypeAuth:TeamLeader')->only(['updateReview', 'getReviews']);
-        }
+    //     if ($user && $user->user_type === 'TeamLeader') {
+    //         $this->middleware('UserTypeAuth:TeamLeader')->only(['updateReview', 'getReviews']);
+    //     }
 
-        if ($user && $user->user_type === 'Controller') {
-            $this->middleware('UserTypeAuth:Controller')->only(['updateReview', 'getReviews']);
-        }
+    //     if ($user && $user->user_type === 'Controller') {
+    //         $this->middleware('UserTypeAuth:Controller')->only(['updateReview', 'getReviews']);
+    //     }
 
-        if ($user && $user->user_type === 'DeanHead') {
-            $this->middleware('UserTypeAuth:DeanHead')->only(['getReviews']);
-        }
-    }
+    //     if ($user && $user->user_type === 'DeanHead') {
+    //         $this->middleware('UserTypeAuth:DeanHead')->only(['getReviews']);
+    //     }
+    // }
 
     public function createInspection(Request $request)
     {
@@ -61,7 +61,7 @@ class InspectionController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Inspection report successfully created.',
-                'data' => $newInspection,
+                'inspection' => $newInspection,
             ];
     
             // Log the API call (assuming `logAPICalls` is a defined method in your class)
@@ -88,61 +88,40 @@ class InspectionController extends Controller
 
     
     public function getInspections(Request $request)
-    {
-        try {
-            // Validation for filters (optional)
-            $validated = $request->validate([
-                'per_page' => 'nullable|integer',
-                'description' => 'nullable|string', // If you want to filter by description
-                'recommendation' => 'nullable|string', // If you want to filter by recommendation
-            ]);
-    
-            // Initialize query
-            $query = Inspection_report::query();
-    
-            // Apply filters dynamically if present
-            if (!empty($validated['description'])) {
-                $query->where('description', 'like', '%' . $validated['description'] . '%');
-            }
-    
-            if (!empty($validated['recommendation'])) {
-                $query->where('recommendation', 'like', '%' . $validated['recommendation'] . '%');
-            }
-    
-            // Pagination (default to 10 if not provided)
-            $perPage = $validated['per_page'] ?? 10;
-    
-            // Sort by 'description' 
-            $inspections = $query->orderBy('description', 'asc')->paginate($perPage);
-    
-            // Response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Inspections retrieved successfully.',
-                'data' => $inspections,
-            ];
-    
-            // Log API calls if necessary
-            $this->logAPICalls('getInspections', '', $request->all(), $response);
-    
-            return response()->json($response, 200);
-    
-        } catch (Throwable $e) {
-            // Catch any exceptions and send error response
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve the inspection reports.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('getInspections', '', $request->all(), $response);
-    
-            return response()->json($response, 500);
-        }
+{
+    try {
+        // Create query to fetch active inspection reports
+        $inspection = Inspection_report::select('id', 'description', 'recommendation')
+            ->where('is_archived', 'A')
+            ->get(); // Retrieve all records without pagination
+
+        // Prepare the response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Inspections retrieved successfully.',
+            'inspection' => $inspection,
+        ];
+
+        // Log API calls
+        $this->logAPICalls('getInspections', "", $request->all(), $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        // Prepare the error response
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve inspections.',
+            'error' => $e->getMessage()
+        ];
+
+        // Log the error
+        $this->logAPICalls('getInspections', "", $request->all(), $response);
+
+        return response()->json($response, 500);
     }
+}
+
     
-
-
-
 
 
 
@@ -157,7 +136,6 @@ class InspectionController extends Controller
         ]);
     
         try {
-            // Find the existing inspection report by ID or throw a 404 error
             $existingRequest = Inspection_report::findOrFail($id);
     
             // Update the request data
@@ -184,6 +162,34 @@ class InspectionController extends Controller
     
             $this->logAPICalls('updateInspection', $id, $request->all(), $response);
             return response()->json($response, 500); // Return a 500 Internal Server Error response
+        }
+    }
+
+    public function deleteInspection(Request $request)
+    {
+        try {
+            
+            $inspection = Inspection_report::findOrFail($request->id);
+            $inspection->update(['is_archived' => "I"]);
+            $response = [
+                'isSuccess' => true,
+                'message' => "Manpower successfully deleted."
+            ];
+    
+            // Log the API call (assuming this method works properly)
+            $this->logAPICalls('deleteinspection', $inspection->id, [], [$response]);
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to delete the Manpower.",
+                'error' => $e->getMessage()
+            ];
+    
+            // Log the API call with failure response
+            $this->logAPICalls('deleteinspection', "", [], [$response]);
+    
+            return response()->json($response, 500);
         }
     }
     

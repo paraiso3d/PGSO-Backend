@@ -10,7 +10,13 @@ class ManpowerDeployment extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['first_name', 'last_name', 'rating'];
+    protected $fillable = [
+    'first_name',
+     'last_name', 
+     'rating',
+     'is_archived'
+
+    ];
 
     /**
      * Custom validation method for Inspection Report.

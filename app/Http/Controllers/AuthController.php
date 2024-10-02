@@ -100,23 +100,25 @@ class AuthController extends Controller
             'first_name' => 'required|string',
             'middle_initial' => 'nullable|string',
             'email' => 'required|email|unique:users,email,' . $user->id,
-            'profile_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // Adjust size as needed
-            'signature' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // Adjust size as needed
+            'profile_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'signature' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', 
         ]);
 
         try {
             // Update user information
-            $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email']));
+            $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email','profile_image','signature']));
 
             // Handle profile image upload
+            $profileImagePath = null;
+            
             if ($request->hasFile('profile_image')) {
-                $profileImagePath = $request->file('profile_image')->store('profile_images', 'public');
+                $profileImagePath = $request->file('profile_image')->store('public/uploads');
                 $user->update(['profile_image' => $profileImagePath]);
             }
-
+            $signaturePath = null;
             // Handle signature upload
             if ($request->hasFile('signature')) {
-                $signaturePath = $request->file('signature')->store('signatures', 'public');
+                $signaturePath = $request->file('signature')->store('public/uploads');
                 $user->update(['signature' => $signaturePath]);
             }
 
