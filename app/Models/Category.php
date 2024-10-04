@@ -25,7 +25,7 @@ class Category extends Model
         $validator = Validator::make($data, [
             'category_name' => ['required', 'string'],
             'division' => ['required', !empty($division) ? 'in:' . implode(',', $division) : ''],
-           'division_id' => 'exists:divisions,division_id',
+           'id' => 'exists:divisions,id',
             'is_archived' => ['nullable','in: A, I']
         ]);
 
@@ -41,7 +41,7 @@ class Category extends Model
         $validator = Validator::make($data, [
             'category_name' => ['sometimes','required', 'string'], 
             'division' => ['sometimes', 'in:' . implode(',', $division)],
-            'division_id' => 'exists:divisions,division_id',
+            'id' => 'exists:divisions,id',
             'is_archived' => ['nullable','in: A, I']
         ]);
 

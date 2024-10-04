@@ -312,7 +312,7 @@ class RequestController extends Controller
     {
         try {
 
-            $div_name = Division::select('division_id', 'div_name')
+            $div_name = Division::select('id', 'div_name')
                 ->where('is_archived', 'A')
                 ->get();
 

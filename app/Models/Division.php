@@ -10,7 +10,6 @@ class Division extends Model
     use HasFactory;
     protected $guard = [];
 
-    protected $primaryKey = 'division_id';
     protected $fillable = [
         'div_name',
         'note',
