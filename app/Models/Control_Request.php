@@ -14,6 +14,6 @@ class Control_Request extends Model
 
     protected $fillable = [
         'request_id', 'control_no', 'description', 'officename', 'location_name', 'overtime',
-        'area', 'fiscal_year', 'file_path', 'remarks', 'status'
+        'area', 'fiscal_year', 'file_path', 'remarks', 'categories', 'status'
     ];
 }

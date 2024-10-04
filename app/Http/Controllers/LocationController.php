@@ -108,7 +108,7 @@ class LocationController extends Controller
         $search = $request->input('search'); // Get 'search' parameter if provided
 
         // Create the query to select locations
-        $query = Location::select('location_name', 'note')
+        $query = Location::select('id','location_name', 'note')
             ->where('is_archived', 'A'); // Include only active locations
 
         // Apply search filter if search term is provided

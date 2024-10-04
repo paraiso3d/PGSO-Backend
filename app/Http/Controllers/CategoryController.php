@@ -219,7 +219,7 @@ class CategoryController extends Controller
         try {
 
 
-            $divisions = Division::select('id', 'div_name')
+            $divisions = Division::select('division_id', 'div_name')
                 ->where('is_archived', 'A')
                 ->get();
 

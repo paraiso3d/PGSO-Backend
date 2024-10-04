@@ -20,7 +20,7 @@ class OfficeController extends Controller
             $request->validate([
                 'officename' => ['required', 'string'],
                 'acronym' => ['required', 'string'],
-                'office_type' => ['required', 'string', 'in: Academic, non Acadmic'],
+                'office_type' => ['string', 'in: Academic, Non Academic'],
             ]);
 
             $collegeOffice = Office::create([
@@ -66,7 +66,7 @@ class OfficeController extends Controller
             $request->validate([
                 'officename' => ['sometimes', 'required', 'string'],
                 'acronym' => ['sometimes', 'required', 'string'],
-                'office_type' => ['sometimes', 'required', 'string'],
+                'office_type' => ['sometimes', 'string'],
             ]);
 
             $collegeOffice->update([

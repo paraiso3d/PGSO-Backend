@@ -169,62 +169,6 @@ class RequestController extends Controller
         }
     }
 
-
-
-
-    // Method to update an existing request
-    public function updateRequest(Request $request, $id)
-    {
-        // Validate the incoming request data
-        $validator = Requests::validateRequest($request->all());
-
-        if ($validator->fails()) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors(),
-            ];
-            $this->logAPICalls('updateRequest', $id, $request->all(), $response);
-            return response()->json($response, 400);
-        }
-
-        try {
-            $existingRequest = Requests::findOrFail($id);
-
-            // Update the request data
-            $existingRequest->update([
-                'description' => $request->input('description'),
-                'officename' => $request->input('officename'),
-                'location_name' => $request->input('location_name'),
-                'overtime' => $request->input('overtime'),
-                'area' => $request->input('area'),
-                'category_name' => $request->input('category_name'),
-                'fiscalyear' => $request->input('fiscal_year'),
-                'file' => $request->file('file') ? $request->file('file')->store('storage/uploads') : $existingRequest->file,
-                'status' => $request->input('status'),
-                'user_id' => $request->input('user_id'),
-
-            ]);
-
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Request updated successfully.',
-                'request' => $existingRequest,
-            ];
-            $this->logAPICalls('updateRequest', $id, $request->all(), $response);
-
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to update the request.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('updateRequest', $id, $request->all(), $response);
-            return response()->json($response, 500);
-        }
-    }
-
     // Method to delete (archive) a request
     public function deleteRequest($id)
     {
@@ -368,7 +312,7 @@ class RequestController extends Controller
     {
         try {
 
-            $div_name = Division::select('id', 'div_name')
+            $div_name = Division::select('division_id', 'div_name')
                 ->where('is_archived', 'A')
                 ->get();
 
