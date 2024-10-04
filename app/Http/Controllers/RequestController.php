@@ -18,34 +18,36 @@ use Illuminate\Support\Facades\Auth;
 
 class RequestController extends Controller
 {
-    public function __construct(Request $request)
-    {
-        // Retrieve the authenticated user
-        $user = $request->user();
+    // public function __construct(Request $request)
+    // {
+    //     // Retrieve the authenticated user
+    //     $user = $request->user();
 
-        // Apply middleware based on the user type
-        if ($user && $user->user_type === 'Administrator') {
-            $this->middleware('UserTypeAuth:Administrator')->only(['createRequest', 'updateRequest', 'getRequests', 'getRequestById']);
-        }
+    //     // Apply middleware based on the user type
+    //     if ($user && $user->user_type === 'Administrator') {
+    //         $this->middleware('UserTypeAuth:Administrator')->only(['createRequest', 'updateRequest', 'getRequests', 'getRequestById']);
+    //     }
 
-        if ($user && $user->user_type === 'Supervisor') {
-            $this->middleware('UserTypeAuth:Supervisor')->only(['getRequests']);
-        }
+    //     if ($user && $user->user_type === 'Supervisor') {
+    //         $this->middleware('UserTypeAuth:Supervisor')->only(['getRequests']);
+    //     }
 
-        if ($user && $user->user_type === 'TeamLeader') {
-            $this->middleware('UserTypeAuth:TeamLeader')->only(['getRequests']);
-        }
+    //     if ($user && $user->user_type === 'TeamLeader') {
+    //         $this->middleware('UserTypeAuth:TeamLeader')->only(['getRequests']);
+    //     }
 
-        if ($user && $user->user_type === 'Controller') {
-            $this->middleware('UserTypeAuth:Controller')->only(['getRequests']);
-        }
+    //     if ($user && $user->user_type === 'Controller') {
+    //         $this->middleware('UserTypeAuth:Controller')->only(['getRequests']);
+    //     }
 
-        if ($user && $user->user_type === 'DeanHead') {
-            $this->middleware('UserTypeAuth:DeanHead')->only(['createRequest', 'getRequests']);
-        }
-    }
+    //     if ($user && $user->user_type === 'DeanHead') {
+    //         $this->middleware('UserTypeAuth:DeanHead')->only(['createRequest', 'getRequests']);
+    //     }
+    // }
 
     // Method to create a new request.    
+
+
     public function createRequest(Request $request)
     {
         // Validate the incoming request data using the model's validateRequest method
@@ -83,7 +85,6 @@ class RequestController extends Controller
                 'location_name' => $request->input('location_name'),
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
-                'category_name' => $request->input('category_name'),
                 'fiscal_year' => $request->input('fiscal_year'),
                 'file_path' => $filePath, // Save the path to the database
                 'status' => $status,
@@ -115,23 +116,10 @@ class RequestController extends Controller
     public function getRequests(Request $request)
     {
         try {
-            // Validation for filters (optional)
-            $validated = $request->validate([
-                'per_page' => 'nullable|integer',
-                'status' => 'nullable|string',
-                'file_path' => 'nullable|string',
-                'location_name' => 'nullable|string',
-                'category_name' => 'nullable|string',
-                'fiscal_year' => 'nullable|string',
-                'division' => 'nullable|string',
-                'search' => 'nullable|string',
-                'is_archived' => 'nullable|in:A,I',
-            ]);
-
             // Initialize query
             $query = Requests::query();
 
-            // Select specific fields from both tables
+            // Select specific fields from the requests table
             $query->select(
                 'requests.id',
                 'requests.control_no',
@@ -141,51 +129,22 @@ class RequestController extends Controller
                 'requests.overtime',
                 'requests.file_path',
                 'requests.area',
-                'requests.category_name',
                 'requests.fiscal_year',
-                'requests.status',
-                'categories.division'
+                'requests.status'
             )
-                ->join('categories', 'requests.category_name', '=', 'categories.category_name');
+                // Only get active requests (is_archived = 'A')
+                ->where('requests.is_archived', 'A');
 
-            // Apply filters dynamically if present
-            if (!empty($validated['status'])) {
-                $query->where('requests.status', $validated['status']);
-            }
-
-            if (!empty($validated['location_name'])) {
-                $query->where('requests.location_name', 'like', '%' . $validated['location_name'] . '%');
-            }
-
-            if (!empty($validated['category_name'])) {
-                $query->where('requests.category_name', $validated['category_name']);
-            }
-
-            if (!empty($validated['fiscal_year'])) {
-                $query->where('requests.fiscal_year', $validated['fiscal_year']);
-            }
-
-            if (!empty($validated['division'])) {
-                $query->where('categories.division', 'like', '%' . $validated['division'] . '%');
-            }
-
-            if (!empty($validated['search'])) {
-                $query->where('requests.description', 'like', '%' . $validated['search'] . '%');
-            }
-
-            // Apply is_archived filter (active = 'A', archived = 'I')
-            if (!empty($validated['is_archived'])) {
-                $query->where('requests.is_archived', $validated['is_archived']);
-            } else {
-                // Default behavior: get active requests (is_archived = 'A') if no filter is provided
-                $query->where('requests.is_archived', 'A');
+            // Search by control_no if provided
+            if ($request->has('search') && !empty($request->input('search'))) {
+                $query->where('requests.control_no', 'like', '%' . $request->input('search') . '%');
             }
 
             // Pagination
-            $perPage = $validated['per_page'] ?? 10;
+            $perPage = $request->input('per_page', 10);
 
-            // Sort by division and paginate
-            $requests = $query->orderBy('categories.division', 'asc')->paginate($perPage);
+            // Sort by control_no or any other field if needed
+            $requests = $query->orderBy('requests.control_no', 'asc')->paginate($perPage);
 
             // Response
             $response = [
@@ -209,6 +168,8 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     }
+
+
 
 
     // Method to update an existing request
@@ -289,7 +250,45 @@ class RequestController extends Controller
         }
     }
 
-    public function getDropdownOptionsRequests(Request $request)
+    //Dropdown Request Location
+
+    public function getDropdownOptionsRequestslocation(Request $request)
+    {
+        try {
+
+            $location = Location::select('id', 'location_name')
+                ->where('is_archived', 'A')
+                ->get();
+
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'location' => $location
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsRequestslocation', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsRequestslocation', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
+
+    //Dropdown Request Status
+
+    public function getDropdownOptionsRequeststatus(Request $request)
     {
         try {
 
@@ -299,15 +298,39 @@ class RequestController extends Controller
                 ->groupBy('status')
                 ->get();
 
-            $location = Location::select('id', 'location_name')
-                ->where('is_archived', 'A')
-                ->get();
-            $div_name = Division::select('id', 'div_name')
-                ->where('is_archived', 'A')
-                ->get();
-            $category = Category::select('id', 'category_name')
-                ->where('is_archived', 'A')
-                ->get();
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'status' => $status
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsRequeststatus', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsRequeststatus', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+
+    }
+
+    //Dropdown Request Status
+
+    public function getDropdownOptionsRequestyear(Request $request)
+    {
+        try {
+
             $year = Requests::select('id', 'fiscal_year')
                 ->where('is_archived', 'A')
                 ->get();
@@ -316,15 +339,11 @@ class RequestController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Dropdown data retrieved successfully.',
-                'status' => $status,
-                'location' => $location,
-                'div_name' => $div_name,
-                'category' => $category,
-                'year' => $year,
+                'year' => $year
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestyear', "", $request->all(), $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -336,37 +355,142 @@ class RequestController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestyear', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+
+    }
+
+    //Dropdown Request Division
+
+    public function getDropdownOptionsRequestdivision(Request $request)
+    {
+        try {
+
+            $div_name = Division::select('id', 'div_name')
+                ->where('is_archived', 'A')
+                ->get();
+
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'div_name' => $div_name
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsRequestdivision', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsRequestdivision', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+
+    }
+
+    //  Dropdown Request Category
+
+    public function getDropdownOptionsRequestcategory(Request $request)
+    {
+        try {
+
+            $category = Category::select('id', 'category_name')
+                ->where('is_archived', 'A')
+                ->get();
+
+
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'category' => $category
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsRequestcategory', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsRequestcategory', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+
+    }
+
+    //Dropdown Create Request office
+
+    public function getDropdownOptionscreateRequestsoffice(Request $request)
+    {
+        try {
+            $office = Office::select('id', 'officename')
+                ->where('is_archived', 'A')
+                ->get();
+
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'office' => $office,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionscreateRequestsoffice', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionscreateRequestsoffice', "", $request->all(), $response);
 
             return response()->json($response, 500);
         }
     }
 
-    public function getDropdownOptionscreateRequests(Request $request)
+    //Dropdown CreateRequest location
+
+    public function getDropdownOptionscreateRequestslocation(Request $request)
     {
         try {
-
-
 
             $location = Location::select('id', 'location_name')
                 ->where('is_archived', 'A')
                 ->get();
-            $office = Office::select('id', 'officename')
-                ->where('is_archived', 'A')
-                ->get();
- 
- 
 
             // Build the response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Dropdown data retrieved successfully.',
                 'location' => $location,
-                'office' => $office,
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionscreateRequestslocation', "", $request->all(), $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -378,11 +502,12 @@ class RequestController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsRequests', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionscreateRequestslocation', "", $request->all(), $response);
 
             return response()->json($response, 500);
         }
     }
+
 
 
     // Log API calls for requests

@@ -19,7 +19,7 @@ class DivisionController extends Controller
     {
         try {
             $request->validate([
-                'div_name' => ['required', 'string', 'unique:divisions,div_name,except,id'],
+                'div_name' => ['required', 'string', 'unique:divisions,div_name,except,division_id'],
                 'note' => ['required', 'string'],
                 'is_archived' => ['nullable', 'in: A, I']
             ]);
@@ -58,13 +58,13 @@ class DivisionController extends Controller
     /**
      * Update an existing college office.
      */
-    public function updateDivision(Request $request, $id)
+    public function updateDivision(Request $request, $division_id)
     {
         try {
-            $divname = Division::findOrFail($id);
+            $divname = Division::findOrFail($division_id);
 
             $request->validate([
-                'div_name' => ['sometimes', 'required', 'string'],
+                'div_name' => ['sometimes','required', 'string', 'unique:divisions,div_name,except,division_id'],
                 'note' => ['sometimes', 'required', 'string'],
             ]);
 
@@ -78,7 +78,7 @@ class DivisionController extends Controller
                 'message' => "Division successfully updated.",
                 'division' => $divname
             ];
-            $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
+            $this->logAPICalls('updateDivision', $division_id, $request->all(), [$response]);
             return response()->json($response, 200);
         } catch (ValidationException $v) {
             $response = [
@@ -109,7 +109,7 @@ class DivisionController extends Controller
         $search = $request->input('search'); // Get the search term from the request
 
         // Create the query to select divisions
-        $query = Division::select('id', 'div_name', 'note')
+        $query = Division::select('division_id', 'div_name', 'note')
             ->where('is_archived', 'A');
 
         // Apply search filter if search term is provided

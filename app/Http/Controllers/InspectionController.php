@@ -136,10 +136,10 @@ class InspectionController extends Controller
         ]);
     
         try {
-            $existingRequest = Inspection_report::findOrFail($id);
+            $existingInspection = Inspection_report::findOrFail($id);
     
             // Update the request data
-            $existingRequest->update([
+            $existingInspection->update([
                 'description' => $request->input('description'),
                 'recommendation' => $request->input('recommendation'),
             ]);
@@ -147,7 +147,7 @@ class InspectionController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request updated successfully.',
-                'data' => $existingRequest,
+                'inspection' => $existingInspection,
             ];
     
             $this->logAPICalls('updateInspection', $id, $request->all(), $response);

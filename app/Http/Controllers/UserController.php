@@ -190,15 +190,12 @@ class UserController extends Controller
         }
     }
 
-    public function getDropdownOptionsUsers(Request $request)
+    public function getDropdownOptionsUsertype(Request $request)
     {
         try {
     
     
             $userTypes = user_type::select('id', 'name')
-            ->where('is_archived', 'A')
-            ->get();
-            $offices = Office::select('id', 'acronym')
             ->where('is_archived', 'A')
             ->get();
     
@@ -207,11 +204,10 @@ class UserController extends Controller
                 'isSuccess' => true,
                 'message' => 'Dropdown data retrieved successfully.',
                 'user_types' => $userTypes,
-                'offices' => $offices,
             ];
     
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsUser', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsUsertype', "", $request->all(), $response);
     
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -223,11 +219,47 @@ class UserController extends Controller
             ];
     
             // Log the error
-            $this->logAPICalls('getDropdownOptionsUser', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsUsertype', "", $request->all(), $response);
     
             return response()->json($response, 500);
         }
     }
+
+
+    public function getDropdownOptionsUseroffice(Request $request)
+    {
+        try {
+    
+            $offices = Office::select('id', 'acronym')
+            ->where('is_archived', 'A')
+            ->get();
+    
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'user_types' => $offices,
+            ];
+    
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsUseroffice', "", $request->all(), $response);
+    
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+    
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsUseroffice', "", $request->all(), $response);
+    
+            return response()->json($response, 500);
+        }
+    }
+
 
     /**
      * Log all API calls.
