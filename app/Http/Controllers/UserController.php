@@ -190,6 +190,7 @@ class UserController extends Controller
         }
     }
 
+    
     public function getDropdownOptionsUsertype(Request $request)
     {
         try {

@@ -20,6 +20,7 @@ class LocationController extends Controller
             $request->validate([
                 'location_name' => ['required'],
                 'note' => ['required'],
+                
             ]);
 
             $location = Location::create([

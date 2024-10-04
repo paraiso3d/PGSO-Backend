@@ -16,88 +16,122 @@ class DivisionController extends Controller
      * Create a new college office.
      */
     public function createDivision(Request $request)
-    {
-        try {
-            $request->validate([
-                'div_name' => ['required', 'string', 'unique:divisions,div_name,except,division_id'],
-                'note' => ['required', 'string'],
-                'is_archived' => ['nullable', 'in: A, I']
-            ]);
+{
+    try {
+        // Validate the request data
+        $request->validate([
+            'div_name' => ['required', 'string', 'unique:divisions,div_name'], // Corrected unique rule
+            'note' => ['required', 'string'],
+            'is_archived' => ['nullable', 'in: A, I']
+        ]);
 
-            $divname = Division::create([
-                'div_name' => $request->div_name,
-                'note' => $request->note,
-            ]);
+        // Create the division
+        $divname = Division::create([
+            'div_name' => $request->div_name,
+            'note' => $request->note,
+        ]);
 
-            $response = [
-                'isSuccess' => true,
-                'message' => "Division successfully created.",
-                'division' => $divname
-            ];
-            $this->logAPICalls('createDivision', $divname->id, $request->all(), [$response]);
-            return response()->json($response, 201);
-        } catch (ValidationException $v) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Invalid input data.",
-                'error' => $v->errors()
-            ];
-            $this->logAPICalls('createDivision', "", $request->all(), [$response]);
-            return response()->json($response, 422);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Failed to create the Division.",
-                'error' => $e->getMessage()
-            ];
-            $this->logAPICalls('createDivision', "", $request->all(), [$response]);
-            return response()->json($response, 500);
-        }
+        // Prepare a success response
+        $response = [
+            'isSuccess' => true,
+            'message' => "Division successfully created.",
+            'division' => $divname
+        ];
+        // Log the API call
+        $this->logAPICalls('createDivision', $divname->id, $request->all(), [$response]);
+
+        // Return the success response
+        return response()->json($response, 201);
+    } catch (ValidationException $v) {
+        // Handle validation errors
+        $response = [
+            'isSuccess' => false,
+            'message' => "Invalid input data.",
+            'error' => $v->errors()
+        ];
+        // Log the API call with validation errors
+        $this->logAPICalls('createDivision', "", $request->all(), [$response]);
+
+        // Return the validation error response
+        return response()->json($response, 422);
+    } catch (Throwable $e) {
+        // Handle any other exceptions
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to create the Division.",
+            'error' => $e->getMessage()
+        ];
+        // Log the API call with error
+        $this->logAPICalls('createDivision', "", $request->all(), [$response]);
+
+        // Return the internal server error response
+        return response()->json($response, 500);
     }
+}
 
     /**
      * Update an existing college office.
      */
     public function updateDivision(Request $request, $id)
-    {
-        try {
-            $divname = Division::findOrFail($id);
+{
+    try {
+        // Find the division by its ID
+        $division = Division::findOrFail($id);
 
-            $request->validate([
-                'div_name' => ['sometimes','required', 'string', 'unique:divisions,div_name,except,division_id'],
-                'note' => ['sometimes', 'required', 'string'],
-            ]);
+        // Validate the incoming request
+        $request->validate([
+            'div_name' => ['sometimes', 'required', 'string'],
+            'note' => ['sometimes', 'required', 'string'],
+        ]);
 
-            $divname->update([
-                'div_name' => $request->div_name,
-                'note' => $request->note,
-            ]);
+        // Store the old division name before updating
+        $oldDivName = $division->div_name;
 
-            $response = [
-                'isSuccess' => true,
-                'message' => "Division successfully updated.",
-                'division' => $divname
-            ];
-            $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
-            return response()->json($response, 200);
-        } catch (ValidationException $v) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Invalid input data.",
-                'error' => $v->errors()
-            ];
-            $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
-            return response()->json($response, 422);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Failed to update the Division.",
-                'error' => $e->getMessage()
-            ];
-            $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
-            return response()->json($response, 500);
+        // Update the division
+        $division->update([
+            'div_name' => $request->div_name,
+            'note' => $request->note,
+        ]);
+
+        if ($oldDivName !== $division->div_name) {
+            DB::table('categories')
+                ->where('division', $oldDivName)
+                ->update(['division' => $division->div_name]); 
         }
+
+        // Prepare the success response
+        $response = [
+            'isSuccess' => true,
+            'message' => "Division successfully updated, and associated categories updated.",
+            'division' => $division, // Return the updated division
+        ];
+
+        // Log the API call
+        $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
+
+        // Return the success response
+        return response()->json($response, 200);
+    } catch (ValidationException $v) {
+        // Prepare the validation error response
+        $response = [
+            'isSuccess' => false,
+            'message' => "Invalid input data.",
+            'error' => $v->errors()
+        ];
+        $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
+        return response()->json($response, 422);
+    } catch (Throwable $e) {
+        // Prepare the error response in case of an exception
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to update the Division.",
+            'error' => $e->getMessage()
+        ];
+        $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
+        return response()->json($response, 500);
     }
+}
+
 
     /**
      * Get all college offices.
