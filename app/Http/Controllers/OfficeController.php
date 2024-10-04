@@ -20,7 +20,7 @@ class OfficeController extends Controller
             $request->validate([
                 'officename' => ['required', 'string'],
                 'acronym' => ['required', 'string'],
-                'office_type' => ['string', 'in: Academic, Non Academic'],
+                'office_type' => ['required', 'string', 'in:Academic,Non Academic'],
             ]);
 
             $collegeOffice = Office::create([
@@ -28,18 +28,18 @@ class OfficeController extends Controller
                 'acronym' => $request->acronym,
                 'office_type' => $request->office_type,
             ]);
-
+            
             $response = [
                 'isSuccess' => true,
                 'message' => "Office successfully created.",
                 'office' => $collegeOffice
             ];
             $this->logAPICalls('createOffice', $collegeOffice->id, $request->all(), [$response]);
-            return response()->json($response, 201);
+            return response()->json($response, 200);
         } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Invalid input data.",
+                'message' => "Invalid input data.", 
                 'error' => $v->errors()
             ];
             $this->logAPICalls('createOffice', "", $request->all(), [$response]);

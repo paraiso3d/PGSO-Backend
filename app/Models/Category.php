@@ -18,36 +18,29 @@ class Category extends Model
 
 
     public static function validateCategory($data)
-    {
-        $division = Division::pluck('div_name')->toArray();
+{
+    $validator = Validator::make($data, [
+        'category_name' => ['required', 'string'],
+        'division_id' => ['required', 'exists:divisions,id'], // Validate based on division_id
+        'is_archived' => ['nullable', 'in:A,I']
+    ]);
+
+    return $validator;
+}
 
 
-        $validator = Validator::make($data, [
-            'category_name' => ['required', 'string'],
-            'division' => ['required', !empty($division) ? 'in:' . implode(',', $division) : ''],
-           'id' => 'exists:divisions,id',
-            'is_archived' => ['nullable','in: A, I']
-        ]);
 
+public static function updatevalidateCategory($data)
+{
+    $validator = Validator::make($data, [
+        'category_name' => ['sometimes', 'required', 'string'],
+        'division_id' => ['sometimes', 'exists:divisions,id'], // Validate based on division_id
+        'is_archived' => ['nullable', 'in:A,I']
+    ]);
 
-        return $validator;
-    }
+    return $validator;
+}
 
-    public static function updatevalidateCategory($data)
-    {
-        $division = Division::pluck('div_name')->toArray();
-
-
-        $validator = Validator::make($data, [
-            'category_name' => ['sometimes','required', 'string'], 
-            'division' => ['sometimes', 'in:' . implode(',', $division)],
-            'id' => 'exists:divisions,id',
-            'is_archived' => ['nullable','in: A, I']
-        ]);
-
-
-        return $validator;
-    }
 }
 
 
