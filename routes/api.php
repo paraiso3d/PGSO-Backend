@@ -103,7 +103,6 @@ Route::middleware('auth:sanctum')->post('logout', [AuthController::class, 'logou
 
 Route::controller(RequestController::class)->group(function () {
     Route::post('createRequest', 'createRequest');
-    Route::post('updateRequest/{id}', 'updateRequest');
     Route::get('requestList', 'getRequests');
     Route::post('deleteCategory/{id}', 'deleteCategory');
     Route::get('getdropdownrequestLocation','getDropdownOptionsRequestslocation');
@@ -186,8 +185,6 @@ Route::controller(OfficeController::class)->group(function () {
     Route::post('updateOffice/{id}', 'updateOffice');
     Route::get('officeList', 'getOffices');
     Route::post('deleteOffice/{id}', 'deleteOffice');
-    // Route::get('getdropdownsOffices','getDropdownOptionsOffices');
-
 });
 
 

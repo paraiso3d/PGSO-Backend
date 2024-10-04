@@ -238,7 +238,7 @@ class UserController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Dropdown data retrieved successfully.',
-                'user_types' => $offices,
+                'office' => $offices,
             ];
     
             // Log the API call
