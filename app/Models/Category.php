@@ -12,6 +12,7 @@ class Category extends Model
     protected $fillable = [
         'category_name', 
         'division',
+        'division_id',
         'is_archived'
     ];
 
@@ -19,16 +20,34 @@ class Category extends Model
     public static function validateCategory($data)
     {
         $division = Division::pluck('div_name')->toArray();
-        
+
 
         $validator = Validator::make($data, [
             'category_name' => ['required', 'string'],
-            'category_name.*' => ['required', 'string'],  
-            'division' => ['required', 'in:' . implode(',', $division)],
+            'division' => ['required', !empty($division) ? 'in:' . implode(',', $division) : ''],
+           'division_id' => 'exists:divisions,division_id',
             'is_archived' => ['nullable','in: A, I']
         ]);
+
+
+        return $validator;
+    }
+
+    public static function updatevalidateCategory($data)
+    {
+        $division = Division::pluck('div_name')->toArray();
+
+
+        $validator = Validator::make($data, [
+            'category_name' => ['sometimes','required', 'string'], 
+            'division' => ['sometimes', 'in:' . implode(',', $division)],
+            'division_id' => 'exists:divisions,division_id',
+            'is_archived' => ['nullable','in: A, I']
+        ]);
+
 
         return $validator;
     }
 }
+
 

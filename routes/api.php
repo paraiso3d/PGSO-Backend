@@ -54,7 +54,8 @@ Route::controller(UserController::class)->group(function () {
     Route::post('updateUser/{id}', 'updateUserAccount');    
     Route::get('userList', 'getUserAccounts');
     Route::post('deleteUser/{id}', 'deleteUserAccount'); 
-    Route::get('getdropdownUsers','getDropdownOptionsUsers');       
+    Route::get('getdropdownUsertype','getDropdownOptionsUsertype');  
+    Route::get('getdropdownUseroffice','getDropdownOptionsUseroffice');         
 
 });
 
@@ -105,8 +106,15 @@ Route::controller(RequestController::class)->group(function () {
     Route::post('updateRequest/{id}', 'updateRequest');
     Route::get('requestList', 'getRequests');
     Route::post('deleteCategory/{id}', 'deleteCategory');
-    Route::get('getdropdownrequestList','getDropdownOptionsRequests');
-    Route::get('getdropdowncreateRequest','getDropdownOptionscreateRequests');
+    Route::get('getdropdownrequestLocation','getDropdownOptionsRequestslocation');
+    Route::get('getdropdownrequestStatus','getDropdownOptionsRequeststatus');
+    Route::get('getdropdownrequestYear','getDropdownOptionsRequestyear');
+    Route::get('getdropdownoptionsrequestDivision','getDropdownOptionsRequestdivision');
+    Route::get('getdropdownoptionsrequestCategory','getDropdownOptionsRequestcategory');
+    Route::get('getdropdownoptionscreaterequestsOffice','getDropdownOptionscreateRequestsoffice');
+    Route::get('getdropdownoptionscreaterequestsLocation','getDropdownOptionscreateRequestslocation');
+
+
 });
 
 // Route::middleware(['auth:sanctum'])->group(function () {
@@ -146,7 +154,7 @@ Route::controller(CategoryController::class)->group(function () {
 
 Route::controller(LocationController::class)->group(function () {
     Route::post('createLocation', 'createlocation');
-    Route::post('updateLocation/{id}', 'updateocation');
+    Route::post('updateLocation/{id}', 'updatelocation');
     Route::get('locationList', 'getlocations');
     Route::post('deleteLocation/{id}', 'deletelocation');
 
@@ -201,19 +209,9 @@ Route::controller(UserTypeController::class)->group(function () {
 |--------------------REVIEW API-----------------------\
 */
 
-Route::middleware(['auth:sanctum'])->group(function () {
-    // Admin can access all CRUD routes
-    Route::middleware('UserTypeAuth:Administrator')->group(function () {
-        Route::post('admin-updatereview/{id}', [ReviewController::class, 'updateReview']);
-        Route::get('admin-getreviews', [ReviewController::class, 'getReviews']);
-    });
-    Route::middleware('UserTypeAuth:Controller,Supervisor,TeamLeader')->group(function () {
-        Route::post('user-updatereview/{id}', [ReviewController::class, 'getReviews']);
-        Route::get('user-getreviews', [ReviewController::class, 'getReviews']);
-    });
-    Route::middleware('UserTypeAuth:DeanHead')->group(function () {
-        Route::get('dean-getreviews', [ReviewController::class, 'getReviews']);
-    });
+Route::controller(ReviewController::class)->group(function(){
+    Route::get('reviewList/{id}','getReviews');
+    Route::post('updatereview/{id}','updateReview');
 });
 
 /*

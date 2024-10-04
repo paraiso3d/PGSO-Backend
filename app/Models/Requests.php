@@ -19,7 +19,6 @@ class Requests extends Model
         'location_name',
         'overtime',
         'area',
-        'category_name',
         'fiscal_year',
         'file_path',
         'status',
@@ -52,9 +51,9 @@ class Requests extends Model
 
     public static function validateRequest($data)
     {
-        $category = Category::pluck('category_name')->toArray();
         $office = Office::pluck('acronym')->toArray();
         $location = Location::pluck('location_name')->toArray();
+        $currentYear = now()->year;
 
 
         $validator = Validator::make($data, [
@@ -64,8 +63,7 @@ class Requests extends Model
             'location_name' => ['required', 'in:' . implode(',', $location)],
             'overtime' => ['nullable', 'in:Yes,No'],
             'area' => ['required', 'string'],
-            'category_name' => ['required', 'in:' . implode(',', $category)],
-            'fiscal_year' => ['required', 'string'],
+            'fiscal_year' => ['required', 'string', 'in:' . $currentYear],
             'user_id' => 'get|string|exists:Requests,id',
 
             'file_path' => [
