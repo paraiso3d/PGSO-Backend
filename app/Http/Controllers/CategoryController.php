@@ -159,7 +159,7 @@ class CategoryController extends Controller
         $category->update([
             'category_name' => $request->input('category_name'),
             'division' => $request->input('division'),
-            'division_id' => $division->division_id,
+            'division_id' => $division->id,
         ]);
 
         // Prepare success response
@@ -219,7 +219,7 @@ class CategoryController extends Controller
         try {
 
 
-            $divisions = Division::select('division_id', 'div_name')
+            $divisions = Division::select('id', 'div_name')
                 ->where('is_archived', 'A')
                 ->get();
 
