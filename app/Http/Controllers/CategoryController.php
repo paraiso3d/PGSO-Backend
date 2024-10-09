@@ -16,48 +16,48 @@ class CategoryController extends Controller
      * Create a new Category
      */
     public function createCategory(Request $request)
-{
-    try {
-        // Validate the request using division_id
-        $validator = Category::validateCategory($request->all());
+    {
+        try {
+            // Validate the request using division_id
+            $validator = Category::validateCategory($request->all());
 
-        if ($validator->fails()) {
+            if ($validator->fails()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors()
+                ];
+                $this->logAPICalls('createCategory', "", $request->all(), $response);
+                return response()->json($response, 500); // Return 422 for validation errors
+            }
+
+            // Find the division based on the division_id
+            $division = Division::findOrFail($request->input('division_id'));
+
+            // Create the category, setting the division_name based on division_id
+            $category = Category::create([
+                'category_name' => $request->category_name,
+                'division' => $division->div_name, // Setting div_name based on division_id
+                'division_id' => $division->id,    // Use the division_id
+            ]);
+
             $response = [
-                'isSuccess' => false,
-                'message' => 'Validation failed.',
-                'errors' => $validator->errors()
+                'isSuccess' => true,
+                'message' => 'Category successfully created.',
+                'category' => $category
             ];
             $this->logAPICalls('createCategory', "", $request->all(), $response);
-            return response()->json($response, 422); // Return 422 for validation errors
+            return response()->json($response, 200);  // 201 for successful resource creation
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to create the Category.',
+                'error' => $e->getMessage()
+            ];
+            $this->logAPICalls('createCategory', "", $request->all(), $response);
+            return response()->json($response, 500);  // 500 for internal server error
         }
-
-        // Find the division based on the division_id
-        $division = Division::findOrFail($request->input('division_id'));
-
-        // Create the category, setting the division_name based on division_id
-        $category = Category::create([
-            'category_name' => $request->category_name,
-            'division' => $division->div_name, // Setting div_name based on division_id
-            'division_id' => $division->id,    // Use the division_id
-        ]);
-
-        $response = [
-            'isSuccess' => true,
-            'message' => 'Category successfully created.',
-            'category' => $category
-        ];
-        $this->logAPICalls('createCategory', "", $request->all(), $response);
-        return response()->json($response, 201);  // 201 for successful resource creation
-    } catch (Throwable $e) {
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to create the Category.',
-            'error' => $e->getMessage()
-        ];
-        $this->logAPICalls('createCategory', "", $request->all(), $response);
-        return response()->json($response, 500);  // 500 for internal server error
     }
-}
 
     public function getCategory(Request $request)
     {
@@ -92,13 +92,13 @@ class CategoryController extends Controller
                 'message' => 'Categories retrieved successfully.',
                 'categories' => $categories, // Return the paginated items
                 'pagination' => [
-                        'total' => $categories->total(),
-                        'per_page' => $categories->perPage(),
-                        'current_page' => $categories->currentPage(),
-                        'last_page' => $categories->lastPage(),
-                        'next_page_url' => $categories->nextPageUrl(),
-                        'prev_page_url' => $categories->previousPageUrl(),
-                    ]
+                    'total' => $categories->total(),
+                    'per_page' => $categories->perPage(),
+                    'current_page' => $categories->currentPage(),
+                    'last_page' => $categories->lastPage(),
+                    'next_page_url' => $categories->nextPageUrl(),
+                    'prev_page_url' => $categories->previousPageUrl(),
+                ]
             ];
 
             // Log the API call
@@ -129,10 +129,10 @@ class CategoryController extends Controller
         try {
             // Find the category by its ID
             $category = Category::findOrFail($id);
-    
+
             // Validate the incoming request using the custom validation method
             $validator = Category::updatevalidateCategory($request->all());
-    
+
             // Check if the validation fails
             if ($validator->fails()) {
                 $response = [
@@ -141,26 +141,26 @@ class CategoryController extends Controller
                     'errors' => $validator->errors(),
                 ];
                 $this->logAPICalls('updateCategory', "", $request->all(), $response);
-                return response()->json($response, 422);  // Return 422 for validation errors
+                return response()->json($response, 500);  // Return 422 for validation errors
             }
-    
+
             // Find the division based on the division_id
             $division = Division::findOrFail($request->input('division_id'));
-    
+
             // Update the category with the new data, including the division_name based on division_id
             $category->update([
                 'category_name' => $request->input('category_name'),
                 'division' => $division->div_name,  // Setting division name based on division_id
                 'division_id' => $division->id      // Use the division_id
             ]);
-    
+
             // Prepare success response
             $response = [
                 'isSuccess' => true,
                 'message' => "Category successfully updated",
                 'category' => $category, // Return the updated category
             ];
-    
+
             // Log the API call and return the success response
             $this->logAPICalls('updateCategory', $id, $request->all(), $response);
             return response()->json($response, 200);  // 200 for successful updates
@@ -171,13 +171,13 @@ class CategoryController extends Controller
                 'message' => "Failed to update the Category.",
                 'error' => $e->getMessage(),
             ];
-    
+
             // Log the error and return the error response
             $this->logAPICalls('updateCategory', "", $request->all(), $response);
             return response()->json($response, 500);  // 500 for internal server error
         }
     }
-    
+
 
 
     /**

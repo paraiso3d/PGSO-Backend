@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Models\user_type;
 use Illuminate\Http\Request;
 use App\Models\ApiLog;
@@ -18,7 +19,7 @@ class UsertypeController extends Controller
     {
         try {
             $request->validate([
-                'name' => ['required','string', 'alpha_spaces'],
+                'name' => ['required', 'string'],
             ]);
 
             $usertype = user_type::create([
@@ -58,42 +59,60 @@ class UsertypeController extends Controller
     public function updateUserType(Request $request, $id)
     {
         try {
-            $usertype = user_type::findOrFail($id); // Find the user type or throw 404
+            // Find the user type or throw 404
+            $usertype = user_type::findOrFail($id);
 
+            // Validate the incoming request
             $request->validate([
-                'name' => ['required', 'string', 'alpha'], // Ensure the 'name' is a string
+                'name' => ['required', 'string', 'alpha_spaces'],
             ]);
 
+            // Update the user_type record
             $usertype->update([
                 'name' => $request->name,
                 'description' => $request->description
             ]);
 
+            // Cascade the update to related users
+            User::where('user_type_id', $id)
+                ->update([
+                    'user_type' => $request->name,
+                ]);
+
+            // Prepare response for successful update
             $response = [
                 'isSuccess' => true,
-                'message' => "UserType successfully updated.",
+                'message' => "UserType and related users successfully updated.",
                 'usertype' => $usertype
             ];
             $this->logAPICalls('updateUserType', $id, $request->all(), [$response]);
+
             return response()->json($response, 200);
+
         } catch (ValidationException $v) {
+            // Handle validation error
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
                 'error' => $v->errors()
             ];
             $this->logAPICalls('updateUserType', "", $request->all(), [$response]);
+
             return response()->json($response, 422);
+
         } catch (Throwable $e) {
+            // Handle general error
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to update the UserType.",
                 'error' => $e->getMessage()
             ];
             $this->logAPICalls('updateUserType', "", $request->all(), [$response]);
+
             return response()->json($response, 500);
         }
     }
+
 
 
     /**
@@ -106,32 +125,32 @@ class UsertypeController extends Controller
             $validated = $request->validate([
                 'search' => 'nullable|string', // New search parameter
             ]);
-    
+
             // Initialize the query
             $query = user_type::select('id', 'name', 'description')
-                ->where('is_archived', 'A'); 
-    
+                ->where('is_archived', 'A');
+
             // Apply search if provided
             if (!empty($validated['search'])) {
-                $query->where(function($q) use ($validated) {
+                $query->where(function ($q) use ($validated) {
                     $q->where('name', 'like', '%' . $validated['search'] . '%')
-                      ->orWhere('description', 'like', '%' . $validated['search'] . '%');
+                        ->orWhere('description', 'like', '%' . $validated['search'] . '%');
                 });
             }
-    
+
             // Get the user types
             $usertypes = $query->get();
-    
+
             // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => "UserTypes list:",
                 'usertype' => $usertypes
             ];
-    
+
             // Log API calls
             $this->logAPICalls('getUserTypes', "", $request->all(), [$response]);
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             // Prepare the error response
@@ -140,14 +159,14 @@ class UsertypeController extends Controller
                 'message' => "Failed to retrieve UserTypes.",
                 'error' => $e->getMessage()
             ];
-    
+
             // Log API calls
             $this->logAPICalls('getUserTypes', "", $request->all(), [$response]);
-    
+
             return response()->json($response, 500);
         }
     }
-    
+
     /**
      * Delete a user type.
      */

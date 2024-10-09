@@ -8,7 +8,8 @@ use App\Models\Office;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Throwable;
-
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 class UserController extends Controller
 {
     /**
@@ -28,16 +29,21 @@ class UserController extends Controller
                 $this->logAPICalls('createUserAccount', "", $request->all(), $response);
                 return response()->json($response, 500);
             }
+            $usertype = user_type::findOrFail($request->input('user_type_id'));
+            $office = Office::findOrFail($request->input('office_id'));
+
 
             $userAccount = User::create([
                 'first_name' => $request->first_name,
                 'middle_initial' => $request->middle_initial,
                 'last_name' => $request->last_name,
                 'email' => $request->email,
-                'office' => $request->office,
+                'office' => $office->acronym,
                 'designation' => $request->designation,
-                'user_type' => $request->user_type,
-                'password' => Hash::make($request->password)
+                'user_type' => $usertype->name,
+                'password' => Hash::make($request->password),
+                'user_type_id' => $usertype->id,
+                'office_id' => $office->id,
             ]);
 
             $response = [
@@ -45,7 +51,7 @@ class UserController extends Controller
                 'message' => 'UserAccount successfully created.',
                 'user' => $userAccount
             ];
-            $this->logAPICalls('createUserAccount', $userAccount->id, $request->except(['password']), $response);
+            $this->logAPICalls('createUserAccount', $userAccount->id, $request->except(['password', 'user_type_id', 'office_id']), $response);
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -120,38 +126,84 @@ class UserController extends Controller
     public function updateUserAccount(Request $request, $id)
     {
         try {
+            // Find the user account
             $userAccount = User::findOrFail($id);
-
-            $validator = User::validateUserAccount($request->all());
-
-            if ($validator->fails()) {
-                $response = [
-                    'isSuccess' => false,
-                    'message' => 'Validation failed.',
-                    'errors' => $validator->errors()
-                ];
-                $this->logAPICalls('updateUserAccount', $id, $request->all(), $response);
-                return response()->json($response, 500);
+    
+            // Define validation rules for the request
+            $emailRule = ['sometimes', 'string', 'email', 'max:255'];
+    
+            // Check if the email is provided in the request
+            if ($request->has('email')) {
+                $emailRule[] = Rule::unique('users')->ignore($userAccount->id);
             }
-
-            $userAccount->update([
-                'first_name' => $request->first_name,
-                'middle_intial' => $request->middle_inital,
-                'last_name' => $request->last_name,
-                'email' => $request->email,
-                'office' => $request->office,
-                'designation' => $request->designation,
-                'user_type' => $request->user_type,
-                'password' => Hash::make($request->password),
+    
+            $request->validate([
+                'first_name' => ['sometimes', 'required', 'string', 'max:255'],
+                'middle_initial' => ['sometimes', 'string', 'max:5'],
+                'last_name' => ['sometimes', 'required', 'string', 'max:255'],
+                'email' => $emailRule,
+                'office' => ['sometimes', 'string', 'max:255'],
+                'designation' => ['sometimes', 'string', 'max:255'],
+                'user_type' => ['sometimes', 'string', 'max:255'],
+                'password' => ['sometimes', 'nullable', 'string', 'min:8'],
+                'user_type_id' => ['sometimes', 'exists:user_types,id'],
+                'office_id' => ['sometimes', 'exists:offices,id']
             ]);
-
+    
+            // Retrieve the user type and office
+            if ($request->has('user_type_id')) {
+                $usertype = user_type::findOrFail($request->input('user_type_id'));
+            } else {
+                // Keep the existing user_type_id if not provided
+                $usertype = $userAccount->user_type_id;
+            }
+    
+            if ($request->has('office_id')) {
+                $office = Office::findOrFail($request->input('office_id'));
+            } else {
+                // Keep the existing office_id if not provided
+                $office = $userAccount->office_id;
+            }
+    
+            // Only hash the password if it has been provided in the request
+            $dataToUpdate = [
+                'first_name' => $request->input('first_name', $userAccount->first_name),
+                'middle_initial' => $request->input('middle_initial', $userAccount->middle_initial),
+                'last_name' => $request->input('last_name', $userAccount->last_name),
+                'email' => $request->input('email', $userAccount->email),
+                'office' => $office->acronym,
+                'designation' => $request->input('designation', $userAccount->designation),
+                'user_type' => $usertype->name,
+                'user_type_id' => $usertype->id,
+                'office_id' => $office->id
+            ];
+    
+            // Hash the password only if provided
+            if ($request->filled('password')) {
+                $dataToUpdate['password'] = Hash::make($request->password);
+            }
+    
+            // Log the values before updating for debugging
+            \Log::info('Updating user account:', $dataToUpdate);
+    
+            // Update the user account
+            $userAccount->update($dataToUpdate);
+    
             $response = [
                 'isSuccess' => true,
                 'message' => 'UserAccount successfully updated.',
-                'user' => $userAccount
+                'user' => $userAccount->fresh() // Get the updated user data
+            ];
+            $this->logAPICalls('updateUserAccount', $id, $request->except(['user_type_id', 'office_id']), $response);
+            return response()->json($response, 200);
+        } catch (ValidationException $v) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Validation failed.',
+                'errors' => $v->errors()
             ];
             $this->logAPICalls('updateUserAccount', $id, $request->all(), $response);
-            return response()->json($response, 200);
+            return response()->json($response, 422); // Use 422 for validation errors
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -162,6 +214,7 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
+    
 
     /**
      * Delete a user account.
@@ -190,26 +243,26 @@ class UserController extends Controller
         }
     }
 
-    
+
     public function getDropdownOptionsUsertype(Request $request)
     {
         try {
-    
-    
+
+
             $userTypes = user_type::select('id', 'name')
-            ->where('is_archived', 'A')
-            ->get();
-    
+                ->where('is_archived', 'A')
+                ->get();
+
             // Build the response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Dropdown data retrieved successfully.',
                 'user_types' => $userTypes,
             ];
-    
+
             // Log the API call
             $this->logAPICalls('getDropdownOptionsUsertype', "", $request->all(), $response);
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             // Handle the error response
@@ -218,10 +271,10 @@ class UserController extends Controller
                 'message' => 'Failed to retrieve dropdown data.',
                 'error' => $e->getMessage()
             ];
-    
+
             // Log the error
             $this->logAPICalls('getDropdownOptionsUsertype', "", $request->all(), $response);
-    
+
             return response()->json($response, 500);
         }
     }
@@ -230,21 +283,21 @@ class UserController extends Controller
     public function getDropdownOptionsUseroffice(Request $request)
     {
         try {
-    
+
             $offices = Office::select('id', 'acronym')
-            ->where('is_archived', 'A')
-            ->get();
-    
+                ->where('is_archived', 'A')
+                ->get();
+
             // Build the response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Dropdown data retrieved successfully.',
                 'office' => $offices,
             ];
-    
+
             // Log the API call
             $this->logAPICalls('getDropdownOptionsUseroffice', "", $request->all(), $response);
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             // Handle the error response
@@ -253,10 +306,10 @@ class UserController extends Controller
                 'message' => 'Failed to retrieve dropdown data.',
                 'error' => $e->getMessage()
             ];
-    
+
             // Log the error
             $this->logAPICalls('getDropdownOptionsUseroffice', "", $request->all(), $response);
-    
+
             return response()->json($response, 500);
         }
     }
