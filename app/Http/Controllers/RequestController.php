@@ -60,7 +60,7 @@ class RequestController extends Controller
                 'errors' => $validator->errors(),
             ];
             $this->logAPICalls('createRequest', '', $request->all(), $response);
-            return response()->json($response, 400);
+            return response()->json($response, 500);
         }
 
         // Generate control number
@@ -78,6 +78,7 @@ class RequestController extends Controller
 
         // Store the validated request data
         try {
+
             $newRequest = Requests::create([
                 'control_no' => $controlNo,
                 'description' => $request->input('description'),

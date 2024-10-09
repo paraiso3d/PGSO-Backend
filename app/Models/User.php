@@ -28,6 +28,8 @@ class User extends Authenticatable
         'designation',
         'user_type',
         'password',
+        'office_id',
+        'user_type_id',
         'is_archived'
     ];
 
@@ -46,22 +48,22 @@ class User extends Authenticatable
     ];
 
     public static function validateUserAccount($data)
-    {
-        $user_type = user_type::pluck('name')->toArray();
-        $office = Office::pluck('acronym')->toArray();
+{
+    // Retrieve arrays of valid user types and offices
 
-        $validator = Validator::make($data, [
-            'first_name' => ['required', 'string', 'alpha_spaces'],
-            'middle_initial' => ['required', 'string', 'alpha_spaces', 'max:5'],
-            'last_name' => ['required', 'string', 'alpha_spaces'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'user_type' => ['required', 'in:' . implode(',', $user_type)],
-            'office' => ['required', 'in:' . implode(',', $office)],
-            'password' => ['required', 'string', 'min:8'],
-            'is_archived' => ['nullable', 'in: A, I']
-        ]);
+    // Validate user data
+    $validator = Validator::make($data, [
+        'first_name' => ['required', 'string', 'alpha_spaces'],
+        'middle_initial' => ['required', 'string', 'alpha_spaces', 'max:5'],
+        'last_name' => ['required', 'string', 'alpha_spaces'],
+        'email' => ['required', 'email', 'unique:users,email'],
+        'user_type_id' => ['required', 'exists:user_types,id'],  // Ensure user_type_id is valid
+        'office_id' => ['required', 'exists:offices,id'],       // Ensure office_id is valid
+        'password' => ['required', 'string', 'min:8'],
+        'is_archived' => ['nullable', 'in:A,I']
+    ]);
 
-        return $validator;
-    }
+    return $validator;
+}
 
 }

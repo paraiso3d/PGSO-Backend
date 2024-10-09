@@ -71,7 +71,7 @@ class ManpowerController extends Controller
             $manpower = Manpower::findOrFail($id);
 
             $request->validate([
-                'first_name' => ['sometimes','required', 'string'],
+                'first_name' => ['sometimes', 'required', 'string'],
                 'last_name' => ['sometimes', 'required', 'string'],
             ]);
 
@@ -111,44 +111,43 @@ class ManpowerController extends Controller
      * List manpower
      */
     public function getmanpowers(Request $request)
-    {
-        {
+    { {
             try {
                 $perPage = $request->input('per_page', 10);
                 $searchTerm = $request->input('search', null);
-        
+
                 // Create query to fetch active college offices
                 $query = Manpower::where('is_archived', 'A');
-        
+
                 // Add search condition if search term is provided
                 if ($searchTerm) {
                     $query->where(function ($q) use ($searchTerm) {
                         $q->where('first_name', 'like', "%{$searchTerm}%")
-                          ->orWhere('last_name', 'like', "%{$searchTerm}%");
+                            ->orWhere('last_name', 'like', "%{$searchTerm}%");
                     });
                 }
-        
+
                 // Paginate the result
                 $manpowers = $query->paginate($perPage);
-        
+
                 // Prepare the response
                 $response = [
                     'isSuccess' => true,
                     'message' => "Manpower list retrieved successfully.",
                     'manpower' => $manpowers,
                     'pagination' => [
-                        'total' => $manpowers->total(),
-                        'per_page' => $manpowers->perPage(),
-                        'current_page' => $manpowers->currentPage(),
-                        'last_page' => $manpowers->lastPage(),
-                        'next_page_url' => $manpowers->nextPageUrl(),
-                        'prev_page_url' => $manpowers->previousPageUrl(),
-                    ]
+                            'total' => $manpowers->total(),
+                            'per_page' => $manpowers->perPage(),
+                            'current_page' => $manpowers->currentPage(),
+                            'last_page' => $manpowers->lastPage(),
+                            'next_page_url' => $manpowers->nextPageUrl(),
+                            'prev_page_url' => $manpowers->previousPageUrl(),
+                        ]
                 ];
-        
+
                 // Log API calls
                 $this->logAPICalls('getmanpowers', "", [], [$response]);
-        
+
                 return response()->json($response, 200);
             } catch (Throwable $e) {
                 $response = [
@@ -156,15 +155,15 @@ class ManpowerController extends Controller
                     'message' => 'Failed to retrieve Manpower list',
                     'error' => $e->getMessage()
                 ];
-        
+
                 // Log API calls
                 $this->logAPICalls('getmanpowers', "", [], [$response]);
-        
+
                 return response()->json($response, 500);
             }
+        }
     }
-}
-    
+
 
     /**
      * Delete a manpower
@@ -172,14 +171,14 @@ class ManpowerController extends Controller
     public function deletemanpower(Request $request)
     {
         try {
-            
+
             $manpower = Manpower::findOrFail($request->id);
             $manpower->update(['is_archived' => "I"]);
             $response = [
                 'isSuccess' => true,
                 'message' => "Manpower successfully deleted."
             ];
-    
+
             // Log the API call (assuming this method works properly)
             $this->logAPICalls('deletemanpower', $manpower->id, [], [$response]);
             return response()->json($response, 200);
@@ -189,14 +188,14 @@ class ManpowerController extends Controller
                 'message' => "Failed to delete the Manpower.",
                 'error' => $e->getMessage()
             ];
-    
+
             // Log the API call with failure response
             $this->logAPICalls('deletemanpower', "", [], [$response]);
-    
+
             return response()->json($response, 500);
         }
     }
-    
+
 
     /**
      * Log all API calls.

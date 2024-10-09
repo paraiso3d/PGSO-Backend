@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Models\Office;
 use App\Models\ApiLog;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class OfficeController extends Controller
                 'acronym' => $request->acronym,
                 'office_type' => $request->office_type,
             ]);
-            
+
             $response = [
                 'isSuccess' => true,
                 'message' => "Office successfully created.",
@@ -39,11 +40,11 @@ class OfficeController extends Controller
         } catch (ValidationException $v) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Invalid input data.", 
+                'message' => "Invalid input data.",
                 'error' => $v->errors()
             ];
             $this->logAPICalls('createOffice', "", $request->all(), [$response]);
-            return response()->json($response, 422);
+            return response()->json($response, 500);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -58,23 +59,37 @@ class OfficeController extends Controller
     /**
      * Update an existing college office.
      */
+
     public function updateOffice(Request $request, $id)
     {
         try {
+            // Find the office
             $collegeOffice = Office::findOrFail($id);
 
+            // Validate the request data
             $request->validate([
-                'officename' => ['sometimes', 'required', 'string'],
-                'acronym' => ['sometimes', 'required', 'string'],
+                'officename' => ['required', 'sometimes', 'string'],
+                'acronym' => ['required', 'sometimes', 'string'],
                 'office_type' => ['sometimes', 'string'],
             ]);
 
-            $collegeOffice->update([
+            // Get the old acronym for cascade update (if needed)
+            $oldAcronym = $collegeOffice->acronym;
+
+            // Update the office
+            $collegeOffice->update(array_filter([
                 'officename' => $request->officename,
                 'acronym' => $request->acronym,
                 'office_type' => $request->office_type,
-            ]);
+            ]));
 
+            // Cascade update the users or other related tables
+            if ($oldAcronym !== $request->acronym) {
+                User::where('office_id', $id)
+                    ->update(['office' => $request->acronym]);  // Ensure 'office' is the correct field
+            }
+
+            // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => "Office successfully updated.",
@@ -100,6 +115,7 @@ class OfficeController extends Controller
             return response()->json($response, 500);
         }
     }
+
 
     /**
      * Get all college offices.
@@ -171,7 +187,7 @@ class OfficeController extends Controller
                 'message' => "Office successfully deleted."
             ];
             $this->logAPICalls('deleteOffice', $collegeOffice->id, [], [$response]);
-            return response()->json($response, 204);
+            return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -185,7 +201,7 @@ class OfficeController extends Controller
 
     // public function getDropdownOptionsOffices(Request $request)
     // {
-       
+
     // try {
     //     // Fetch distinct office types that are either 'Academic' or 'Non-Academic'
     //     $offices = Office::selectRaw('MIN(id) as id, office_type')
@@ -193,17 +209,17 @@ class OfficeController extends Controller
     //     ->where('is_archived', 'A')
     //     ->groupBy('office_type')
     //     ->get();
-    
+
     //         // Build the response
     //         $response = [
     //             'isSuccess' => true,
     //             'message' => 'Dropdown data retrieved successfully.',
     //             'offices' => $offices,
     //         ];
-    
+
     //         // Log the API call
     //         $this->logAPICalls('getDropdownOptionsOffice', "", $request->all(), $response);
-    
+
     //         return response()->json($response, 200);
     //     } catch (Throwable $e) {
     //         // Handle the error response
@@ -212,10 +228,10 @@ class OfficeController extends Controller
     //             'message' => 'Failed to retrieve dropdown data.',
     //             'error' => $e->getMessage()
     //         ];
-    
+
     //         // Log the error
     //         $this->logAPICalls('getDropdownOptionsOffice', "", $request->all(), $response);
-    
+
     //         return response()->json($response, 500);
     //     }
     // }
