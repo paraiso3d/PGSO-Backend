@@ -71,7 +71,7 @@ class UserController extends Controller
             $searchTerm = $request->input('search', null);
 
             // Create query to fetch active user accounts
-            $query = User::select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'office', 'designation', 'user_type')
+            $query = User::select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'office', 'designation', 'user_type','office_id','user_type_id')
                 ->where('is_archived', 'A');
 
             // Add search condition if search term is provided

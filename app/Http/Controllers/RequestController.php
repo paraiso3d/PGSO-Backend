@@ -50,9 +50,12 @@ class RequestController extends Controller
 
     public function createRequest(Request $request)
     {
+        // Log incoming request data for debugging
+        \Log::info('Incoming request data:', $request->all());
+    
         // Validate the incoming request data using the model's validateRequest method
         $validator = Requests::validateRequest($request->all());
-
+    
         if ($validator->fails()) {
             $response = [
                 'isSuccess' => false,
@@ -62,42 +65,50 @@ class RequestController extends Controller
             $this->logAPICalls('createRequest', '', $request->all(), $response);
             return response()->json($response, 500);
         }
-
+    
         // Generate control number
         $controlNo = Requests::generateControlNo();
-
+    
         // Initialize file path
         $filePath = null;
         if ($request->hasFile('file_path')) {
             // Store the file and get the path
             $filePath = $request->file('file_path')->store('public/uploads'); // Store in public directory
         }
-
+    
         // Set default status if not provided
         $status = $request->input('status', 'Pending');
-
+    
         // Store the validated request data
         try {
-
+            // Check if the location and office IDs exist
+            $locationId = $request->input('location_id'); 
+            $officeId = $request->input('office_id'); 
+    
+            $location = Location::findOrFail($locationId);
+            $office = Office::findOrFail($officeId);
+    
             $newRequest = Requests::create([
                 'control_no' => $controlNo,
                 'description' => $request->input('description'),
-                'officename' => $request->input('officename'),
-                'location_name' => $request->input('location_name'),
+                'office_name' => $office->office_name,
+                'location_name' => $location->location_name,
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
                 'file_path' => $filePath, // Save the path to the database
                 'status' => $status,
+                'office_id' => $office->id,
+                'location_id'=> $location->id
             ]);
-
+    
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request successfully created.',
                 'request' => $newRequest,
             ];
             $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
-
+    
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -109,6 +120,7 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     }
+    
 
 
 
@@ -125,13 +137,15 @@ class RequestController extends Controller
                 'requests.id',
                 'requests.control_no',
                 'requests.description',
-                'requests.officename',
+                'requests.office_name',
                 'requests.location_name',
                 'requests.overtime',
                 'requests.file_path',
                 'requests.area',
                 'requests.fiscal_year',
                 'requests.status',
+                'requests.office_id',
+                'requests.location_id',
                 DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at") // Format updated_at to YYYY-MM-DD
             )
                 // Only get active requests (is_archived = 'A')
@@ -389,7 +403,7 @@ class RequestController extends Controller
     public function getDropdownOptionscreateRequestsoffice(Request $request)
     {
         try {
-            $office = Office::select('id', 'officename')
+            $office = Office::select('id', 'office_name')
                 ->where('is_archived', 'A')
                 ->get();
 

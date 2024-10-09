@@ -69,7 +69,7 @@ class CategoryController extends Controller
             ]);
 
             // Start building the query to select categories
-            $query = Category::select('id', 'category_name', 'description', 'division');
+            $query = Category::select('id', 'category_name', 'description', 'division','division_id');
 
             // Always filter by the hidden is_archived field (default to 'A' for active categories)
             $query->where('is_archived', 'A');
