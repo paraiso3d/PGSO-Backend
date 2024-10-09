@@ -170,7 +170,7 @@ class ReviewController extends Controller
                 'request_id' => $existingRequest->id, // Reference to the original request
                 'description' => $request->input('description'),
                 'control_no' => $existingRequest->control_no, // Keep existing control_no
-                'officename' => $fullOfficeName, // Store the full office name in Control_Request
+                'office_name' => $fullOfficeName, // Store the full office name in Control_Request
                 'location_name' => $request->input('location_name'),
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),

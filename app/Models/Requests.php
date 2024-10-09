@@ -10,12 +10,17 @@ use Illuminate\Support\Facades\Storage;
 class Requests extends Model
 {
     use HasFactory;
+
+    protected $casts = [
+        'updated_at' => 'string',
+    ];
+    
     protected $guard = [];
 
     protected $fillable = [
         'control_no',
         'description',
-        'officename',
+        'office_name',
         'location_name',
         'overtime',
         'area',
@@ -23,6 +28,8 @@ class Requests extends Model
         'file_path',
         'status',
         'user_id',
+        'office_id',
+        'location_id',
         'is_archived'
     ];
 
@@ -59,8 +66,6 @@ class Requests extends Model
         $validator = Validator::make($data, [
             'control_no' => ['nullable', 'string'],
             'description' => ['required', 'string'],
-            'officename' => ['required', 'in:' . implode(',', $office)],
-            'location_name' => ['required', 'in:' . implode(',', $location)],
             'overtime' => ['nullable', 'in:Yes,No'],
             'area' => ['required', 'string'],
             'fiscal_year' => ['required', 'string', 'in:' . $currentYear],
