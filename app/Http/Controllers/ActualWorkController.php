@@ -252,7 +252,7 @@ class ActualWorkController extends Controller
 
             // Return a 200 Created response
             return response()->json($response, 200);
-            
+
         } catch (Throwable $e) {
             // Handle any exceptions that may occur
             $response = [

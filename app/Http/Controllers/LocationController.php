@@ -20,6 +20,7 @@ class LocationController extends Controller
             $request->validate([
                 'location_name' => ['required'],
                 'note' => ['required'],
+
             ]);
 
             $location = Location::create([
@@ -102,61 +103,61 @@ class LocationController extends Controller
      * Get all user types.
      */
     public function getLocations(Request $request)
-{
-    try {
-        $perPage = $request->input('per_page', 10); // Get 'per_page' parameter or default to 10
-        $search = $request->input('search'); // Get 'search' parameter if provided
+    {
+        try {
+            $perPage = $request->input('per_page', 10); // Get 'per_page' parameter or default to 10
+            $search = $request->input('search'); // Get 'search' parameter if provided
 
-        // Create the query to select locations
-        $query = Location::select('id','location_name', 'note')
-            ->where('is_archived', 'A'); // Include only active locations
+            // Create the query to select locations
+            $query = Location::select('id', 'location_name', 'note')
+                ->where('is_archived', 'A'); // Include only active locations
 
-        // Apply search filter if search term is provided
-        if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('location_name', 'LIKE', '%' . $search . '%')
-                  ->orWhere('note', 'LIKE', '%' . $search . '%'); // Search in 'location_name' and 'note'
-            });
+            // Apply search filter if search term is provided
+            if (!empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('location_name', 'LIKE', '%' . $search . '%')
+                        ->orWhere('note', 'LIKE', '%' . $search . '%'); // Search in 'location_name' and 'note'
+                });
+            }
+
+            // Paginate the results
+            $locations = $query->paginate($perPage);
+
+            // Prepare the response
+            $response = [
+                'isSuccess' => true,
+                'message' => "Location list:",
+                'location' => $locations,
+                'pagination' => [
+                    'total' => $locations->total(),
+                    'per_page' => $locations->perPage(),
+                    'current_page' => $locations->currentPage(),
+                    'last_page' => $locations->lastPage(),
+                    'next_page_url' => $locations->nextPageUrl(),
+                    'prev_page_url' => $locations->previousPageUrl(),
+                ]
+            ];
+
+            // Log API calls
+            $this->logAPICalls('getLocations', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Prepare the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to retrieve locations.",
+                'error' => $e->getMessage()
+            ];
+
+            // Log API calls
+            $this->logAPICalls('getLocations', "", $request->all(), $response);
+
+            return response()->json($response, 500);
         }
-
-        // Paginate the results
-        $locations = $query->paginate($perPage);
-
-        // Prepare the response
-        $response = [
-            'isSuccess' => true,
-            'message' => "Location list:",
-            'location' => $locations, 
-            'pagination' => [
-                'total' => $locations->total(),
-                'per_page' => $locations->perPage(),
-                'current_page' => $locations->currentPage(),
-                'last_page' => $locations->lastPage(),
-                'next_page_url' => $locations->nextPageUrl(),
-                'prev_page_url' => $locations->previousPageUrl(),
-            ]
-        ];
-
-        // Log API calls
-        $this->logAPICalls('getLocations', "", $request->all(), $response);
-
-        return response()->json($response, 200);
-    } catch (Throwable $e) {
-        // Prepare the error response
-        $response = [
-            'isSuccess' => false,
-            'message' => "Failed to retrieve locations.",
-            'error' => $e->getMessage()
-        ];
-
-        // Log API calls
-        $this->logAPICalls('getLocations', "", $request->all(), $response);
-
-        return response()->json($response, 500);
     }
-}
 
-    
+
 
     /**
      * Delete a user type.

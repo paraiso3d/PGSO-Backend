@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccomplishmentReportController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DivisionController;
 use App\Http\Controllers\LocationController;
@@ -115,6 +116,16 @@ Route::controller(RequestController::class)->group(function () {
 
 
 });
+
+
+/*
+|--------------------\Accomplishment Report API-----------------------\
+*/
+Route::controller(AccomplishmentReportController::class)->group(function () {
+    Route::post('saveAccomplishment/{id}', 'saveAccomplishmentReport');
+
+});
+
 
 // Route::middleware(['auth:sanctum'])->group(function () {
 //     // Admin can access all CRUD routes

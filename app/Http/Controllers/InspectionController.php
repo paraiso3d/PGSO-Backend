@@ -112,6 +112,7 @@ class InspectionController extends Controller
     }
 
 
+
     public function getInspections(Request $request, $controlRequestId)
     {
         try {
