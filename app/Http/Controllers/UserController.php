@@ -183,16 +183,19 @@ class UserController extends Controller
                 $dataToUpdate['password'] = Hash::make($request->password);
             }
     
-            // Log the values before updating for debugging
-            \Log::info('Updating user account:', $dataToUpdate);
-    
             // Update the user account
             $userAccount->update($dataToUpdate);
+    
+            // Retrieve the fresh user account
+            $userAccount = $userAccount->fresh();
+    
+            // Hide user_type_id and office_id from the response
+            $userAccount->makeHidden(['user_type_id', 'office_id']);
     
             $response = [
                 'isSuccess' => true,
                 'message' => 'UserAccount successfully updated.',
-                'user' => $userAccount->fresh() // Get the updated user data
+                'user' => $userAccount // Get the updated user data without hidden attributes
             ];
             $this->logAPICalls('updateUserAccount', $id, $request->except(['user_type_id', 'office_id']), $response);
             return response()->json($response, 200);
@@ -202,7 +205,7 @@ class UserController extends Controller
                 'message' => 'Validation failed.',
                 'errors' => $v->errors()
             ];
-            $this->logAPICalls('updateUserAccount', $id, $request->all(), $response);
+            $this->logAPICalls('updateUserAccount', $id, $request->except('user_type_id', 'office_id'), $response);
             return response()->json($response, 422); // Use 422 for validation errors
         } catch (Throwable $e) {
             $response = [
@@ -210,76 +213,11 @@ class UserController extends Controller
                 'message' => 'Failed to update the UserAccount.',
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('updateUserAccount', $id, $request->all(), $response);
+            $this->logAPICalls('updateUserAccount', $id, $request->except('user_type_id', 'office_id'), $response);
             return response()->json($response, 500);
         }
     }
     
-
-    /**
-     * Delete a user account.
-     */
-    public function deleteUserAccount(Request $request)
-    {
-        try {
-            $userAccount = User::find($request->id);
-
-            $userAccount->update(['is_archived' => "I"]);
-
-            $response = [
-                'isSuccess' => true,
-                'message' => 'UserAccount successfully deleted.'
-            ];
-            $this->logAPICalls('deleteUserAccount', $userAccount->id, [], $response);
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to delete the UserAccount.',
-                'error' => $e->getMessage()
-            ];
-            $this->logAPICalls('deleteUserAccount', '', [], $response);
-            return response()->json($response, 500);
-        }
-    }
-
-
-    public function getDropdownOptionsUsertype(Request $request)
-    {
-        try {
-
-
-            $userTypes = user_type::select('id', 'name')
-                ->where('is_archived', 'A')
-                ->get();
-
-            // Build the response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Dropdown data retrieved successfully.',
-                'user_types' => $userTypes,
-            ];
-
-            // Log the API call
-            $this->logAPICalls('getDropdownOptionsUsertype', "", $request->all(), $response);
-
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            // Handle the error response
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve dropdown data.',
-                'error' => $e->getMessage()
-            ];
-
-            // Log the error
-            $this->logAPICalls('getDropdownOptionsUsertype', "", $request->all(), $response);
-
-            return response()->json($response, 500);
-        }
-    }
-
-
     public function getDropdownOptionsUseroffice(Request $request)
     {
         try {

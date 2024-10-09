@@ -10,6 +10,11 @@ use Illuminate\Support\Facades\Storage;
 class Requests extends Model
 {
     use HasFactory;
+
+    protected $casts = [
+        'updated_at' => 'string',
+    ];
+    
     protected $guard = [];
 
     protected $fillable = [

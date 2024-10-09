@@ -119,8 +119,8 @@ class RequestController extends Controller
         try {
             // Initialize query
             $query = Requests::query();
-
-            // Select specific fields from the requests table
+    
+            // Select specific fields from the requests table with formatted updated_at
             $query->select(
                 'requests.id',
                 'requests.control_no',
@@ -131,33 +131,34 @@ class RequestController extends Controller
                 'requests.file_path',
                 'requests.area',
                 'requests.fiscal_year',
-                'requests.status'
+                'requests.status',
+                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at") // Format updated_at to YYYY-MM-DD
             )
                 // Only get active requests (is_archived = 'A')
                 ->where('requests.is_archived', 'A');
-
+    
             // Search by control_no if provided
             if ($request->has('search') && !empty($request->input('search'))) {
                 $query->where('requests.control_no', 'like', '%' . $request->input('search') . '%');
             }
-
+    
             // Pagination
             $perPage = $request->input('per_page', 10);
-
+    
             // Sort by control_no or any other field if needed
             $requests = $query->orderBy('requests.control_no', 'asc')->paginate($perPage);
-
+    
             // Response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
                 'request' => $requests,
             ];
-
+    
             $this->logAPICalls('getRequests', '', $request->all(), $response);
-
+    
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -165,10 +166,11 @@ class RequestController extends Controller
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('getRequests', '', $request->all(), $response);
-
+    
             return response()->json($response, 500);
         }
     }
+    
 
     // Method to delete (archive) a request
     public function deleteRequest($id)
