@@ -227,9 +227,9 @@ Route::controller(ReviewController::class)->group(function(){
 */
 
 Route::controller(ActualWorkController::class)->group(function () {
-    Route::post('createWorkreport', 'createWorkreport');
+    Route::post('createWorkreport/{id}', 'createWorkreport');
     Route::post('updateWorkreport/{id}', 'updateWorkreport');
-    Route::get('workreportList', 'getWorkreport');
+    Route::get('workreportList/{id}', 'getWorkreports');
 
     //MANPOWER DEPLOYMENT API
 
@@ -243,10 +243,11 @@ Route::controller(ActualWorkController::class)->group(function () {
 */
 
 Route::controller(InspectionController::class)->group(function () {
-    Route::get('inspectionList','getInspections');
-    Route::post('createInspection', 'createInspection');
+    Route::get('inspectionList/{id}','getInspections');
+    Route::post('createInspection/{id}', 'createInspection');
     Route::post('updateInspection/{id}', 'updateInspection');
     Route::post('deleteInspection/{id}','deleteInspection');
+    Route::post('updatestatus/{id}','updateWorkStatus');
 });
 
 

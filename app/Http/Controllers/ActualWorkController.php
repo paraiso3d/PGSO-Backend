@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Actual_work;
 use App\Models\ManpowerDeployment;
 use App\Models\Manpower;
+use App\Models\Control_Request;
 use Illuminate\Http\Request;
+use Validator;
 use Throwable;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -18,123 +20,191 @@ class ActualWorkController extends Controller
 {
 
     //CREATE WORK REPORT
-
-    public function createWorkreport(Request $request)
+    public function createWorkreport(Request $request, $id = null)
     {
-        // Validate the incoming request data using the built-in validation method
-        $request->validate([
+
+        // Validate the incoming request data using the `in` rule with an array
+        $validator = Validator::make($request->all(), [
             'recommended_action' => 'required|string|max:255',
             'remarks' => 'required|string|max:255',
         ]);
 
-        // Store the validated request data
-        try {
-            // Create a new Actual work report record using the validated data
-            $newWorkreport = Actual_work::create([
-                'recommended_action' => $request->input('recommended_action'),
-                'remarks' => $request->input('remarks'),
-            ]);
-
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Actual work report successfully created.',
-                'actualwork' => $newWorkreport,
-            ];
-
-            // Log the API call (assuming `logAPICalls` is a defined method in your class)
-            $this->logAPICalls('createWorkreport', $newWorkreport->id, $request->all(), $response);
-
-            // Return a 201 Created response
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            // Handle any exceptions that may occur
+        if ($validator->fails()) {
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to create the Actual work report.',
-                'error' => $e->getMessage(),
+                'message' => 'Validation error',
+                'errors' => $validator->errors(),
+            ];
+            $this->logAPICalls('createWorkreport', $id, $request->all(), $response);
+            return response()->json($response, 500);
+        }
+
+        try {
+            // Fetch the existing request using the provided ID or some identifier
+            $existingRequest = Control_Request::find($id);
+
+            if (!$existingRequest) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => "No request found.",
+                ];
+                $this->logAPICalls('createWorkreport', $id, $request->all(), $response);
+                return response()->json($response, 404);
+            }
+
+
+            // Prepare the data for creating a new Inspection report
+            $actualworkData = [
+                'recommended_action' => $request->input('recommended_action'),
+                'remarks' => $request->input('remarks'),
+                'control_no' => $existingRequest->control_no, // Link to the existing control_no from Requests table
+                'control_request_id' =>$existingRequest->id,
             ];
 
-            // Log the API call (assuming `logAPICalls` is a defined method in your class)
-            $this->logAPICalls('createWorkreport', '', $request->all(), $response);
+            // Create a new entry in the Actual_work table
+            $newWorkreport = Actual_work::create($actualworkData);
 
-            // Return a 500 Internal Server Error response
+            // Response for successful creation in the Actual_work table
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Actual work report created successfully.',
+                'actualwork' => $newWorkreport,
+            ];
+            $this->logAPICalls('createInspection', $existingRequest->id, $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Response for failed operation
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to create the actual work report.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('createInspection', $id ?? '', $request->all(), $response);
             return response()->json($response, 500);
         }
     }
 
     //UPDATE WORK REPORT
-
     public function updateWorkreport(Request $request, $id)
     {
         // Validate the incoming request data using Laravel's built-in validation method
-        $request->validate([
-            'recommended_action' => 'required|string|max:255',
-            'remarks' => 'required|string|max:255',
+        $validator = Validator::make($request->all(), [
+            'recommended_action' => 'sometimes|string|max:255',
+            'remarks' => 'sometimes|string|max:255',
         ]);
-
+    
+        if ($validator->fails()) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors(),
+            ];
+            $this->logAPICalls('updateWorkreport', $id, $request->all(), $response);
+            return response()->json($response, 500);
+        }
+    
         try {
-            // Find the existing inspection report by ID or throw a 404 error
-            $existingRequest = Actual_work::findOrFail($id);
-
-            // Update the request data
-            $existingRequest->update([
+            // Fetch the existing inspection report using the provided ID
+            $existingWorkreport = Actual_work::find($id);
+    
+            // If no inspection is found by ID, return an error response
+            if (!$existingWorkreport) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => "No actual work report found.",
+                ];
+                $this->logAPICalls('updateWorkreport', $id, $request->all(), $response);
+                return response()->json($response, 404);
+            }
+    
+            // Prepare the data for updating the inspection report
+            $actualworkData = [
                 'recommended_action' => $request->input('recommended_action'),
                 'remarks' => $request->input('remarks'),
-            ]);
-
+            ];
+    
+            // Update the existing inspection report with the new data
+            $existingWorkreport->update($actualworkData);
+    
+            // Response for successful update in the Inspection_report table
             $response = [
                 'isSuccess' => true,
                 'message' => 'Actual work report updated successfully.',
-                'actualwork' => $existingRequest,
+                'actualwork' => $existingWorkreport,
             ];
-
-            $this->logAPICalls('updateWorkreport', $id, $request->all(), $response);
-            return response()->json($response, 200); // Return a 200 OK response
+            $this->logAPICalls('updateWorkreport', $existingWorkreport->id, $request->all(), $response);
+    
+            return response()->json($response, 200);
         } catch (Throwable $e) {
-            // Handle any errors during update
+            // Response for failed operation
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to update the actual work report.',
                 'error' => $e->getMessage(),
             ];
-
             $this->logAPICalls('updateWorkreport', $id, $request->all(), $response);
-            return response()->json($response, 500); // Return a 500 Internal Server Error response
-        }
-    }
-
-    //GET WORK REPORT
-
-    public function getWorkreport(Request $request)
-    {
-        try {
-            // Fetch all actual work reports without filters or pagination
-            $workreport = Actual_work::all();
-
-
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Actual work report retrieved successfully.',
-                'actualwork' => $workreport,
-            ];
-
-            $this->logAPICalls('getWorkreport', '', $request->all(), $response);
-
-            return response()->json($response, 200);
-
-        } catch (Throwable $e) {
-
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve the actual work reports.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('getWorkreport', '', $request->all(), $response);
-
             return response()->json($response, 500);
         }
     }
 
+    //GET WORK REPORT
+    public function getWorkreports(Request $request, $controlRequestId)
+    {
+        try {
+            // Check if the `control_request_id` exists in the Control_Request table
+            $controlRequestExists = Control_Request::where('id', $controlRequestId)->exists();
+    
+            if (!$controlRequestExists) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => "No control request found for this id: {$controlRequestId}.",
+                ], 500); // Return a 404 Not Found if no matching control request is found
+            }
+    
+            // Fetch and group inspection reports by 'control_no' using the provided `control_request_id`
+            $actualworkReports = Actual_work::select('control_no', 'id', 'recommended_action', 'remarks')
+                ->where('is_archived', 'A')
+                ->where('control_request_id', $controlRequestId) // Filter by the provided control_request_id
+                ->get()
+                ->groupBy('control_no'); // Group records by 'control_no'
+    
+            // Prepare the grouped data structure
+            $groupedworkReports = $actualworkReports->map(function ($group) {
+                return $group->map(function ($actualwork) {
+                    return [
+                        'id' => $actualwork->id,
+                        'recommended_action' => $actualwork->recommended_action,
+                        'remarks' => $actualwork->remarks,
+                    ];
+                });
+            });
+    
+            // Prepare the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Actual work report retrieved successfully.',
+                'inspections' => $groupedworkReports,
+            ];
+    
+            // Log API calls
+            $this->logAPICalls('getWorkreports', $controlRequestId, $request->all(), $response);
+    
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Prepare the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve actual work report.',
+                'error' => $e->getMessage(),
+            ];
+    
+            // Log the error
+            $this->logAPICalls('getWorkreports', $controlRequestId ?? '', $request->all(), $response);
+    
+            return response()->json($response, 500);
+        }
+    }
     //ADD MANPOWER DEPLOYMENT
 
     public function addManpowerDeploy(Request $request)
