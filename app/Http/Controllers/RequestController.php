@@ -50,8 +50,7 @@ class RequestController extends Controller
 
     public function createRequest(Request $request)
     {
-        // Log incoming request data for debugging
-        \Log::info('Incoming request data:', $request->all());
+        
     
         // Validate the incoming request data using the model's validateRequest method
         $validator = Requests::validateRequest($request->all());
