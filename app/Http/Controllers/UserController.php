@@ -218,6 +218,43 @@ class UserController extends Controller
         }
     }
     
+
+    public function getDropdownOptionsUsertype(Request $request)
+    {
+        try {
+
+            $offices = user_type::select('id', 'name')
+                ->where('is_archived', 'A')
+                ->get();
+
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'user_types' => $offices,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsUseroffice', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsUseroffice', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
+
+
     public function getDropdownOptionsUseroffice(Request $request)
     {
         try {
