@@ -119,8 +119,6 @@ class RequestController extends Controller
                 'description' => $request->input('description'),
                 'office_name' => $office->office_name,
                 'location_name' => $location->location_name,
-                'office_name' => $office->office_name,
-                'location_name' => $location->location_name,
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
