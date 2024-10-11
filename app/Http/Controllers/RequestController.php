@@ -65,6 +65,7 @@ class RequestController extends Controller
        
         $validator = Requests::validateRequest($request->all());
     
+    
         if ($validator->fails()) {
             $response = [
                 'isSuccess' => false,
@@ -118,6 +119,8 @@ class RequestController extends Controller
                 'description' => $request->input('description'),
                 'office_name' => $office->office_name,
                 'location_name' => $location->location_name,
+                'office_name' => $office->office_name,
+                'location_name' => $location->location_name,
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
@@ -136,6 +139,7 @@ class RequestController extends Controller
             ];
     
             $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
+    
     
             return response()->json($response, 200);
     
@@ -160,45 +164,49 @@ class RequestController extends Controller
         try {
             // Initialize query
             $query = Requests::query();
-
-            // Select specific fields from the requests table
+    
+            // Select specific fields from the requests table with formatted updated_at
             $query->select(
                 'requests.id',
                 'requests.control_no',
                 'requests.description',
+                'requests.office_name',
                 'requests.office_name',
                 'requests.location_name',
                 'requests.overtime',
                 'requests.file_path',
                 'requests.area',
                 'requests.fiscal_year',
-                'requests.status'
+                'requests.status',
+                'requests.office_id',
+                'requests.location_id',
+                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at") // Format updated_at to YYYY-MM-DD
             )
                 // Only get active requests (is_archived = 'A')
                 ->where('requests.is_archived', 'A');
-
+    
             // Search by control_no if provided
             if ($request->has('search') && !empty($request->input('search'))) {
                 $query->where('requests.control_no', 'like', '%' . $request->input('search') . '%');
             }
-
+    
             // Pagination
             $perPage = $request->input('per_page', 10);
-
+    
             // Sort by control_no or any other field if needed
             $requests = $query->orderBy('requests.control_no', 'asc')->paginate($perPage);
-
+    
             // Response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
                 'request' => $requests,
             ];
-
+    
             $this->logAPICalls('getRequests', '', $request->all(), $response);
-
+    
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -206,10 +214,11 @@ class RequestController extends Controller
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('getRequests', '', $request->all(), $response);
-
+    
             return response()->json($response, 500);
         }
     }
+    
 
     // Method to delete (archive) a request
     public function deleteRequest($id)
@@ -428,7 +437,7 @@ class RequestController extends Controller
     public function getDropdownOptionscreateRequestsoffice(Request $request)
     {
         try {
-            $office = Office::select('id', 'officename')
+            $office = Office::select('id', 'office_name')
                 ->where('is_archived', 'A')
                 ->get();
 
