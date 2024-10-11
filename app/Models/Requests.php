@@ -58,8 +58,7 @@ class Requests extends Model
 
     public static function validateRequest($data)
     {
-        $office = Office::pluck('acronym')->toArray();
-        $location = Location::pluck('location_name')->toArray();
+        
         $currentYear = now()->year;
 
 
@@ -70,7 +69,6 @@ class Requests extends Model
             'area' => ['required', 'string'],
             'fiscal_year' => ['required', 'string', 'in:' . $currentYear],
             'user_id' => 'get|string|exists:Requests,id',
-
             'file_path' => [
                 'required',
                 'file',
@@ -78,13 +76,20 @@ class Requests extends Model
                 'max:5120',
             ],
 
-            'status' => ['string', 'in:Pending,Ongoing,For Inspection,Completed'],
+            'status' => ['string', 'in:Pending, For Inspection, On-going, Completed'],
             'is_archived' => ['nullable', 'in: A, I']
         ]);
 
         return $validator;
     }
+     public function office()
+    {
+        return $this->belongsTo(Office::class);
+    }
 
-
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
+    }
 
 }

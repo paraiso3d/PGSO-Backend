@@ -6,9 +6,11 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\user_type;
 use App\Models\Session;
+use Exception;
 use App\Models\ApiLog;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Throwable;
@@ -274,5 +276,40 @@ class AuthController extends Controller
             return false;
         }
         return true;
+    }
+
+    public function saveImage($image, string $path, string $empno, string $ln)
+    {
+        \Log::info('Base64 Image Data: ', ['image' => $image]); // Log the image data
+        if (preg_match('/^data:image\/(\w+);base64,/', $image, $type)) {
+            $image = substr($image, strpos($image, ',') + 1);
+            $type = strtolower($type[1]);
+    
+            if (!in_array($type, ['jpg', 'jpeg', 'gif', 'png', 'svg'])) {
+                throw new Exception('The provided image is invalid.');
+            }
+    
+            $image = str_replace(' ', '+', $image);
+            $image = base64_decode($image);
+    
+            if ($image === false) {
+                throw new Exception('Unable to process the image.');
+            }
+        } else {
+            throw new Exception('Please make sure the type you are uploading is an image file.');
+        }
+    
+        $dir = 'img/' . $path . '/';
+        $file = $empno . '-' . $ln . '.' . $type;
+        $absolutePath = public_path($dir);
+        $relativePath = $dir . $file;
+    
+        if (!File::exists($absolutePath)) {
+            File::makeDirectory($absolutePath, 0755, true);
+        }
+    
+        file_put_contents($relativePath, $image);
+    
+        return $relativePath;
     }
 }
