@@ -18,7 +18,7 @@ class CreateRequestsTable extends Migration
             $table->string('user_id');
             $table->string('control_no');
             $table->string('description');
-            $table->string('officename');
+            $table->string('office_name');
             $table->string('location_name');
             $table->string('area');
             $table->boolean('overtime');

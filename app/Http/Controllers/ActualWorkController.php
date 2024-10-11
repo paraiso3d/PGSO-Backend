@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Actual_work;
 use App\Models\ManpowerDeployment;
 use App\Models\Manpower;
-use App\Models\Control_Request;
+use App\Models\Requests;
 use Illuminate\Http\Request;
 use Validator;
 use Throwable;
@@ -41,7 +41,7 @@ class ActualWorkController extends Controller
 
         try {
             // Fetch the existing request using the provided ID or some identifier
-            $existingRequest = Control_Request::find($id);
+            $existingRequest = Requests::find($id);
 
             if (!$existingRequest) {
                 $response = [
@@ -58,7 +58,7 @@ class ActualWorkController extends Controller
                 'recommended_action' => $request->input('recommended_action'),
                 'remarks' => $request->input('remarks'),
                 'control_no' => $existingRequest->control_no, // Link to the existing control_no from Requests table
-                'control_request_id' =>$existingRequest->id,
+                'request_id' => $existingRequest->id,
             ];
 
             // Create a new entry in the Actual_work table
@@ -93,7 +93,7 @@ class ActualWorkController extends Controller
             'recommended_action' => 'sometimes|string|max:255',
             'remarks' => 'sometimes|string|max:255',
         ]);
-    
+
         if ($validator->fails()) {
             $response = [
                 'isSuccess' => false,
@@ -103,11 +103,11 @@ class ActualWorkController extends Controller
             $this->logAPICalls('updateWorkreport', $id, $request->all(), $response);
             return response()->json($response, 500);
         }
-    
+
         try {
             // Fetch the existing inspection report using the provided ID
             $existingWorkreport = Actual_work::find($id);
-    
+
             // If no inspection is found by ID, return an error response
             if (!$existingWorkreport) {
                 $response = [
@@ -117,16 +117,16 @@ class ActualWorkController extends Controller
                 $this->logAPICalls('updateWorkreport', $id, $request->all(), $response);
                 return response()->json($response, 404);
             }
-    
+
             // Prepare the data for updating the inspection report
             $actualworkData = [
-                'recommended_action' => $request->input('recommended_action'),
-                'remarks' => $request->input('remarks'),
+                'recommended_action' => $request->input('recommended_action') ? $request->input('recommended_action') : $existingWorkreport->recommended_action,
+                'remarks' => $request->input('remarks')  ? $request->input('remarks') : $existingWorkreport->remarks,
             ];
-    
+
             // Update the existing inspection report with the new data
             $existingWorkreport->update($actualworkData);
-    
+
             // Response for successful update in the Inspection_report table
             $response = [
                 'isSuccess' => true,
@@ -134,7 +134,7 @@ class ActualWorkController extends Controller
                 'actualwork' => $existingWorkreport,
             ];
             $this->logAPICalls('updateWorkreport', $existingWorkreport->id, $request->all(), $response);
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             // Response for failed operation
@@ -149,26 +149,26 @@ class ActualWorkController extends Controller
     }
 
     //GET WORK REPORT
-    public function getWorkreports(Request $request, $controlRequestId)
+    public function getWorkreports(Request $request, $Request_id)
     {
         try {
-            // Check if the `control_request_id` exists in the Control_Request table
-            $controlRequestExists = Control_Request::where('id', $controlRequestId)->exists();
-    
-            if (!$controlRequestExists) {
+            // Check if the `request_id` exists in the Control_Request table
+            $Requestexists = Requests::where('id', $Request_id)->exists();
+
+            if (!$Requestexists) {
                 return response()->json([
                     'isSuccess' => false,
-                    'message' => "No control request found for this id: {$controlRequestId}.",
+                    'message' => "No control request found for this id: {$Request_id}.",
                 ], 500); // Return a 404 Not Found if no matching control request is found
             }
-    
-            // Fetch and group inspection reports by 'control_no' using the provided `control_request_id`
+
+            // Fetch and group inspection reports by 'control_no' using the provided `request_id`
             $actualworkReports = Actual_work::select('control_no', 'id', 'recommended_action', 'remarks')
                 ->where('is_archived', 'A')
-                ->where('control_request_id', $controlRequestId) // Filter by the provided control_request_id
+                ->where('request_id', $Request_id) // Filter by the provided request_id
                 ->get()
                 ->groupBy('control_no'); // Group records by 'control_no'
-    
+
             // Prepare the grouped data structure
             $groupedworkReports = $actualworkReports->map(function ($group) {
                 return $group->map(function ($actualwork) {
@@ -179,17 +179,17 @@ class ActualWorkController extends Controller
                     ];
                 });
             });
-    
+
             // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Actual work report retrieved successfully.',
-                'inspections' => $groupedworkReports,
+                'actualwork' => $groupedworkReports,
             ];
-    
+
             // Log API calls
-            $this->logAPICalls('getWorkreports', $controlRequestId, $request->all(), $response);
-    
+            $this->logAPICalls('getWorkreports', $Request_id, $request->all(), $response);
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             // Prepare the error response
@@ -198,81 +198,73 @@ class ActualWorkController extends Controller
                 'message' => 'Failed to retrieve actual work report.',
                 'error' => $e->getMessage(),
             ];
-    
+
             // Log the error
-            $this->logAPICalls('getWorkreports', $controlRequestId ?? '', $request->all(), $response);
-    
+            $this->logAPICalls('getWorkreports', $Request_id ?? '', $request->all(), $response);
+
             return response()->json($response, 500);
         }
     }
+
     //ADD MANPOWER DEPLOYMENT
-
     public function addManpowerDeploy(Request $request)
-    {
-        $ManpowerDeploy = Manpower::pluck('first_name')->toArray();
-        $Manpowerlastname = Manpower::pluck('last_name')->toArray();
+{
+    // Validate input
+    $request->validate([
+        'manpower_id' => 'required|exists:manpowers,id', // Assuming you have a manpower ID
+        'rating' => 'required|numeric|between:0,100',
+    ]);
 
+    try {
+        // Fetch the manpower record using the provided ID
+        $manpower = Manpower::findOrFail($request->input('manpower_id'));
+
+        // Clean the rating input (removing the '%' sign)
         $ratingInput = $request->input('rating');
         $numericRating = str_replace('%', '', $ratingInput);
 
-        $request->validate([
-            'first_name' => ['required', 'alpha_spaces', 'in:' . implode(',', $ManpowerDeploy)],
-            'last_name' => ['required', 'alpha_spaces', 'in:' . implode(',', $Manpowerlastname)],
-            'rating' => 'required|numeric|between:0,100',
+        // Prepare the rating for storage
+        $ratingToStore = $numericRating . '%';
+
+        // Create a new manpower deployment record
+        $newManpowerDeploy = ManpowerDeployment::create([
+            'first_name' => $manpower->first_name,
+            'last_name' => $manpower->last_name,
+            'rating' => $ratingToStore,
+            'manpower_id'=>$manpower->id
         ]);
 
-        try {
+        // Prepare the response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Manpower successfully added.',
+            'manpowerdeployment' => $newManpowerDeploy,
+        ];
 
-            $ratingInput = $request->input('rating');
-            $numericRating = str_replace('%', '', $ratingInput);
+        // Log the API call
+        $this->logAPICalls('addManpowerDeploy', $newManpowerDeploy->id, $request->all(), $response);
 
-            $validatedData = $request->validate([
-                'first_name' => 'required|string|max:255',
-                'last_name' => 'required|string|max:255',
-                'rating' => 'required|numeric|between:0,100',
-            ]);
+        // Return a 200 Created response
+        return response()->json($response, 200);
+        
+    } catch (Throwable $e) {
+        // Handle any exceptions that may occur
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to create the Actual work report.',
+            'error' => $e->getMessage(),
+        ];
 
+        // Log the API call
+        $this->logAPICalls('addManpowerDeploy', '', $request->all(), $response);
 
-            $ratingToStore = $numericRating . '%';
-
-            $newManpowerDeploy = ManpowerDeployment::create([
-                'first_name' => $validatedData['first_name'],
-                'last_name' => $validatedData['last_name'],
-                'rating' => $ratingToStore,
-            ]);
-
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Manpower successfully added.',
-                'manpowerdeployment' => $newManpowerDeploy,
-            ];
-
-
-            $this->logAPICalls('addManpowerDeploy', $newManpowerDeploy->id, $request->all(), $response);
-
-            // Return a 200 Created response
-            return response()->json($response, 200);
-
-        } catch (Throwable $e) {
-            // Handle any exceptions that may occur
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to create the Actual work report.',
-                'error' => $e->getMessage(),
-            ];
-
-            // Log the API call (assuming `logAPICalls` is a defined method in your class)
-            $this->logAPICalls('addManpowerDeploy', '', $request->all(), $response);
-
-            // Return a 500 Internal Server Error response
-            return response()->json($response, 500);
-        }
+        // Return a 500 Internal Server Error response
+        return response()->json($response, 500);
     }
-
+}
 
 
     //GET MANPOWER DEPLOYMENT
-
     public function getManpowerDeploy(Request $request)
     {
 
@@ -312,7 +304,6 @@ class ActualWorkController extends Controller
     }
 
     //DELETE MANPOWER DEPLOYMENT
-
     public function deletemanpowerdeployment(Request $request)
     {
         try {
@@ -342,6 +333,40 @@ class ActualWorkController extends Controller
         }
     }
 
+    public function getDropdownOptionsManpower(Request $request)
+    {
+        try {
+
+
+            $Manpowerdeploy = ManpowerDeployment::select('id', 'first_name', 'last_name')
+                ->where('is_archived', 'A')
+                ->get();
+
+            // Build the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown data retrieved successfully.',
+                'div_name' => $Manpowerdeploy,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('getDropdownOptionsActualwork', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown data.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log the error
+            $this->logAPICalls('getDropdownOptionsActualwork', "", $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+    }
 
     public function logAPICalls(string $methodName, string $requestId, array $param, array $resp)
     {

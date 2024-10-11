@@ -14,6 +14,7 @@ class ManpowerDeployment extends Model
     'first_name',
      'last_name', 
      'rating',
+     'manpower_id',
      'is_archived'
 
     ];

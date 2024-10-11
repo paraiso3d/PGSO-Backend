@@ -33,7 +33,7 @@ class AccomplishmentReportController extends Controller
 
     try {
         // Fetch the existing request using the provided ID
-        $existingRequest = Control_Request::findOrFail($id);
+        $existingRequest = Requests::findOrFail($id);
         $status = $request->input('status', 'Completed'); // Set status to Completed or the input value
         $dateStarted = $existingRequest->created_at;
         $dateCompleted = Carbon::now();
@@ -66,7 +66,7 @@ class AccomplishmentReportController extends Controller
         $existingRequest->update(['status' => $status]);
 
         // Assuming `Requests` is related to `Control_Request` by ID (or another common field).
-        Control_Request::where('request_id', $existingRequest->id)->update(['status' => $status]);
+        Requests::where('request_id', $existingRequest->id)->update(['status' => $status]);
 
 
         $response = [

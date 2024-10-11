@@ -15,7 +15,7 @@ class Requests extends Model
     protected $fillable = [
         'control_no',
         'description',
-        'officename',
+        'office_name',
         'location_name',
         'overtime',
         'area',
@@ -23,6 +23,8 @@ class Requests extends Model
         'file_path',
         'status',
         'user_id',
+        'office_id',
+        'location_id',
         'is_archived'
     ];
 
@@ -59,13 +61,10 @@ class Requests extends Model
         $validator = Validator::make($data, [
             'control_no' => ['nullable', 'string'],
             'description' => ['required', 'string'],
-            'officename' => ['required', 'in:' . implode(',', $office)],
-            'location_name' => ['required', 'in:' . implode(',', $location)],
             'overtime' => ['nullable', 'in:Yes,No'],
             'area' => ['required', 'string'],
             'fiscal_year' => ['required', 'string', 'in:' . $currentYear],
             'user_id' => 'get|string|exists:Requests,id',
-
             'file_path' => [
                 'required',
                 'file',
@@ -73,13 +72,20 @@ class Requests extends Model
                 'max:5120',
             ],
 
-            'status' => ['string', 'in:Pending,Ongoing,For Inspection,Completed'],
+            'status' => ['string', 'in:Pending, For Inspection, On-going, Completed'],
             'is_archived' => ['nullable', 'in: A, I']
         ]);
 
         return $validator;
     }
+     public function office()
+    {
+        return $this->belongsTo(Office::class);
+    }
 
-
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
+    }
 
 }

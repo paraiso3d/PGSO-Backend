@@ -10,6 +10,7 @@ use App\Models\Division;
 use App\Models\Office;
 use App\Models\Requests;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -45,14 +46,25 @@ class RequestController extends Controller
     //     }
     // }
 
+    public function getSetting(string $code)
+    {
+        try {
+            $value = DB::table('settings')
+                ->where('setting_code', $code)
+                ->value('setting_value');
+        }
+        catch (Throwable $e) {
+            return $e->getMessage();
+        }
+        return $value;
+    }
+
     // Method to create a new request.    
-
-
     public function createRequest(Request $request)
     {
-        // Validate the incoming request data using the model's validateRequest method
+       
         $validator = Requests::validateRequest($request->all());
-
+    
         if ($validator->fails()) {
             $response = [
                 'isSuccess' => false,
@@ -62,55 +74,84 @@ class RequestController extends Controller
             $this->logAPICalls('createRequest', '', $request->all(), $response);
             return response()->json($response, 500);
         }
-
-        // Generate control number
+    
+       
         $controlNo = Requests::generateControlNo();
-
-        // Initialize file path
+    
+        
         $filePath = null;
+        $fileUrl = null;
+    
+       
         if ($request->hasFile('file_path')) {
-            // Store the file and get the path
-            $filePath = $request->file('file_path')->store('public/uploads'); // Store in public directory
+            // Get the uploaded file
+            $file = $request->file('file_path');
+            
+            // Convert the uploaded file to base64
+            $fileContents = file_get_contents($file->getRealPath());
+            $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
+    
+            // Call your saveImage method to handle the base64 image
+            $path = $this->getSetting("ASSET_IMAGE_PATH");
+            $fdateNow = now()->format('Y-m-d');
+            $ftimeNow = now()->format('His');
+            $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $controlNo, $fdateNow . '_' . $ftimeNow);
+            
+          
+            $fileUrl = asset('storage/' . $filePath);
         }
-
-        // Set default status if not provided
+    
+    
         $status = $request->input('status', 'Pending');
-
-        // Store the validated request data
+    
         try {
-
+            
+            $locationId = $request->input('location_id');
+            $officeId = $request->input('office_id');
+    
+            $location = Location::findOrFail($locationId);
+            $office = Office::findOrFail($officeId);
+    
+            // Create the new request record
             $newRequest = Requests::create([
                 'control_no' => $controlNo,
                 'description' => $request->input('description'),
-                'officename' => $request->input('officename'),
-                'location_name' => $request->input('location_name'),
+                'office_name' => $office->office_name,
+                'location_name' => $location->location_name,
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
-                'file_path' => $filePath, // Save the path to the database
+                'file_path' => $filePath, 
                 'status' => $status,
+                'office_id' => $office->id,
+                'location_id' => $location->id,
             ]);
-
+    
+            // Prepare the success response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request successfully created.',
                 'request' => $newRequest,
+                'file_url' => $fileUrl, // Return the public URL of the uploaded file
             ];
+    
             $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
-
+    
             return response()->json($response, 200);
+    
         } catch (Throwable $e) {
+            // Handle any exceptions
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to create the request.',
                 'error' => $e->getMessage(),
             ];
+    
             $this->logAPICalls('createRequest', '', $request->all(), $response);
+    
             return response()->json($response, 500);
         }
     }
-
-
 
     // Method to retrieve all requests
 
@@ -125,7 +166,7 @@ class RequestController extends Controller
                 'requests.id',
                 'requests.control_no',
                 'requests.description',
-                'requests.officename',
+                'requests.office_name',
                 'requests.location_name',
                 'requests.overtime',
                 'requests.file_path',
@@ -453,7 +494,42 @@ class RequestController extends Controller
         }
     }
 
+    public function handleRequestClick($id)
+    {
+        // Fetch the request based on the control number
+        $request = Request::where('id', $id)->first();
 
+        // Check if the request exists
+        if (!$request) {
+            return response()->json(['error' => 'Request not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Conditional logic based on the status of the request
+        switch ($request->status) {
+            case 'Pending':
+                return response()->json([
+                    'redirect_url' => route('requests.pending', ['id' => $id]),
+                ]);
+
+            case 'For Inspection':
+                return response()->json([
+                    'redirect_url' => route('requests.inspection', ['id' => $id]),
+                ]);
+
+            case 'On-Going':
+                return response()->json([
+                    'redirect_url' => route('requests.ongoing', ['id' => $id]),
+                ]);
+
+            case 'Completed':
+                return response()->json([
+                    'redirect_url' => route('requests.completed', ['id' => $id]),
+                ]);
+
+            default:
+                return response()->json(['error' => 'Unknown status'], Response::HTTP_BAD_REQUEST);
+        }
+    }
 
     // Log API calls for requests
     public function logAPICalls(string $methodName, string $requestId, array $param, array $resp)

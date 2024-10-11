@@ -51,12 +51,12 @@ Route::controller(AuthController::class)->group(function () {
 */
 
 Route::controller(UserController::class)->group(function () {
-    Route::post('createUser', 'createUserAccount');        
-    Route::post('updateUser/{id}', 'updateUserAccount');    
+    Route::post('createUser', 'createUserAccount');
+    Route::post('updateUser/{id}', 'updateUserAccount');
     Route::get('userList', 'getUserAccounts');
-    Route::post('deleteUser/{id}', 'deleteUserAccount'); 
-    Route::get('getdropdownUsertype','getDropdownOptionsUsertype');  
-    Route::get('getdropdownUseroffice','getDropdownOptionsUseroffice');         
+    Route::post('deleteUser/{id}', 'deleteUserAccount');
+    Route::get('getdropdownUsertype', 'getDropdownOptionsUsertype');
+    Route::get('getdropdownUseroffice', 'getDropdownOptionsUseroffice');
 
 });
 
@@ -77,8 +77,8 @@ Route::controller(DivisionController::class)->group(function () {
 /*
 |--------------------Profile Api-----------------------\
 */
-Route::controller(AuthController::class)->group(function(){
-    Route::post('editprofile/{id}','editProfile');
+Route::controller(AuthController::class)->group(function () {
+    Route::post('editprofile/{id}', 'editProfile');
 
 });
 
@@ -106,16 +106,21 @@ Route::controller(RequestController::class)->group(function () {
     Route::post('createRequest', 'createRequest');
     Route::get('requestList', 'getRequests');
     Route::post('deleteCategory/{id}', 'deleteCategory');
-    Route::get('getdropdownrequestLocation','getDropdownOptionsRequestslocation');
-    Route::get('getdropdownrequestStatus','getDropdownOptionsRequeststatus');
-    Route::get('getdropdownrequestYear','getDropdownOptionsRequestyear');
-    Route::get('getdropdownoptionsrequestDivision','getDropdownOptionsRequestdivision');
-    Route::get('getdropdownoptionsrequestCategory','getDropdownOptionsRequestcategory');
-    Route::get('getdropdownoptionscreaterequestsOffice','getDropdownOptionscreateRequestsoffice');
-    Route::get('getdropdownoptionscreaterequestsLocation','getDropdownOptionscreateRequestslocation');
 
-
+    //REQUEST DROPDOWN API
+    Route::get('getdropdownrequestLocation', 'getDropdownOptionsRequestslocation');
+    Route::get('getdropdownrequestStatus', 'getDropdownOptionsRequeststatus');
+    Route::get('getdropdownrequestYear', 'getDropdownOptionsRequestyear');
+    Route::get('getdropdownoptionsrequestDivision', 'getDropdownOptionsRequestdivision');
+    Route::get('getdropdownoptionsrequestCategory', 'getDropdownOptionsRequestcategory');
+    Route::get('getdropdownoptionscreaterequestsOffice', 'getDropdownOptionscreateRequestsoffice');
+    Route::get('getdropdownoptionscreaterequestsLocation', 'getDropdownOptionscreateRequestslocation');
 });
+
+Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
+Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');
+Route::get('requests/ongoing/{id}', [ActualWorkController::class, 'getWorkreports'])->name('requests.ongoing');
+//Route::get('/requests/completed/{control_no}', [RequestController::class, 'showCompletedRequest'])->name('requests.completed');
 
 
 /*
@@ -149,8 +154,8 @@ Route::controller(AccomplishmentReportController::class)->group(function () {
 */
 
 Route::controller(CategoryController::class)->group(function () {
-    Route::post('createCategory', 'createCategory');        
-    Route::post('updateCategory/{id}', 'updateCategory');    
+    Route::post('createCategory', 'createCategory');
+    Route::post('updateCategory/{id}', 'updateCategory');
     Route::get('categoryList', 'getCategory');
     Route::post('deleteCategory/{id}', 'deleteCategory');
     Route::get('getdropdownCategory', 'getDropdownOptionsCategory');
@@ -181,7 +186,7 @@ Route::controller(ManpowerController::class)->group(function () {
     Route::post('updateManpower/{id}', 'updatemanpower');
     Route::get('manpowerList', 'getmanpowers');
     Route::post('deleteManpower/{id}', 'deletemanpower');
-    
+
 });
 
 
@@ -217,9 +222,9 @@ Route::controller(UserTypeController::class)->group(function () {
 |--------------------REVIEW API-----------------------\
 */
 
-Route::controller(ReviewController::class)->group(function(){
-    Route::get('reviewList/{id}','getReviews');
-    Route::post('updatereview/{id}','updateReview');
+Route::controller(ReviewController::class)->group(function () {
+    Route::get('reviewList/{id}', 'getReviews');
+    Route::post('updatereview/{id}', 'updateReview');
 });
 
 /*
@@ -233,9 +238,10 @@ Route::controller(ActualWorkController::class)->group(function () {
 
     //MANPOWER DEPLOYMENT API
 
-    Route::post('addManpowerdeploy','addManpowerDeploy');
+    Route::post('addmanpowerdeploy', 'addManpowerDeploy');
     Route::get('manpowerdeployList', 'getManpowerDeploy');
     Route::post('deleteManpowerdeploy/{id}', 'deletemanpowerdeployment');
+    Route::get('getdropdownManpowerDeploy', 'getDropdownOptionsActualwork');
 });
 
 /*
@@ -243,11 +249,11 @@ Route::controller(ActualWorkController::class)->group(function () {
 */
 
 Route::controller(InspectionController::class)->group(function () {
-    Route::get('inspectionList/{id}','getInspections');
+    Route::get('inspectionList/{id}', 'getInspections');
     Route::post('createInspection/{id}', 'createInspection');
     Route::post('updateInspection/{id}', 'updateInspection');
-    Route::post('deleteInspection/{id}','deleteInspection');
-    Route::post('updatestatus/{id}','updateWorkStatus');
+    Route::post('deleteInspection/{id}', 'deleteInspection');
+    Route::post('updatestatus/{id}', 'updateWorkStatus');
 });
 
 
