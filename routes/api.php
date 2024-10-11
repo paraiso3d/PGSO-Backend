@@ -225,6 +225,10 @@ Route::controller(UserTypeController::class)->group(function () {
 Route::controller(ReviewController::class)->group(function () {
     Route::get('reviewList/{id}', 'getReviews');
     Route::post('updatereview/{id}', 'updateReview');
+
+    Route::get('getdropdownReviewOffice', 'getDropdownOptionsReviewoffice');
+    Route::get('getdropdownReviewLocation', 'getDropdownOptionsReviewlocation');
+
 });
 
 /*

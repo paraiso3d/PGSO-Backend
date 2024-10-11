@@ -58,8 +58,7 @@ class Requests extends Model
 
     public static function validateRequest($data)
     {
-        $office = Office::pluck('acronym')->toArray();
-        $location = Location::pluck('location_name')->toArray();
+        
         $currentYear = now()->year;
 
 
