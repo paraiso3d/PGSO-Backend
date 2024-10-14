@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Location;
 use App\Models\User;
+use Exception;
 use DB;
 use App\Models\Division;
 use App\Models\Office;
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Session;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+
 
 class RequestController extends Controller
 {
@@ -45,14 +48,31 @@ class RequestController extends Controller
     //     }
     // }
 
+    
+    public function getSetting(string $code)
+    {
+        try {
+            $value = DB::table('settings')
+                ->where('setting_code', $code)
+                ->value('setting_value');
+        }
+        catch (Throwable $e) {
+            return $e->getMessage();
+        }
+        return $value;
+    }
+
+
+
+
+
     // Method to create a new request.    
+
 
 
     public function createRequest(Request $request)
     {
-        
-    
-        // Validate the incoming request data using the model's validateRequest method
+       
         $validator = Requests::validateRequest($request->all());
     
         if ($validator->fails()) {
@@ -65,28 +85,44 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     
-        // Generate control number
+       
         $controlNo = Requests::generateControlNo();
     
-        // Initialize file path
+        
         $filePath = null;
+        $fileUrl = null;
+    
+       
         if ($request->hasFile('file_path')) {
-            // Store the file and get the path
-            $filePath = $request->file('file_path')->store('public/uploads'); // Store in public directory
+            // Get the uploaded file
+            $file = $request->file('file_path');
+            
+            // Convert the uploaded file to base64
+            $fileContents = file_get_contents($file->getRealPath());
+            $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
+    
+            // Call your saveImage method to handle the base64 image
+            $path = $this->getSetting("ASSET_IMAGE_PATH");
+            $fdateNow = now()->format('Y-m-d');
+            $ftimeNow = now()->format('His');
+            $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $controlNo, $fdateNow . '_' . $ftimeNow);
+            
+          
+            $fileUrl = asset('storage/' . $filePath);
         }
     
-        // Set default status if not provided
+    
         $status = $request->input('status', 'Pending');
     
-        // Store the validated request data
         try {
-            // Check if the location and office IDs exist
-            $locationId = $request->input('location_id'); 
-            $officeId = $request->input('office_id'); 
+            
+            $locationId = $request->input('location_id');
+            $officeId = $request->input('office_id');
     
             $location = Location::findOrFail($locationId);
             $office = Office::findOrFail($officeId);
     
+            // Create the new request record
             $newRequest = Requests::create([
                 'control_no' => $controlNo,
                 'description' => $request->input('description'),
@@ -95,33 +131,39 @@ class RequestController extends Controller
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
-                'file_path' => $filePath, // Save the path to the database
+                'file_path' => $path, $filePath, 
                 'status' => $status,
                 'office_id' => $office->id,
-                'location_id'=> $location->id
+                'location_id' => $location->id,
             ]);
     
+            // Prepare the success response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request successfully created.',
                 'request' => $newRequest,
+                'file_url' => $fileUrl, // Return the public URL of the uploaded file
             ];
+    
             $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
     
             return response()->json($response, 200);
+    
         } catch (Throwable $e) {
+            // Handle any exceptions
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to create the request.',
                 'error' => $e->getMessage(),
             ];
+    
             $this->logAPICalls('createRequest', '', $request->all(), $response);
+    
             return response()->json($response, 500);
         }
     }
     
-
-
+    
 
     // Method to retrieve all requests
 
@@ -145,7 +187,7 @@ class RequestController extends Controller
                 'requests.status',
                 'requests.office_id',
                 'requests.location_id',
-                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at") // Format updated_at to YYYY-MM-DD
+                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at") 
             )
                 // Only get active requests (is_archived = 'A')
                 ->where('requests.is_archived', 'A');
@@ -158,7 +200,7 @@ class RequestController extends Controller
             // Pagination
             $perPage = $request->input('per_page', 10);
     
-            // Sort by control_no or any other field if needed
+            // Sort by control_no or any other field    if needed
             $requests = $query->orderBy('requests.control_no', 'asc')->paginate($perPage);
     
             // Response
