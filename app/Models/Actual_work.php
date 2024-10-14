@@ -10,7 +10,7 @@ class Actual_work extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['recommended_action', 'remarks','control_no','control_request_id','is_archived'];
+    protected $fillable = ['recommended_action', 'remarks','control_no','request_id','is_archived'];
 
     /**
      * Custom validation method for Inspection Report.

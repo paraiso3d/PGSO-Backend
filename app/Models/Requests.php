@@ -68,9 +68,16 @@ class Requests extends Model
             ],
             'status' => ['string', 'in:Pending,Ongoing,For Inspection,Completed'],
             'is_archived' => ['nullable', 'in:A,I'],
+
+            'status' => ['string', 'in:Pending, For Inspection, On-going, Completed'],
+            'is_archived' => ['nullable', 'in: A, I']
         ]);
 
         return $validator;
+    }
+     public function office()
+    {
+        return $this->belongsTo(Office::class);
     }
 
     // Relationships
