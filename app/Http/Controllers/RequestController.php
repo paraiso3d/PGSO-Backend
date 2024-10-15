@@ -67,136 +67,90 @@ class RequestController extends Controller
 
 
     public function createRequest(Request $request)
-    {
-       
-        $validator = Requests::validateRequest($request->all());
-    
-    
-        if ($validator->fails()) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors(),
-            ];
-            $this->logAPICalls('createRequest', '', $request->all(), $response);
-            return response()->json($response, 500);
-        }
-    
-       
-       
-        $controlNo = Requests::generateControlNo();
-    
-        
-        
-        $filePath = null;
-        $fileUrl = null;
-    
-       
-        $fileUrl = null;
-    
-       
-        if ($request->hasFile('file_path')) {
-            // Get the uploaded file
-            $file = $request->file('file_path');
-            
-            // Convert the uploaded file to base64
-            $fileContents = file_get_contents($file->getRealPath());
-            $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
-    
-            // Call your saveImage method to handle the base64 image
-            $path = $this->getSetting("ASSET_IMAGE_PATH");
-            $fdateNow = now()->format('Y-m-d');
-            $ftimeNow = now()->format('His');
-            $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $controlNo, $fdateNow . '_' . $ftimeNow);
-            
-          
-            $fileUrl = asset('storage/' . $filePath);
-        }
-    
-    
-            // Get the uploaded file
-            $file = $request->file('file_path');
-            
-            // Convert the uploaded file to base64
-            $fileContents = file_get_contents($file->getRealPath());
-            $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
-    
-            // Call your saveImage method to handle the base64 image
-            $path = $this->getSetting("ASSET_IMAGE_PATH");
-            $fdateNow = now()->format('Y-m-d');
-            $ftimeNow = now()->format('His');
-            $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $controlNo, $fdateNow . '_' . $ftimeNow);
-            
-          
-            $fileUrl = asset('storage/' . $filePath);
-        }
-    
-    
-        $status = $request->input('status', 'Pending');
-    
-        try {
-            
-            $locationId = $request->input('location_id');
-            $officeId = $request->input('office_id');
-            
-            $locationId = $request->input('location_id');
-            $officeId = $request->input('office_id');
-    
-            $location = Location::findOrFail($locationId);
-            $office = Office::findOrFail($officeId);
-    
-            // Create the new request record
-            // Create the new request record
-            $newRequest = Requests::create([
-                'control_no' => $controlNo,
-                'description' => $request->input('description'),
-                'office_name' => $office->office_name,
-                'location_name' => $location->location_name,
-                'overtime' => $request->input('overtime'),
-                'area' => $request->input('area'),
-                'fiscal_year' => $request->input('fiscal_year'),
-                'file_path' => $filePath, 
-                'status' => $status,
-                'office_id' => $office->id,
-                'location_id' => $location->id,
-                'location_id' => $location->id,
-            ]);
-    
-            // Prepare the success response
-            // Prepare the success response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Request successfully created.',
-                'request' => $newRequest,
-                'file_url' => $fileUrl, // Return the public URL of the uploaded file
-                'file_url' => $fileUrl, // Return the public URL of the uploaded file
-            ];
-    
-    
-            $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
-    
-    
-            return response()->json($response, 200);
-    
-    
-        } catch (Throwable $e) {
-            // Handle any exceptions
-            // Handle any exceptions
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to create the request.',
-                'error' => $e->getMessage(),
-            ];
-    
-    
-            $this->logAPICalls('createRequest', '', $request->all(), $response);
-    
-    
-            return response()->json($response, 500);
-        }
+{
+    // Validate request data
+    $validator = Requests::validateRequest($request->all());
+
+    if ($validator->fails()) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Validation error',
+            'errors' => $validator->errors(),
+        ];
+        $this->logAPICalls('createRequest', '', $request->all(), $response);
+        return response()->json($response, 500);
     }
+
+    $controlNo = Requests::generateControlNo();
     
-    
+    $filePath = null;
+    $fileUrl = null;
+
+    if ($request->hasFile('file_path')) {
+        // Get the uploaded file and convert to base64
+        $file = $request->file('file_path');
+        $fileContents = file_get_contents($file->getRealPath());
+        $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
+
+        // Call your saveImage method to handle the base64 image
+        $path = $this->getSetting("ASSET_IMAGE_PATH");
+        $fdateNow = now()->format('Y-m-d');
+        $ftimeNow = now()->format('His');
+        $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $controlNo, $fdateNow . '_' . $ftimeNow);
+
+        // Generate the public URL for the file
+        $fileUrl = asset('storage/' . $filePath);
+    }
+
+    $status = $request->input('status', 'Pending');
+
+    try {
+        // Get location and office details
+        $locationId = $request->input('location_id');
+        $officeId = $request->input('office_id');
+        $location = Location::findOrFail($locationId);
+        $office = Office::findOrFail($officeId);
+
+        // Create the new request record
+        $newRequest = Requests::create([
+            'control_no' => $controlNo,
+            'description' => $request->input('description'),
+            'office_name' => $office->office_name,
+            'location_name' => $location->location_name,
+            'overtime' => $request->input('overtime'),
+            'area' => $request->input('area'),
+            'fiscal_year' => $request->input('fiscal_year'),
+            'file_path' => $filePath, 
+            'status' => $status,
+            'office_id' => $office->id,
+            'location_id' => $location->id,
+        ]);
+
+        // Prepare the success response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Request successfully created.',
+            'request' => $newRequest,
+            'file_url' => $fileUrl, // Return the public URL of the uploaded file
+        ];
+
+        $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
+
+        return response()->json($response, 200);
+
+    } catch (Throwable $e) {
+        // Handle any exceptions
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to create the request.',
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('createRequest', '', $request->all(), $response);
+
+        return response()->json($response, 500);
+    }
+}
 
     // Method to retrieve all requests
 

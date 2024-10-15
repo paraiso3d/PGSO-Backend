@@ -119,7 +119,6 @@ class UserController extends Controller
         }
     }
 
-
     /**
      * Update an existing user account.
      */
@@ -217,6 +216,37 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
+
+
+    public function deleteUserAccount($id)
+{
+    try {
+
+        $userAccount = User::findOrFail($id);
+
+        $userAccount->update(['is_archived' => 'I']);
+
+        $response = [
+            'isSuccess' => true,
+            'message' => 'UserAccount successfully archived.',
+            'user' => $userAccount
+        ];
+
+        $this->logAPICalls('deleteUserAccount', $id, [], $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to archive the UserAccount.',
+            'error' => $e->getMessage()
+        ];
+
+        $this->logAPICalls('deleteUserAccount', $id, [], $response);
+
+        return response()->json($response, 500);
+    }
+}
     
 
     public function getDropdownOptionsUsertype(Request $request)
