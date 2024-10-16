@@ -128,7 +128,7 @@ class UsertypeController extends Controller
 
             // Initialize the query
             $query = user_type::select('id', 'name', 'description')
-                ->where('is_archived', 'A');
+            ->whereIn('is_archived', ['A', 'I']);
 
             // Apply search if provided
             if (!empty($validated['search'])) {
@@ -182,7 +182,7 @@ class UsertypeController extends Controller
                 'message' => "UserType successfully deleted."
             ];
             $this->logAPICalls('deleteUserType', $id, [], [$response]);
-            return response()->json($response, 204);
+            return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -193,6 +193,59 @@ class UsertypeController extends Controller
             return response()->json($response, 500);
         }
     }
+    public function toggleUsertype(Request $request, $id)
+{
+   
+    $request->validate([
+        'is_archived' => 'required|in:A,I,D' 
+    ]);
+
+    try {
+        $is_archived = strtoupper($request->is_archived);
+        
+        // Use the provided $id directly
+        $usertype = user_type::findOrFail($id);
+        $usertype->update(['is_archived' => $is_archived]);
+
+        // Set the success message based on the value of is_archived
+        if ($is_archived == 'A') {
+            $message = "Activated Successfully.";
+        } elseif ($is_archived == 'I') {
+            $message = "Inactivated Successfully.";
+        } elseif ($is_archived == 'D') {
+            $message = "Deleted Successfully.";
+        } else {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => "Invalid toggle value provided."
+            ], 400);
+        }
+
+        $response = [
+            'isSuccess' => true,
+            'message' => $message
+        ];
+
+       
+        $this->logAPICalls('toggleUsertype', $id, [], $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to update the UserType.",
+            'error' => $e->getMessage()
+        ];
+
+        $this->logAPICalls('toggleUsertype', "", [], $response);
+
+        return response()->json($response, 500);
+    }
+}
+
+    
+
+
 
     /**
      * Log all API calls.

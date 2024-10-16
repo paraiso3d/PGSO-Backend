@@ -116,13 +116,13 @@ class ReviewController extends Controller
     // Method to update an existing request
     public function updateReview(Request $request, $id = null)
     {
-        // Validate the incoming request data, including the location_id and office_id
+        
         $validator = Validator::make($request->all(), [
             'description' => 'sometimes|string',
-            'office_id' => 'required|exists:offices,id',  // Ensure office_id exists
-            'location_id' => 'required|exists:locations,id',  // Ensure location_id exists
+            'office_id' => 'required|exists:offices,id',  
+            'location_id' => 'required|exists:locations,id', 
             'location_name' => 'sometimes|string',
-            'overtime' => 'sometimes|string|in:Yes,No',  // Explicitly check for 'Yes' or 'No'
+            'overtime' => 'sometimes|string|in:Yes,No',  
             'area' => 'sometimes|string',
             'fiscal_year' => 'sometimes|string',
             'file_path' => 'sometimes|file',
@@ -139,7 +139,7 @@ class ReviewController extends Controller
         }
 
         try {
-            // Fetch the existing request using the provided ID
+            
             $existingRequest = Requests::find($id);
 
             if (!$existingRequest) {
@@ -151,28 +151,28 @@ class ReviewController extends Controller
                 return response()->json($response, 404);
             }
 
-            // Fetch location and office based on the IDs from the request
+            
             $location = Location::find($request->input('location_id'));
             $office = Office::find($request->input('office_id'));
 
-            // Fetch categories for checkbox functionality
+            
             $categories = Category::select('id', 'category_name')
-                ->where('is_archived', 'A')  // Only active categories
+                ->where('is_archived', 'A')  
                 ->get();
 
-            // Update fields that are present in the request
+          
             $reviewChangeData = [
                 'description' => $request->filled('description') ? $request->input('description') : $existingRequest->description,
                 'control_no' => $existingRequest->control_no,
-                'office_name' => $office->office_name,  // Use the name from the office
-                'location_name' => $location->location_name,  // Use the name from the location
+                'office_name' => $office->office_name,
+                'location_name' => $location->location_name,  
                 'overtime' => $request->filled('overtime') ? $request->input('overtime') : $existingRequest->overtime,
                 'area' => $request->filled('area') ? $request->input('area') : $existingRequest->area,
                 'fiscal_year' => $request->filled('fiscal_year') ? $request->input('fiscal_year') : $existingRequest->fiscal_year,
                 'file_path' => $request->hasFile('file') ? $request->file('file')->store('storage/uploads') : $existingRequest->file_path,
                 'remarks' => $request->input('remarks'),
-                'office_id' => $office->id,  // Store office ID
-                'location_id' => $location->id,  // Store location ID
+                'office_id' => $office->id,  
+                'location_id' => $location->id,  
                 'status' => 'For Inspection',
             ];
 

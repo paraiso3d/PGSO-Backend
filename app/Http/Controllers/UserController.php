@@ -67,43 +67,77 @@ class UserController extends Controller
     public function getUserAccounts(Request $request)
     {
         try {
-            $perPage = $request->input('per_page', 10);
+            $validate = $request->validate([
+                'paginate' => 'required'
+            ]);
+    
             $searchTerm = $request->input('search', null);
-
-            // Create query to fetch active user accounts
-            $query = User::select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'office', 'designation', 'user_type','office_id','user_type_id')
-                ->where('is_archived', 'A');
-
-            // Add search condition if search term is provided
-            if ($searchTerm) {
-                $query->where(function ($q) use ($searchTerm) {
-                    $q->where('first_name', 'like', "%{$searchTerm}%")
-                        ->orWhere('last_name', 'like', "%{$searchTerm}%")
-                        ->orWhere('email', 'like', "%{$searchTerm}%");
-                });
+            $perPage = $request->input('per_page', 10);
+    
+            if ($validate['paginate'] == 0) {
+                $query = User::select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'office', 'designation', 'user_type', 'is_archived', 'office_id', 'user_type_id')
+                    ->where('is_archived', 'A')
+                    ->when($searchTerm, function ($query, $searchTerm) {
+                        return $query->where(function ($activeQuery) use ($searchTerm) {
+                            $activeQuery->where('first_name', 'like', '%' . $searchTerm . '%')
+                                ->orWhere('email', 'like', '%' . $searchTerm . '%')
+                                ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
+                        });
+                    })
+                    ->get();
+    
+                if ($query->isEmpty()) {
+                    $response = [
+                        'isSuccess' => false,
+                        'message' => 'No active Users found matching the criteria',
+                    ];
+                    $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
+                    return response()->json($response, 500);
+                }
+    
+                // Prepare response without pagination
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'User accounts retrieved successfully.',
+                    'user' => $query
+                ];
+            } else {
+                $query = User::select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'office', 'designation', 'user_type', 'is_archived', 'office_id', 'user_type_id')
+                    ->where('is_archived', 'A')
+                    ->when($searchTerm, function ($query, $searchTerm) {
+                        return $query->where(function ($activeQuery) use ($searchTerm) {
+                            $activeQuery->where('first_name', 'like', '%' . $searchTerm . '%')
+                                ->orWhere('email', 'like', '%' . $searchTerm . '%')
+                                ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
+                        });
+                    })
+                    ->paginate($perPage);
+    
+                if ($query->isEmpty()) {
+                    $response = [
+                        'isSuccess' => false,
+                        'message' => 'No active Users found matching the criteria',
+                    ];
+                    $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
+                    return response()->json($response, 500);
+                }
+    
+                // Prepare response with pagination
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'User accounts retrieved successfully.',
+                    'user' => $query,
+                    'pagination' => [
+                        'total' => $query->total(),
+                        'per_page' => $query->perPage(),
+                        'current_page' => $query->currentPage(),
+                        'last_page' => $query->lastPage(),
+                        'url' => url('api/accounts?page=' . $query->currentPage() . '&per_page=' . $query->perPage()),
+                    ],
+                ];
             }
-
-            // Paginate the result
-            $userAccounts = $query->paginate($perPage);
-
-            // Prepare the response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'User accounts retrieved successfully.',
-                'user' => $userAccounts,
-                'pagination' => [
-                    'total' => $userAccounts->total(),
-                    'per_page' => $userAccounts->perPage(),
-                    'current_page' => $userAccounts->currentPage(),
-                    'last_page' => $userAccounts->lastPage(),
-                    'next_page_url' => $userAccounts->nextPageUrl(),
-                    'prev_page_url' => $userAccounts->previousPageUrl(),
-                ]
-            ];
-
-            // Log API calls
-            $this->logAPICalls('getUserAccounts', "", [], [$response]);
-
+    
+            $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -111,13 +145,13 @@ class UserController extends Controller
                 'message' => 'Failed to retrieve user accounts.',
                 'error' => $e->getMessage()
             ];
-
-            // Log the error
-            $this->logAPICalls('getUserAccounts', "", [], [$response]);
-
+    
+            $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
             return response()->json($response, 500);
         }
     }
+    
+            
 
 
     /**
@@ -217,6 +251,36 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
+
+
+    public function deleteUserAccount($id)
+{
+    try {
+
+        $userAccount = User::findOrFail($id);
+
+        $userAccount->update(['is_archived' => 'I']);
+
+        $response = [
+            'isSuccess' => true,
+            'message' => 'UserAccount successfully archived.',
+        ];
+
+        $this->logAPICalls('deleteUserAccount', $id, [], $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to archive the UserAccount.',
+            'error' => $e->getMessage()
+        ];
+
+        $this->logAPICalls('deleteUserAccount', $id, [], $response);
+
+        return response()->json($response, 500);
+    }
+}
     
 
     public function getDropdownOptionsUsertype(Request $request)

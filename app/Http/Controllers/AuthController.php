@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Throwable;
+use Illuminate\Support\Facades\Storage;
+
 
 class AuthController extends Controller
 {
