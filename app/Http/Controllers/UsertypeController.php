@@ -128,7 +128,7 @@ class UsertypeController extends Controller
 
             // Initialize the query
             $query = user_type::select('id', 'name', 'description')
-                ->where('is_archived', 'A');
+            ->whereIn('is_archived', ['A', 'I']);
 
             // Apply search if provided
             if (!empty($validated['search'])) {
@@ -182,7 +182,7 @@ class UsertypeController extends Controller
                 'message' => "UserType successfully deleted."
             ];
             $this->logAPICalls('deleteUserType', $id, [], [$response]);
-            return response()->json($response, 204);
+            return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,

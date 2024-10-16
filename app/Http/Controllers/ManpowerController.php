@@ -111,58 +111,100 @@ class ManpowerController extends Controller
      * List manpower
      */
     public function getmanpowers(Request $request)
-    { {
-            try {
-                $perPage = $request->input('per_page', 10);
-                $searchTerm = $request->input('search', null);
-
-                // Create query to fetch active college offices
-                $query = Manpower::where('is_archived', 'A');
-
-                // Add search condition if search term is provided
-                if ($searchTerm) {
-                    $query->where(function ($q) use ($searchTerm) {
-                        $q->where('first_name', 'like', "%{$searchTerm}%")
-                            ->orWhere('last_name', 'like', "%{$searchTerm}%");
-                    });
+    {
+        try {
+            // Validate that 'paginate' is provided in the request
+            $validate = $request->validate([
+                'paginate' => 'required'
+            ]);
+    
+            // Get search term and pagination settings from the request
+            $searchTerm = $request->input('search', null);
+            $perPage = $request->input('per_page', 10);
+    
+            // Check if pagination is enabled
+            if ($validate['paginate'] == 0) {
+                // Fetch all manpowers without pagination
+                $query = Manpower::select('id', 'first_name', 'last_name','is_archived')
+                    ->where('is_archived', 'A')
+                    ->when($searchTerm, function ($query, $searchTerm) {
+                        return $query->where(function ($q) use ($searchTerm) {
+                            $q->where('first_name', 'like', '%' . $searchTerm . '%')
+                                ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
+                        });
+                    })
+                    ->get();
+    
+                // Check if query is empty
+                if ($query->isEmpty()) {
+                    $response = [
+                        'isSuccess' => false,
+                        'message' => 'No active Manpower found matching the criteria',
+                    ];
+                    $this->logAPICalls('getmanpowers', "", $request->all(), $response);
+                    return response()->json($response, 500);
                 }
-
-                // Paginate the result
-                $manpowers = $query->paginate($perPage);
-
-                // Prepare the response
+    
+                // Prepare response without pagination
                 $response = [
                     'isSuccess' => true,
-                    'message' => "Manpower list retrieved successfully.",
-                    'manpower' => $manpowers,
-                    'pagination' => [
-                            'total' => $manpowers->total(),
-                            'per_page' => $manpowers->perPage(),
-                            'current_page' => $manpowers->currentPage(),
-                            'last_page' => $manpowers->lastPage(),
-                            'next_page_url' => $manpowers->nextPageUrl(),
-                            'prev_page_url' => $manpowers->previousPageUrl(),
-                        ]
+                    'message' => 'Manpower list retrieved successfully.',
+                    'manpower' => $query
                 ];
-
-                // Log API calls
-                $this->logAPICalls('getmanpowers', "", [], [$response]);
-
-                return response()->json($response, 200);
-            } catch (Throwable $e) {
+            } else {
+                // Fetch paginated manpowers
+                $query = Manpower::select('id', 'first_name','last_name','is_archived')
+                    ->where('is_archived', 'A')
+                    ->when($searchTerm, function ($query, $searchTerm) {
+                        return $query->where(function ($q) use ($searchTerm) {
+                            $q->where('first_name', 'like', '%' . $searchTerm . '%')
+                                ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
+                        });
+                    })
+                    ->paginate($perPage);
+    
+                // Check if query is empty
+                if ($query->isEmpty()) {
+                    $response = [
+                        'isSuccess' => false,
+                        'message' => 'No active Manpower found matching the criteria',
+                    ];
+                    $this->logAPICalls('getmanpowers', "", $request->all(), $response);
+                    return response()->json($response, 500);
+                }
+    
+                // Prepare response with pagination
                 $response = [
-                    'isSuccess' => false,
-                    'message' => 'Failed to retrieve Manpower list',
-                    'error' => $e->getMessage()
+                    'isSuccess' => true,
+                    'message' => 'Manpower list retrieved successfully.',
+                    'manpower' => $query,
+                    'pagination' => [
+                        'total' => $query->total(),
+                        'per_page' => $query->perPage(),
+                        'current_page' => $query->currentPage(),
+                        'last_page' => $query->lastPage(),
+                        'url' => url('api/accounts?page=' . $query->currentPage() . '&per_page=' . $query->perPage()),
+                    ]
                 ];
-
-                // Log API calls
-                $this->logAPICalls('getmanpowers', "", [], [$response]);
-
-                return response()->json($response, 500);
             }
+    
+            // Log API call
+            $this->logAPICalls('getmanpowers', "", $request->all(), $response);
+            return response()->json($response, 200);
+    
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve Manpower list',
+                'error' => $e->getMessage()
+            ];
+    
+            // Log API call
+            $this->logAPICalls('getmanpowers', "", $request->all(), $response);
+            return response()->json($response, 500);
         }
     }
+    
 
 
     /**

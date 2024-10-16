@@ -123,55 +123,97 @@ class OfficeController extends Controller
     public function getOffices(Request $request)
     {
         try {
-            $perPage = $request->input('per_page', 10);
+            // Validate that 'paginate' is provided in the request
+            $validate = $request->validate([
+                'paginate' => 'required'
+            ]);
+    
+            // Get search term and pagination settings from the request
             $searchTerm = $request->input('search', null);
-
-            // Create query to fetch active college offices
-            $query = Office::where('is_archived', 'A');
-
-            // Add search condition if search term is provided
-            if ($searchTerm) {
-                $query->where(function ($q) use ($searchTerm) {
-                    $q->where('officename', 'like', "%{$searchTerm}%")
-                        ->orWhere('abbreviation', 'like', "%{$searchTerm}%");
-                });
+            $perPage = $request->input('per_page', 10);
+    
+            // Check if pagination is enabled
+            if ($validate['paginate'] == 0) {
+                // Fetch all offices without pagination
+                $query = Office::select('id', 'office_name', 'acronym', 'office_type', 'is_archived')
+                    ->where('is_archived', 'A')
+                    ->when($searchTerm, function ($query, $searchTerm) {
+                        return $query->where(function ($q) use ($searchTerm) {
+                            $q->where('officename', 'like', '%' . $searchTerm . '%')
+                                ->orWhere('abbreviation', 'like', '%' . $searchTerm . '%');
+                        });
+                    })
+                    ->get();
+    
+                // Check if query is empty
+                if ($query->isEmpty()) {
+                    $response = [
+                        'isSuccess' => false,
+                        'message' => 'No active Offices found matching the criteria',
+                    ];
+                    $this->logAPICalls('getOffices', "", $request->all(), $response);
+                    return response()->json($response, 500);
+                }
+    
+                // Prepare response without pagination
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'Offices list retrieved successfully.',
+                    'office' => $query
+                ];
+            } else {
+                // Fetch paginated offices
+                $query = Office::select('id', 'office_name', 'acronym', 'office_type', 'is_archived')
+                    ->where('is_archived', 'A')
+                    ->when($searchTerm, function ($query, $searchTerm) {
+                        return $query->where(function ($q) use ($searchTerm) {
+                            $q->where('officename', 'like', '%' . $searchTerm . '%')
+                                ->orWhere('abbreviation', 'like', '%' . $searchTerm . '%');
+                        });
+                    })
+                    ->paginate($perPage);
+    
+                // Check if query is empty
+                if ($query->isEmpty()) {
+                    $response = [
+                        'isSuccess' => false,
+                        'message' => 'No active Offices found matching the criteria',
+                    ];
+                    $this->logAPICalls('getOffices', "", $request->all(), $response);
+                    return response()->json($response, 500);
+                }
+    
+                // Prepare response with pagination
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'Offices list retrieved successfully.',
+                    'office' => $query,
+                    'pagination' => [
+                        'total' => $query->total(),
+                        'per_page' => $query->perPage(),
+                        'current_page' => $query->currentPage(),
+                        'last_page' => $query->lastPage(),
+                    ]
+                ];
             }
-
-            // Paginate the result
-            $collegeOffices = $query->paginate($perPage);
-
-            // Prepare the response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Offices list:',
-                'office' => $collegeOffices,
-                'pagination' => [
-                    'total' => $collegeOffices->total(),
-                    'per_page' => $collegeOffices->perPage(),
-                    'current_page' => $collegeOffices->currentPage(),
-                    'last_page' => $collegeOffices->lastPage(),
-                    'next_page_url' => $collegeOffices->nextPageUrl(),
-                    'prev_page_url' => $collegeOffices->previousPageUrl(),
-                ]
-            ];
-
-            // Log API calls
-            $this->logAPICalls('getOffices', "", [], [$response]);
-
+    
+            // Log API call
+            $this->logAPICalls('getOffices', "", $request->all(), $response);
             return response()->json($response, 200);
+    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to retrieve College Offices.',
+                'message' => 'Failed to retrieve Offices list.',
                 'error' => $e->getMessage()
             ];
-
-            // Log API calls
-            $this->logAPICalls('getOffices', "", [], [$response]);
-
+    
+            // Log API call
+            $this->logAPICalls('getOffices', "", $request->all(), $response);
             return response()->json($response, 500);
         }
     }
+    
     /**
      * Delete a college office.
      */
@@ -180,7 +222,7 @@ class OfficeController extends Controller
         try {
             $collegeOffice = Office::find($request->id);
 
-            $collegeOffice->update(['isarchive' => "I"]);
+            $collegeOffice->update(['is_archived' => "I"]);
 
             $response = [
                 'isSuccess' => true,

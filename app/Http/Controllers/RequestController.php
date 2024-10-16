@@ -62,10 +62,10 @@ class RequestController extends Controller
         return $value;
     }
 
+
+
     // Method to create a new request.    
-
-
-
+    
     public function createRequest(Request $request)
 {
     // Validate request data
@@ -87,12 +87,12 @@ class RequestController extends Controller
     $fileUrl = null;
 
     if ($request->hasFile('file_path')) {
-        // Get the uploaded file and convert to base64
+    
         $file = $request->file('file_path');
         $fileContents = file_get_contents($file->getRealPath());
         $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
 
-        // Call your saveImage method to handle the base64 image
+       
         $path = $this->getSetting("ASSET_IMAGE_PATH");
         $fdateNow = now()->format('Y-m-d');
         $ftimeNow = now()->format('His');
@@ -120,7 +120,8 @@ class RequestController extends Controller
             'overtime' => $request->input('overtime'),
             'area' => $request->input('area'),
             'fiscal_year' => $request->input('fiscal_year'),
-            'file_path' => $filePath, 
+            'file_path' => $path . '/' . $filePath, 
+
             'status' => $status,
             'office_id' => $office->id,
             'location_id' => $location->id,
@@ -131,7 +132,7 @@ class RequestController extends Controller
             'isSuccess' => true,
             'message' => 'Request successfully created.',
             'request' => $newRequest,
-            'file_url' => $fileUrl, // Return the public URL of the uploaded file
+            'file_url' => $fileUrl, 
         ];
 
         $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
@@ -157,15 +158,16 @@ class RequestController extends Controller
     public function getRequests(Request $request)
     {
         try {
+            // Get the authenticated user's ID and type
+            $userId = $request->user()->id; 
+            $userType = $request->user()->user_type_id; 
+    
             // Initialize query
             $query = Requests::query();
-    
-            // Select specific fields from the requests table with formatted updated_at
             $query->select(
                 'requests.id',
                 'requests.control_no',
                 'requests.description',
-                'requests.office_name',
                 'requests.office_name',
                 'requests.location_name',
                 'requests.overtime',
@@ -175,20 +177,51 @@ class RequestController extends Controller
                 'requests.status',
                 'requests.office_id',
                 'requests.location_id',
-                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at") 
+                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
             )
-                // Only get active requests (is_archived = 'A')
-                ->where('requests.is_archived', 'A');
+            
+            ->where('requests.is_archived', 'A');
     
-            // Search by control_no if provided
+            
             if ($request->has('search') && !empty($request->input('search'))) {
                 $query->where('requests.control_no', 'like', '%' . $request->input('search') . '%');
+            }
+    
+           
+            switch ($userType) {
+                case 'Admin':
+                    break;
+    
+                case 'Controller':
+                    // Controller only gets pending requests
+                    $query->where('requests.status', 'pending');
+                    break;
+    
+                case 'Dean':
+                    // Dean gets only the requests they created
+                    $query->where('requests.user_id', $userId);
+                    break;
+    
+                case 'TeamLeader':
+                    // Team Leader only gets 'Actual Work' status
+                    $query->where('requests.status', 'actual work');
+                    break;
+    
+                case 'Supervisor':
+                    // Supervisor only gets requests 'for inspection'
+                    $query->where('requests.status', 'for inspection');
+                    break;
+    
+                default:
+                    // If the user type doesn't match any of the roles, return no results
+                    $query->whereRaw('1 = 0');
+                    break;
             }
     
             // Pagination
             $perPage = $request->input('per_page', 10);
     
-            // Sort by control_no or any other field    if needed
+            // Sort by control_no or any other field if needed
             $requests = $query->orderBy('requests.control_no', 'asc')->paginate($perPage);
     
             // Response
@@ -213,6 +246,7 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     }
+    
     
 
     // Method to delete (archive) a request

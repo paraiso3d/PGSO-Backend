@@ -62,51 +62,70 @@ class CategoryController extends Controller
     public function getCategory(Request $request)
     {
         try {
-            // Validate the incoming request
+            // Validate the incoming request, including the paginate option
             $validated = $request->validate([
-                'per_page' => 'nullable|integer',
-                'search' => 'nullable|string',   // Search term
+                'paginate' => 'required|boolean',  // 0 for no pagination, 1 for pagination
+                'per_page' => 'nullable|integer',  // Number of items per page if pagination is enabled
+                'search' => 'nullable|string',     // Search term
             ]);
-
+    
             // Start building the query to select categories
-            $query = Category::select('id', 'category_name', 'description', 'division','division_id');
-
-            // Always filter by the hidden is_archived field (default to 'A' for active categories)
-            $query->where('is_archived', 'A');
-
-            // If a search term is provided, search in both category_name and division
+            $query = Category::select('id', 'category_name', 'division', 'division_id')
+                ->where('is_archived', 'A'); // Always filter by active categories (is_archived = 'A')
+    
+            // Apply search filter if search term is provided
             if (!empty($validated['search'])) {
                 $query->where(function ($q) use ($validated) {
                     $q->where('category_name', 'like', '%' . $validated['search'] . '%')
                         ->orWhere('division', 'like', '%' . $validated['search'] . '%');
                 });
             }
-
-            // Set pagination: use provided per_page value or default to 10
-            $perPage = $validated['per_page'] ?? 10;
-            $categories = $query->paginate($perPage);
-
-            // Create the response with pagination details
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Categories retrieved successfully.',
-                'categories' => $categories, // Return the paginated items
-                'pagination' => [
-                    'total' => $categories->total(),
-                    'per_page' => $categories->perPage(),
-                    'current_page' => $categories->currentPage(),
-                    'last_page' => $categories->lastPage(),
-                    'next_page_url' => $categories->nextPageUrl(),
-                    'prev_page_url' => $categories->previousPageUrl(),
-                ]
-            ];
-
+    
+            if ($validated['paginate'] == 0) {
+                // Fetch results without pagination (get all matching categories)
+                $categories = $query->get();
+    
+                if ($categories->isEmpty()) {
+                    return response()->json([
+                        'isSuccess' => false,
+                        'message' => 'No active categories found matching the criteria.',
+                    ], 500);
+                }
+    
+                // Prepare response without pagination
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'Categories retrieved successfully.',
+                    'categories' => $categories
+                ];
+    
+            } else {
+                // Set pagination: use provided per_page value or default to 10
+                $perPage = $validated['per_page'] ?? 10;
+                $categories = $query->paginate($perPage);
+    
+                // Create the response with pagination details
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'Categories retrieved successfully.',
+                    'categories' => $categories,
+                    'pagination' => [
+                        'total' => $categories->total(),
+                        'per_page' => $categories->perPage(),
+                        'current_page' => $categories->currentPage(),
+                        'last_page' => $categories->lastPage(),
+                        'next_page_url' => $categories->nextPageUrl(),
+                        'prev_page_url' => $categories->previousPageUrl(),
+                    ]
+                ];
+            }
+    
             // Log the API call
             $this->logAPICalls('getCategory', "", $request->all(), $response);
-
+    
             // Return the response as JSON
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
             // Handle any exception and return an error response
             $response = [
@@ -115,11 +134,12 @@ class CategoryController extends Controller
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('getCategory', "", $request->all(), $response);
-
+    
             // Return the error response as JSON
             return response()->json($response, 500);
         }
     }
+    
 
     /**
      * Update an existing Category
