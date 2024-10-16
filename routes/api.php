@@ -53,7 +53,7 @@ Route::controller(AuthController::class)->group(function () {
 Route::controller(UserController::class)->group(function () {
     Route::post('createUser', 'createUserAccount');
     Route::post('updateUser/{id}', 'updateUserAccount');
-    Route::post('userList', 'getUserAccounts');
+    Route::get('userList', 'getUserAccounts');
     Route::post('deleteUser/{id}', 'deleteUserAccount');
     Route::get('getdropdownUsertype', 'getDropdownOptionsUsertype');
     Route::get('getdropdownUseroffice', 'getDropdownOptionsUseroffice');
@@ -156,7 +156,7 @@ Route::controller(AccomplishmentReportController::class)->group(function () {
 Route::controller(CategoryController::class)->group(function () {
     Route::post('createCategory', 'createCategory');
     Route::post('updateCategory/{id}', 'updateCategory');
-    Route::post('categoryList', 'getCategory');
+    Route::get('categoryList', 'getCategory');
     Route::post('deleteCategory/{id}', 'deleteCategory');
     Route::get('getdropdownCategory', 'getDropdownOptionsCategory');
 
@@ -170,7 +170,7 @@ Route::controller(CategoryController::class)->group(function () {
 Route::controller(LocationController::class)->group(function () {
     Route::post('createLocation', 'createlocation');
     Route::post('updateLocation/{id}', 'updatelocation');
-    Route::post('locationList', 'getlocations');
+    Route::get('locationList', 'getlocations');
     Route::post('deleteLocation/{id}', 'deletelocation');
 
 });
@@ -184,7 +184,7 @@ Route::controller(LocationController::class)->group(function () {
 Route::controller(ManpowerController::class)->group(function () {
     Route::post('createManpower', 'createmanpower');
     Route::post('updateManpower/{id}', 'updatemanpower');
-    Route::post('manpowerList', 'getmanpowers');
+    Route::get('manpowerList', 'getmanpowers');
     Route::post('deleteManpower/{id}', 'deletemanpower');
 
 });
@@ -199,7 +199,7 @@ Route::controller(ManpowerController::class)->group(function () {
 Route::controller(OfficeController::class)->group(function () {
     Route::post('createOffice', 'createOffice');
     Route::post('updateOffice/{id}', 'updateOffice');
-    Route::post('officeList', 'getOffices');
+    Route::get('officeList', 'getOffices');
     Route::post('deleteOffice/{id}', 'deleteOffice');
 });
 
