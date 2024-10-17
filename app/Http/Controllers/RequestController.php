@@ -158,9 +158,6 @@ class RequestController extends Controller
     public function getRequests(Request $request)
     {
         try {
-            // Get the authenticated user's ID and type
-            $userId = $request->user()->id; 
-            $userType = $request->user()->user_type_id; 
     
             // Initialize query
             $query = Requests::query();
@@ -187,36 +184,7 @@ class RequestController extends Controller
                 $query->where('requests.control_no', 'like', '%' . $request->input('search') . '%');
             }
     
-           
-            switch ($userType) {
-                case 'Admin':
-                    break;
-    
-                case 'Controller':
-                    // Controller only gets pending requests
-                    $query->where('requests.status', 'pending');
-                    break;
-    
-                case 'Dean':
-                    // Dean gets only the requests they created
-                    $query->where('requests.user_id', $userId);
-                    break;
-    
-                case 'TeamLeader':
-                    // Team Leader only gets 'Actual Work' status
-                    $query->where('requests.status', 'actual work');
-                    break;
-    
-                case 'Supervisor':
-                    // Supervisor only gets requests 'for inspection'
-                    $query->where('requests.status', 'for inspection');
-                    break;
-    
-                default:
-                    // If the user type doesn't match any of the roles, return no results
-                    $query->whereRaw('1 = 0');
-                    break;
-            }
+        
     
             // Pagination
             $perPage = $request->input('per_page', 10);

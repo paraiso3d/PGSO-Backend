@@ -123,96 +123,48 @@ class OfficeController extends Controller
     public function getOffices(Request $request)
     {
         try {
-            // Validate that 'paginate' is provided in the request
-            $validate = $request->validate([
-                'paginate' => 'required'
-            ]);
+            $search = $request->input('search');
+            $perPage = $request->input('per_page', 10); 
+            
+            $query = Office::select('id', 'office_name', 'acronym', 'office_type')
+                ->where('is_archived', 'A');
     
-            // Get search term and pagination settings from the request
-            $searchTerm = $request->input('search', null);
-            $perPage = $request->input('per_page', 10);
-    
-            // Check if pagination is enabled
-            if ($validate['paginate'] == 0) {
-                // Fetch all offices without pagination
-                $query = Office::select('id', 'office_name', 'acronym', 'office_type', 'is_archived')
-                    ->where('is_archived', 'A')
-                    ->when($searchTerm, function ($query, $searchTerm) {
-                        return $query->where(function ($q) use ($searchTerm) {
-                            $q->where('officename', 'like', '%' . $searchTerm . '%')
-                                ->orWhere('abbreviation', 'like', '%' . $searchTerm . '%');
-                        });
-                    })
-                    ->get();
-    
-                // Check if query is empty
-                if ($query->isEmpty()) {
-                    $response = [
-                        'isSuccess' => false,
-                        'message' => 'No active Offices found matching the criteria',
-                    ];
-                    $this->logAPICalls('getOffices', "", $request->all(), $response);
-                    return response()->json($response, 500);
-                }
-    
-                // Prepare response without pagination
-                $response = [
-                    'isSuccess' => true,
-                    'message' => 'Offices list retrieved successfully.',
-                    'office' => $query
-                ];
-            } else {
-                // Fetch paginated offices
-                $query = Office::select('id', 'office_name', 'acronym', 'office_type', 'is_archived')
-                    ->where('is_archived', 'A')
-                    ->when($searchTerm, function ($query, $searchTerm) {
-                        return $query->where(function ($q) use ($searchTerm) {
-                            $q->where('officename', 'like', '%' . $searchTerm . '%')
-                                ->orWhere('abbreviation', 'like', '%' . $searchTerm . '%');
-                        });
-                    })
-                    ->paginate($perPage);
-    
-                // Check if query is empty
-                if ($query->isEmpty()) {
-                    $response = [
-                        'isSuccess' => false,
-                        'message' => 'No active Offices found matching the criteria',
-                    ];
-                    $this->logAPICalls('getOffices', "", $request->all(), $response);
-                    return response()->json($response, 500);
-                }
-    
-                // Prepare response with pagination
-                $response = [
-                    'isSuccess' => true,
-                    'message' => 'Offices list retrieved successfully.',
-                    'office' => $query,
-                    'pagination' => [
-                        'total' => $query->total(),
-                        'per_page' => $query->perPage(),
-                        'current_page' => $query->currentPage(),
-                        'last_page' => $query->lastPage(),
-                    ]
-                ];
+          
+            if (!empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('office_name', 'LIKE', '%' . $search . '%')
+                        ->orWhere('abbreviation', 'LIKE', '%' . $search . '%');
+                });
             }
     
-            // Log API call
-            $this->logAPICalls('getOffices', "", $request->all(), $response);
-            return response()->json($response, 200);
+           
+            $result = $query->paginate($perPage);
     
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Offices list retrieved successfully.',
+                'offices' => $result,
+               'pagination' => [
+                'total' => $result->total(),
+                'per_page' => $result->perPage(),
+                'current_page' => $result->currentPage(),
+                'last_page' => $result->lastPage(),
+                'url' => url('api/officeList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
+            ],
+            ];
+    
+            return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to retrieve Offices list.',
-                'error' => $e->getMessage()
+                'message' => 'Failed to retrieve offices list.',
+                'error' => $e->getMessage(),
             ];
     
-            // Log API call
-            $this->logAPICalls('getOffices', "", $request->all(), $response);
             return response()->json($response, 500);
         }
     }
+    
     
     /**
      * Delete a college office.
