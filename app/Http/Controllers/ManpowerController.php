@@ -127,8 +127,8 @@ class ManpowerController extends Controller
                 });
             }
     
-            // Reapply pagination
-            $perPage = $request->input('per_page', 10); // Default to 10 per page
+          
+            $perPage = $request->input('per_page', 10); 
             $manpowers = $query->paginate($perPage);
     
             // Prepare response
@@ -184,7 +184,7 @@ class ManpowerController extends Controller
                 'error' => $e->getMessage()
             ];
 
-            // Log the API call with failure response
+           
             $this->logAPICalls('deletemanpower', "", [], [$response]);
 
             return response()->json($response, 500);

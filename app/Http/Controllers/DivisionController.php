@@ -142,19 +142,19 @@ class DivisionController extends Controller
            
             $search = $request->input('search'); // Get the search term from the request
 
-            // Create the query to select divisions
+            
             $query = Division::select('id', 'div_name', 'note')
                 ->where('is_archived', 'A');
 
-            // Apply search filter if search term is provided
+            
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('div_name', 'LIKE', '%' . $search . '%')
-                        ->orWhere('note', 'LIKE', '%' . $search . '%'); // Search in 'div_name' and 'note'
+                        ->orWhere('note', 'LIKE', '%' . $search . '%'); 
                 });
             }
 
-            // Paginate the results
+            
             $divnames = $query->get();
 
             $response = [

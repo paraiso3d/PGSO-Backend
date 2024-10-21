@@ -24,9 +24,7 @@ class User extends Authenticatable
         'middle_initial',
         'last_name',
         'email',
-        'office',
         'designation',
-        'user_type',
         'password',
         'office_id',
         'user_type_id',
@@ -57,13 +55,23 @@ class User extends Authenticatable
         'middle_initial' => ['required', 'string', 'alpha_spaces', 'max:5'],
         'last_name' => ['required', 'string', 'alpha_spaces'],
         'email' => ['required', 'email', 'unique:users,email'],
-        'user_type_id' => ['required', 'exists:user_types,id'],  // Ensure user_type_id is valid
-        'office_id' => ['required', 'exists:offices,id'],       // Ensure office_id is valid
+        'user_type_id' => ['required', 'exists:user_types,id'],  
+        'office_id' => ['required', 'exists:offices,id'],       
         'password' => ['required', 'string', 'min:8'],
         'is_archived' => ['nullable', 'in:A,I']
     ]);
 
     return $validator;
+}
+public function user_types()
+{
+    return $this->belongsTo(user_type::class, 'user_type_id');
+}
+
+// Define the relationship with Office
+public function office()
+{
+    return $this->belongsTo(Office::class, 'office_id');
 }
 
 }

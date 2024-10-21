@@ -156,20 +156,20 @@ class CategoryController extends Controller
             // Update the category with the new data, including the division_name based on division_id
             $category->update([
                 'category_name' => $request->input('category_name'),
-                'division' => $division->div_name,  // Setting division name based on division_id
-                'division_id' => $division->id      // Use the division_id
+                'division' => $division->div_name, 
+                'division_id' => $division->id      
             ]);
 
             // Prepare success response
             $response = [
                 'isSuccess' => true,
                 'message' => "Category successfully updated",
-                'category' => $category, // Return the updated category
+                'category' => $category, 
             ];
 
             // Log the API call and return the success response
             $this->logAPICalls('updateCategory', $id, $request->all(), $response);
-            return response()->json($response, 200);  // 200 for successful updates
+            return response()->json($response, 200);  
         } catch (Throwable $e) {
             // Prepare error response in case of an exception
             $response = [
@@ -180,7 +180,7 @@ class CategoryController extends Controller
 
             // Log the error and return the error response
             $this->logAPICalls('updateCategory', "", $request->all(), $response);
-            return response()->json($response, 500);  // 500 for internal server error
+            return response()->json($response, 500);  
         }
     }
 

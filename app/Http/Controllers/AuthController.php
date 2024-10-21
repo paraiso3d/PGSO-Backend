@@ -23,73 +23,42 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         try {
-            //Validate request input
-            $request->validate([
-                'email' => 'required|email',
-                'password' => 'required',
-            ]);
-
-            // Find the user by email
             $user = User::where('email', $request->email)->first();
 
+            // Check if user exists
             if ($user) {
+                // Check if password matches
                 if (Hash::check($request->password, $user->password)) {
-                    //Generate token based on usertype
-                    $token = null;
-                    switch ($user->user_type) {
-                        case 'Administrator':
-                            $token = $user->createToken('admin-token', ['Administrator'])->plainTextToken;
-                            break;
-                        case 'Supervisor':
-                            $token = $user->createToken('supervisor-token', ['Supervisor'])->plainTextToken;
-                            break;
-                        case 'TeamLeader':
-                            $token = $user->createToken('teamleader-token', ['TeamLeader'])->plainTextToken;
-                            break;
-                        case 'Controller':
-                            $token = $user->createToken('controller-token', ['Controller'])->plainTextToken;
-                            break;
-                        case 'DeanHead':
-                            $token = $user->createToken('dean-token', ['DeanHead'])->plainTextToken;
-                            break;
-                        default:
-                            $response = ['message' => 'Unauthorized'];
+                    $token = $user->createToken('auth-token')->plainTextToken;
 
-                            $this->logAPICalls('login', $request->email, $request->all(), $response); // Log API call
-                            return response()->json($response, 403);
-                    }
 
-                    $sessionResponse = $this->insertSession($request->merge(['id' => $user->id]));
-
-                    //Log successful login
                     $response = [
                         'isSuccess' => true,
-                        'message' => ucfirst($user->user_type) . ' logged in successfully',
-                        'token' => $token,
                         'user' => $user->only(['id', 'email']),
-                        'user_type' => $user->user_type,
-                        'session' => $sessionResponse->getData(),
+                        'token' => $token,
+                        'user_type' => $user->user_type_id,
+                        'message' => 'Logged in successfully'
                     ];
-                    $this->logAPICalls('login', $user->id, $request->except(['password']), $response);
+
+                    $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
                     return response()->json($response, 200);
 
                 } else {
-
-                    $response = ['message' => 'Invalid credentials'];
-                    $this->logAPICalls('login', $request->email, $request->except(['password']), $response);
-                    return response()->json($response, 401);
+                    return $this->sendError('Invalid Credentials.');
                 }
-            } else {
-                $response = ['message' => 'Invalid credentials'];
-                $this->logAPICalls('login', $request->email, $request->except(['password']), $response);
-                return response()->json($response, 401);
-            }
+
+                } else {
+                return $this->sendError('Provided email address does not exist.');
+                }
         } catch (Throwable $e) {
+            // Define the error response
             $response = [
-                'message' => 'An error occurred',
-                'error' => $e->getMessage() // Return the specific error message
+                'isSuccess' => false,
+                'message' => 'An error occurred during login.',
+                'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('login', $request->email, $request->all(), $response);
+
+            $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
             return response()->json($response, 500);
         }
     }
@@ -199,42 +168,36 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         try {
-            $user = Auth::user();  // Get the authenticated user using the Auth facade
+            // Get the authenticated user
+            $user = Auth::user();
 
             if ($user) {
-                Log::info('User logging out:', ['email' => $user->email]);
+                // Revoke all tokens issued to the user
+                $user->tokens()->delete();
 
-                // Find the latest session for this user with a null logout_date
-                $session = Session::where('user_id', $user->id)
-                    ->whereNull('logout_date')  // Find session where logout hasn't been set
-                    ->latest()  // Get the latest session
-                    ->first();
+                // Optionally, log the API call for auditing
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'Logged out successfully',
+                    'user' => $user->only(['id', 'email']),
+                ];
 
-                if ($session) {
-                    // Update the session with the current logout date
-                    $session->update([
-                        'logout_date' => Carbon::now()->toDateTimeString(),  // Set logout date to current time
-                    ]);
-                }
-
-                // Revoke the user's current access token (token-based auth)
-                if ($user->currentAccessToken()) {
-                    $user->currentAccessToken()->delete();
-                }
-
-                $response = ['message' => 'User logged out successfully'];
-                $this->logAPICalls('logout', $user->id, [], $response);
+                $this->logAPICalls('logout', $user->email, $request->all(), $response);
 
                 return response()->json($response, 200);
+            } else {
+                return $this->sendError('User not found or already logged out.', 401);
             }
-
-            // If no authenticated user is found, return unauthenticated response
-            return response()->json(['message' => 'Unauthenticated'], 401);
         } catch (Throwable $e) {
-            return response()->json([
-                'message' => 'Failed to log out',
+            // Define the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'An error occurred during logout.',
                 'error' => $e->getMessage(),
-            ], 500);
+            ];
+
+            $this->logAPICalls('logout', 'unknown', $request->all(), $response);
+            return response()->json($response, 500);
         }
     }
 

@@ -24,7 +24,6 @@ class UsertypeController extends Controller
 
             $usertype = user_type::create([
                 'name' => $request->name,
-                'description' => $request->description
             ]);
 
             $response = [
@@ -70,14 +69,7 @@ class UsertypeController extends Controller
             // Update the user_type record
             $usertype->update([
                 'name' => $request->name,
-                'description' => $request->description
             ]);
-
-            // Cascade the update to related users
-            User::where('user_type_id', $id)
-                ->update([
-                    'user_type' => $request->name,
-                ]);
 
             // Prepare response for successful update
             $response = [
@@ -127,7 +119,7 @@ class UsertypeController extends Controller
             ]);
 
             // Initialize the query
-            $query = user_type::select('id', 'name', 'description')
+            $query = user_type::select('id', 'name')
             ->whereIn('is_archived', ['A', 'I']);
 
             // Apply search if provided
