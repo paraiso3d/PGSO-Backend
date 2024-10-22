@@ -19,7 +19,7 @@ class UserController extends Controller
     {
         try {
             $validator = User::validateUserAccount($request->all());
-    
+
             if ($validator->fails()) {
                 $response = [
                     'isSuccess' => false,
@@ -29,25 +29,25 @@ class UserController extends Controller
                 $this->logAPICalls('createUserAccount', "", $request->all(), $response);
                 return response()->json($response, 500);
             }
-    
-            // Get the user type ID and find the related user type
+
+
             $userTypeId = $request->input('user_type_id');
             $usertype = user_type::findOrFail($userTypeId);
-    
-            
+
+
             $gsoRoles = user_type::whereIn('name', ['TeamLeader', 'Supervisor', 'Controller', 'Administrator'])
-            ->pluck('id')->toArray();
-    
+                ->pluck('id')->toArray();
+
             if (in_array($usertype->id, $gsoRoles)) {
                 $officeId = 1; // Default to GSO
             } else {
                 $officeId = $request->input('office_id');
             }
-            
-            // Find the corresponding office record
+
+
             $office = Office::findOrFail($officeId);
-    
-            // Create the user account
+
+
             $userAccount = User::create([
                 'first_name' => $request->first_name,
                 'middle_initial' => $request->middle_initial,
@@ -58,8 +58,8 @@ class UserController extends Controller
                 'user_type_id' => $usertype->id,
                 'office_id' => $office->id,
             ]);
-    
-            // Structure the response with related data (user type name and office name)
+
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'UserAccount successfully created.',
@@ -77,7 +77,7 @@ class UserController extends Controller
                     'office_name' => $office->acronym,
                 ]
             ];
-    
+
             $this->logAPICalls('createUserAccount', "", $request->except(['password', 'user_type_id', 'office_id']), $response);
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -90,16 +90,16 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
-    
+
 
     public function getUserAccounts(Request $request)
     {
         try {
             $searchTerm = $request->input('search', null);
-            $perPage = $request->input('per_page', 10); 
-    
-            // Eager load userType and office relationships
-            $query = User::with(['user_types:id,name', 'office:id,acronym']) 
+            $perPage = $request->input('per_page', 10);
+
+
+            $query = User::with(['user_types:id,name', 'office:id,acronym'])
                 ->select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'designation', 'is_archived', 'office_id', 'user_type_id')
                 ->where('is_archived', 'A')
                 ->when($searchTerm, function ($query, $searchTerm) {
@@ -109,10 +109,10 @@ class UserController extends Controller
                             ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
                     });
                 });
-    
-            // Paginate the results
+
+
             $result = $query->paginate($perPage);
-    
+
             if ($result->isEmpty()) {
                 $response = [
                     'isSuccess' => false,
@@ -121,8 +121,8 @@ class UserController extends Controller
                 $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
                 return response()->json($response, 500);
             }
-    
-            // Format the result to include user_type_name and office_name, handling null values
+
+
             $formattedUsers = $result->getCollection()->transform(function ($user) {
                 return [
                     'id' => $user->id,
@@ -131,15 +131,15 @@ class UserController extends Controller
                     'last_name' => $user->last_name,
                     'email' => $user->email,
                     'designation' => $user->designation,
-                    'is_archived' => $user->is_archived,
                     'user_type_id' => $user->user_type_id,
-                    'user_type_name' => optional($user->user_types)->name, 
+                    'user_type_name' => optional($user->user_types)->name,
                     'office_id' => $user->office_id,
-                    'office_name' => optional($user->office)->acronym, 
+                    'office_name' => optional($user->office)->acronym,
+                    'is_archived' => $user->is_archived,
                 ];
             });
-    
-            // Return paginated result with formatted users
+
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'User accounts retrieved successfully.',
@@ -152,10 +152,10 @@ class UserController extends Controller
                     'url' => url('api/userList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
                 ],
             ];
-    
+
             $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
             return response()->json($response, 200);
-    
+
         } catch (Throwable $e) {
             // Handle error cases
             $response = [
@@ -163,14 +163,12 @@ class UserController extends Controller
                 'message' => 'Failed to retrieve user accounts.',
                 'error' => $e->getMessage()
             ];
-    
+
             $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
             return response()->json($response, 500);
         }
     }
-    
-    
-            
+
 
 
     /**
@@ -181,15 +179,15 @@ class UserController extends Controller
         try {
             // Find the user account
             $userAccount = User::findOrFail($id);
-    
+
             // Define validation rules for the request
             $emailRule = ['sometimes', 'string', 'email', 'max:255'];
-    
+
             // Check if the email is provided in the request
             if ($request->has('email')) {
                 $emailRule[] = Rule::unique('users')->ignore($userAccount->id);
             }
-    
+
             $request->validate([
                 'first_name' => ['sometimes', 'required', 'string', 'max:255'],
                 'middle_initial' => ['sometimes', 'string', 'max:5'],
@@ -200,27 +198,27 @@ class UserController extends Controller
                 'user_type_id' => ['sometimes', 'exists:user_types,id'],
                 'office_id' => ['sometimes', 'exists:offices,id']
             ]);
-    
-            
+
+
             $officeId = $request->input('office_id');
             if ($request->has('user_type_id')) {
                 $usertype = user_type::findOrFail($request->input('user_type_id'));
-                
+
                 if (in_array($usertype->name, ['TeamLeader', 'Supervisor', 'Controller', 'Administrator'])) {
-                    $officeId = 1; 
+                    $officeId = 1;
                 }
             } else {
                 $usertype = user_type::findOrFail($userAccount->user_type_id);
             }
-    
-            
+
+
             if ($officeId) {
                 $office = Office::findOrFail($officeId);
             } else {
                 $office = Office::findOrFail($userAccount->office_id);
             }
-    
-            
+
+
             $dataToUpdate = [
                 'first_name' => $request->input('first_name', $userAccount->first_name),
                 'middle_initial' => $request->input('middle_initial', $userAccount->middle_initial),
@@ -232,18 +230,18 @@ class UserController extends Controller
                 'office' => $office->acronym, // Keep office acronym for response
                 'user_type' => $usertype->name // Keep user type name for response
             ];
-    
+
             // Hash the password only if provided
             if ($request->filled('password')) {
                 $dataToUpdate['password'] = Hash::make($request->password);
             }
-    
+
             // Update the user account
             $userAccount->update($dataToUpdate);
-    
+
             // Retrieve the updated user account
             $userAccount = $userAccount->fresh();
-    
+
             // Prepare the response
             $response = [
                 'isSuccess' => true,
@@ -261,7 +259,7 @@ class UserController extends Controller
                     'office_name' => $office->acronym,
                 ]
             ];
-    
+
             $this->logAPICalls('updateUserAccount', $id, $request->except(['user_type_id', 'office_id']), $response);
             return response()->json($response, 200);
         } catch (ValidationException $v) {
@@ -282,38 +280,37 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
-    
 
 
     public function deleteUserAccount($id)
-{
-    try {
+    {
+        try {
 
-        $userAccount = User::findOrFail($id);
+            $userAccount = User::findOrFail($id);
 
-        $userAccount->update(['is_archived' => 'I']);
+            $userAccount->update(['is_archived' => 'I']);
 
-        $response = [
-            'isSuccess' => true,
-            'message' => 'UserAccount successfully archived.',
-        ];
+            $response = [
+                'isSuccess' => true,
+                'message' => 'UserAccount successfully archived.',
+            ];
 
-        $this->logAPICalls('deleteUserAccount', $id, [], $response);
+            $this->logAPICalls('deleteUserAccount', $id, [], $response);
 
-        return response()->json($response, 200);
-    } catch (Throwable $e) {
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to archive the UserAccount.',
-            'error' => $e->getMessage()
-        ];
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to archive the UserAccount.',
+                'error' => $e->getMessage()
+            ];
 
-        $this->logAPICalls('deleteUserAccount', $id, [], $response);
+            $this->logAPICalls('deleteUserAccount', $id, [], $response);
 
-        return response()->json($response, 500);
+            return response()->json($response, 500);
+        }
     }
-}
-    
+
 
     public function getDropdownOptionsUsertype(Request $request)
     {
@@ -323,19 +320,20 @@ class UserController extends Controller
                 ->where('is_archived', 'A')
                 ->get();
 
-            // Build the response
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'Dropdown data retrieved successfully.',
                 'user_types' => $offices,
             ];
 
-            // Log the API call
+
             $this->logAPICalls('getDropdownOptionsUseroffice', "", $request->all(), $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
-            // Handle the error response
+
+
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve dropdown data.',
@@ -345,10 +343,10 @@ class UserController extends Controller
             // Log the error
             $this->logAPICalls('getDropdownOptionsUseroffice', "", $request->all(), $response);
 
+
             return response()->json($response, 500);
         }
     }
-
 
 
     public function getDropdownOptionsUseroffice(Request $request)
