@@ -41,6 +41,11 @@ public static function updatevalidateCategory($data)
     return $validator;
 }
 
+public function divisions()
+{
+    return $this->belongsTo(Division::class, 'division_id');
+}
+
     public function requests()
     {
     return $this->belongsTo(Requests::class);

@@ -214,6 +214,7 @@ Route::controller(UserTypeController::class)->group(function () {
     Route::post('createUsertype', 'createUserType');
     Route::post('updateUsertype/{id}', 'updateUserType');
     Route::get('usertypeList', 'getUserTypes');
+    Route::post('toggleUser/{id}', 'toggleUsertype');
     Route::post('deleteUsertype/{id}', 'deleteUserType');
 
 });

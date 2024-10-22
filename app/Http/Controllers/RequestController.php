@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Location;
 use App\Models\User;
+use Exception;
 use DB;
 use App\Models\Division;
 use App\Models\Office;
@@ -17,6 +18,8 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Session;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+
 
 class RequestController extends Controller
 {
@@ -59,7 +62,10 @@ class RequestController extends Controller
         return $value;
     }
 
+
+
     // Method to create a new request.    
+    
     public function createRequest(Request $request)
     {
 
@@ -114,7 +120,6 @@ class RequestController extends Controller
 
             $location = Location::findOrFail($locationId);
             $office = Office::findOrFail($officeId);
-
 
             // Create the new request record
             $newRequest = Requests::create([

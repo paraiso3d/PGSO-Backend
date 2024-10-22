@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Throwable;
+use Illuminate\Support\Facades\Storage;
+
 
 class AuthController extends Controller
 {
@@ -24,9 +26,14 @@ class AuthController extends Controller
             $user = User::where('email', $request->email)->first();
 
             // Check if user exists
+            // Check if user exists
             if ($user) {
                 // Check if password matches
+                // Check if password matches
                 if (Hash::check($request->password, $user->password)) {
+                    $token = $user->createToken('auth-token')->plainTextToken;
+
+
                     $token = $user->createToken('auth-token')->plainTextToken;
 
 
@@ -36,13 +43,23 @@ class AuthController extends Controller
                         'token' => $token,
                         'user_type' => $user->user_type_id,
                         'message' => 'Logged in successfully'
+                        'token' => $token,
+                        'user_type' => $user->user_type_id,
+                        'message' => 'Logged in successfully'
                     ];
+
+                    $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
 
                     $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
                     return response()->json($response, 200);
 
                 } else {
                     return $this->sendError('Invalid Credentials.');
+                    return $this->sendError('Invalid Credentials.');
+                }
+
+                } else {
+                return $this->sendError('Provided email address does not exist.');
                 }
 
                 } else {
@@ -50,11 +67,17 @@ class AuthController extends Controller
                 }
         } catch (Throwable $e) {
             // Define the error response
+            // Define the error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'An error occurred during login.',
                 'error' => $e->getMessage(),
+                'isSuccess' => false,
+                'message' => 'An error occurred during login.',
+                'error' => $e->getMessage(),
             ];
+
+            $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
 
             $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
             return response()->json($response, 500);
@@ -186,8 +209,14 @@ class AuthController extends Controller
                 return response()->json($response, 200);
             } else {
                 return $this->sendError('User not found or already logged out.', 401);
+            } else {
+                return $this->sendError('User not found or already logged out.', 401);
             }
         } catch (Throwable $e) {
+            // Define the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'An error occurred during logout.',
             // Define the error response
             $response = [
                 'isSuccess' => false,

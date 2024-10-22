@@ -100,59 +100,51 @@ class LocationController extends Controller
 
 
     /**
-     * Get all user types.
+     * Get all locations
      */
     public function getLocations(Request $request)
     {
         try {
-            $perPage = $request->input('per_page', 10); // Get 'per_page' parameter or default to 10
-            $search = $request->input('search'); // Get 'search' parameter if provided
-
-            // Create the query to select locations
+            $search = $request->input('search');
+    
+            // Initialize query
             $query = Location::select('id', 'location_name', 'note')
-                ->where('is_archived', 'A'); // Include only active locations
-
-            // Apply search filter if search term is provided
+                ->where('is_archived', 'A');
+    
+            // Optional search filter
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('location_name', 'LIKE', '%' . $search . '%')
-                        ->orWhere('note', 'LIKE', '%' . $search . '%'); // Search in 'location_name' and 'note'
+                        ->orWhere('note', 'LIKE', '%' . $search . '%');
                 });
             }
-
-            // Paginate the results
+    
+            // Reapply pagination
+            $perPage = $request->input('per_page', 10); // Default 10 per page
             $locations = $query->paginate($perPage);
-
-            // Prepare the response
+    
+            // Prepare response
             $response = [
                 'isSuccess' => true,
-                'message' => "Location list:",
-                'location' => $locations,
+                'message' => 'Locations list retrieved successfully.',
+                'locations' => $locations,
                 'pagination' => [
-                    'total' => $locations->total(),
-                    'per_page' => $locations->perPage(),
-                    'current_page' => $locations->currentPage(),
-                    'last_page' => $locations->lastPage(),
-                    'next_page_url' => $locations->nextPageUrl(),
-                    'prev_page_url' => $locations->previousPageUrl(),
-                ]
+                'total' => $locations->total(),
+                'per_page' => $locations->perPage(),
+                'current_page' => $locations->currentPage(),
+                'last_page' => $locations->lastPage(),
+                'url' => url('api/locationList?page=' . $locations->currentPage() . '&per_page=' . $locations->perPage()),
+            ],
             ];
-
-            // Log API calls
-            $this->logAPICalls('getLocations', "", $request->all(), $response);
-
+    
             return response()->json($response, 200);
         } catch (Throwable $e) {
-            // Prepare the error response
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to retrieve locations.",
-                'error' => $e->getMessage()
+                'message' => 'Failed to retrieve locations list.',
+                'error' => $e->getMessage(),
             ];
-
-            // Log API calls
-            $this->logAPICalls('getLocations', "", $request->all(), $response);
-
+    
             return response()->json($response, 500);
         }
     }

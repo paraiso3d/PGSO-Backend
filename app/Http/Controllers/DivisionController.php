@@ -81,7 +81,7 @@ class DivisionController extends Controller
             // Validate the incoming request
             $request->validate([
                 'div_name' => ['sometimes', 'required', 'string'],
-                'note' => ['sometimes', 'required', 'string'],
+                'note' => ['sometimes','string'],
             ]);
 
             // Store the old division name before updating
@@ -139,36 +139,30 @@ class DivisionController extends Controller
     public function getDivisions(Request $request)
     {
         try {
-            $perPage = $request->input('per_page', 10);
+           
             $search = $request->input('search'); // Get the search term from the request
 
-            // Create the query to select divisions
+            
             $query = Division::select('id', 'div_name', 'note')
                 ->where('is_archived', 'A');
 
-            // Apply search filter if search term is provided
+            
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('div_name', 'LIKE', '%' . $search . '%')
-                        ->orWhere('note', 'LIKE', '%' . $search . '%'); // Search in 'div_name' and 'note'
+                        ->orWhere('note', 'LIKE', '%' . $search . '%'); 
                 });
             }
 
-            // Paginate the results
-            $divnames = $query->paginate($perPage);
+            
+            $divnames = $query->get();
 
             $response = [
                 'isSuccess' => true,
                 'message' => "Division names list:",
-                'division' => $divnames, // Get the paginated items
-                'pagination' => [
-                    'total' => $divnames->total(),
-                    'per_page' => $divnames->perPage(),
-                    'current_page' => $divnames->currentPage(),
-                    'last_page' => $divnames->lastPage(),
-                    'next_page_url' => $divnames->nextPageUrl(),
-                    'prev_page_url' => $divnames->previousPageUrl(),
-                ]
+                'division' => $divnames
+
+                
             ];
 
             // Log API calls
@@ -199,7 +193,7 @@ class DivisionController extends Controller
         try {
             $divname = Division::find($request->id);
 
-            $divname->update(['isarchive' => "I"]);
+            $divname->update(['is_archived' => "I"]);
 
             $response = [
                 'isSuccess' => true,

@@ -83,12 +83,6 @@ class OfficeController extends Controller
                 'office_type' => $request->office_type,
             ]));
 
-            // Cascade update the users or other related tables
-            if ($oldAcronym !== $request->acronym) {
-                User::where('office_id', $id)
-                    ->update(['office' => $request->acronym]);  // Ensure 'office' is the correct field
-            }
-
             // Prepare the response
             $response = [
                 'isSuccess' => true,
@@ -123,55 +117,49 @@ class OfficeController extends Controller
     public function getOffices(Request $request)
     {
         try {
-            $perPage = $request->input('per_page', 10);
-            $searchTerm = $request->input('search', null);
-
-            // Create query to fetch active college offices
-            $query = Office::where('is_archived', 'A');
-
-            // Add search condition if search term is provided
-            if ($searchTerm) {
-                $query->where(function ($q) use ($searchTerm) {
-                    $q->where('officename', 'like', "%{$searchTerm}%")
-                        ->orWhere('abbreviation', 'like', "%{$searchTerm}%");
+            $search = $request->input('search');
+            $perPage = $request->input('per_page', 10); 
+            
+            $query = Office::select('id', 'office_name', 'acronym', 'office_type')
+                ->where('is_archived', 'A');
+    
+          
+            if (!empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('office_name', 'LIKE', '%' . $search . '%')
+                        ->orWhere('abbreviation', 'LIKE', '%' . $search . '%');
                 });
             }
-
-            // Paginate the result
-            $collegeOffices = $query->paginate($perPage);
-
-            // Prepare the response
+    
+           
+            $result = $query->paginate($perPage);
+    
             $response = [
                 'isSuccess' => true,
-                'message' => 'Offices list:',
-                'office' => $collegeOffices,
-                'pagination' => [
-                    'total' => $collegeOffices->total(),
-                    'per_page' => $collegeOffices->perPage(),
-                    'current_page' => $collegeOffices->currentPage(),
-                    'last_page' => $collegeOffices->lastPage(),
-                    'next_page_url' => $collegeOffices->nextPageUrl(),
-                    'prev_page_url' => $collegeOffices->previousPageUrl(),
-                ]
+                'message' => 'Offices list retrieved successfully.',
+                'offices' => $result,
+               'pagination' => [
+                'total' => $result->total(),
+                'per_page' => $result->perPage(),
+                'current_page' => $result->currentPage(),
+                'last_page' => $result->lastPage(),
+                'url' => url('api/officeList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
+            ],
             ];
-
-            // Log API calls
-            $this->logAPICalls('getOffices', "", [], [$response]);
-
+    
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to retrieve College Offices.',
-                'error' => $e->getMessage()
+                'message' => 'Failed to retrieve offices list.',
+                'error' => $e->getMessage(),
             ];
-
-            // Log API calls
-            $this->logAPICalls('getOffices', "", [], [$response]);
-
+    
             return response()->json($response, 500);
         }
     }
+    
+    
     /**
      * Delete a college office.
      */
@@ -180,7 +168,7 @@ class OfficeController extends Controller
         try {
             $collegeOffice = Office::find($request->id);
 
-            $collegeOffice->update(['isarchive' => "I"]);
+            $collegeOffice->update(['is_archived' => "I"]);
 
             $response = [
                 'isSuccess' => true,

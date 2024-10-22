@@ -201,6 +201,77 @@ class BaseController extends Controller
         return response($response, 200);
     }
 
+    public function saveImage($image,string $path,string $empno, string $ln) {
+
+        if(preg_match('/^data:image\/(\w+);base64,/', $image, $type)) 
+        {
+            $image = substr($image, strpos($image,',') + 1);
+            $type = strtolower($type[1]);
+            
+            if(!in_array($type, ['jpg', 'jpeg', 'gif', 'png','svg'])) {
+                throw new \Exception('The provided image is invalid.');
+            }
+
+            $image = str_replace(' ', '+', $image);
+            $image = base64_decode($image);
+
+            if($image === false) {
+                throw new \Exception('Unable to process the image.');
+            }
+        }else 
+        {
+            throw new \Exception('Please make sure the type you are uploading is an image file.');
+        }
+
+        $dir = 'img/' . $path . '/';
+        $file = $empno . '-' . $ln . '.' . $type;
+        $absolutePath = public_path($dir);
+        $relativePath = $dir . $file;
+        if(!File::exists($absolutePath)) 
+        {
+            File::makeDirectory($absolutePath, 0755, true);
+        }
+        file_put_contents($relativePath, $image);
+
+        return $file;
+    }
+
+public function addAsset(Request $req)
+    {
+        $dateNow =  Carbon::now();
+        $fdateNow = $dateNow->format('Y-m-d');
+        $ftimeNow = $dateNow->format('His');
+        try
+        {
+            if($req->asset_photo) 
+            {
+                $asset = Assets::create([
+                    'asset_name' => $req->asset_name,
+                    'asset_model_no' => $req->asset_model_no,
+                    'asset_specification' => $req->asset_specification,
+                    'asset_price' => $req->asset_price,
+                    'asset_date_acquired' => $req->asset_date_acquired,
+                    'asset_supplier_id' => $req->asset_supplier_id,
+                    'asset_photo' => $path . $file,
+                    'asset_category_id' => $req->asset_category_id,
+                    'asset_quantity' => $req->asset_quantity,
+                    'asset_date_warranty' => $req->asset_date_warranty,
+                    'asset_department_id' => $req->asset_department_id,
+                    'asset_office_id' => $req->asset_office_id,
+                 ]);
+                 $path = $this->getSetting("ASSET_IMAGE_PATH");
+                $name = str_replace(" ","",$req->asset_name);
+                $file = (new AuthController)->saveImage($req->asset_photo,"asset",'Asset-' . $asset->id,$fdateNow . '_' . $ftimeNow);
+                      
+            return $this->sendResponse($req->all(),"You have added an asset.");     
+			}
+		}
+	}
+
+
+
+
+
     /**
      * Test method to verify API functionality.
      */
