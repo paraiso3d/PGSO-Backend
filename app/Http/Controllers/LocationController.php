@@ -100,7 +100,7 @@ class LocationController extends Controller
 
 
     /**
-     * Get all user types.
+     * Get all locations
      */
     public function getLocations(Request $request)
     {

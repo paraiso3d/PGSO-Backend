@@ -19,13 +19,13 @@ class OfficeController extends Controller
     {
         try {
             $request->validate([
-                'officename' => ['required', 'string'],
+                'office_name' => ['required', 'string'],
                 'acronym' => ['required', 'string'],
                 'office_type' => ['required', 'string', 'in:Academic,Non Academic'],
             ]);
 
             $collegeOffice = Office::create([
-                'officename' => $request->officename,
+                'office_name' => $request->office_name,
                 'acronym' => $request->acronym,
                 'office_type' => $request->office_type,
             ]);
@@ -68,7 +68,7 @@ class OfficeController extends Controller
 
             // Validate the request data
             $request->validate([
-                'officename' => ['required', 'sometimes', 'string'],
+                'office_name' => ['required', 'sometimes', 'string'],
                 'acronym' => ['required', 'sometimes', 'string'],
                 'office_type' => ['sometimes', 'string'],
             ]);
@@ -78,16 +78,10 @@ class OfficeController extends Controller
 
             // Update the office
             $collegeOffice->update(array_filter([
-                'officename' => $request->officename,
+                'office_name' => $request->office_name,
                 'acronym' => $request->acronym,
                 'office_type' => $request->office_type,
             ]));
-
-            // Cascade update the users or other related tables
-            if ($oldAcronym !== $request->acronym) {
-                User::where('office_id', $id)
-                    ->update(['office' => $request->acronym]);  // Ensure 'office' is the correct field
-            }
 
             // Prepare the response
             $response = [
