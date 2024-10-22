@@ -125,8 +125,6 @@ class RequestController extends Controller
             $newRequest = Requests::create([
                 'control_no' => $controlNo,
                 'description' => $request->input('description'),
-                'office_name' => $office->office_name,
-                'location_name' => $location->location_name,
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
@@ -139,10 +137,25 @@ class RequestController extends Controller
 
             // Prepare the success response
             $response = [
-                'isSuccess' => true,
-                'message' => 'Request successfully created.',
-                'request' => $newRequest,
-                'file_url' => $fileUrl, // Return the public URL of the uploaded file
+                $response = [
+                    'isSuccess' => true,
+                    'message' => 'Request successfully created.',
+                    'request' => [
+                        'id' => $newRequest->id,
+                        'control_no' => $controlNo,
+                        'description' => $request->input('description'),
+                        'overtime' => $request->input('overtime'),
+                        'area' => $request->input('area'),
+                        'fiscal_year' => $request->input('fiscal_year'),
+                        'status' => $status,
+                        'office_id' => $office->id,
+                        'office_name' => $office->office_name,
+                        'location_id' => $location->id,
+                        'location_name' => $location->location_name,
+                        'user_id' => $user->id,
+                        'file_url' => $fileUrl, // Return the public URL of the uploaded file
+                    ]
+                ]
             ];
 
             $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
