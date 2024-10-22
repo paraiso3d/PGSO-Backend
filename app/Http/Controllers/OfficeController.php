@@ -110,7 +110,6 @@ class OfficeController extends Controller
         }
     }
 
-
     /**
      * Get all college offices.
      */
@@ -118,35 +117,35 @@ class OfficeController extends Controller
     {
         try {
             $search = $request->input('search');
-            $perPage = $request->input('per_page', 10); 
-            
+            $perPage = $request->input('per_page', 10);
+
             $query = Office::select('id', 'office_name', 'acronym', 'office_type')
                 ->where('is_archived', 'A');
-    
-          
+
+
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('office_name', 'LIKE', '%' . $search . '%')
                         ->orWhere('abbreviation', 'LIKE', '%' . $search . '%');
                 });
             }
-    
-           
+
+
             $result = $query->paginate($perPage);
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'Offices list retrieved successfully.',
                 'offices' => $result,
-               'pagination' => [
-                'total' => $result->total(),
-                'per_page' => $result->perPage(),
-                'current_page' => $result->currentPage(),
-                'last_page' => $result->lastPage(),
-                'url' => url('api/officeList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
-            ],
+                'pagination' => [
+                    'total' => $result->total(),
+                    'per_page' => $result->perPage(),
+                    'current_page' => $result->currentPage(),
+                    'last_page' => $result->lastPage(),
+                    'url' => url('api/officeList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
+                ],
             ];
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -154,12 +153,11 @@ class OfficeController extends Controller
                 'message' => 'Failed to retrieve offices list.',
                 'error' => $e->getMessage(),
             ];
-    
+
             return response()->json($response, 500);
         }
     }
-    
-    
+
     /**
      * Delete a college office.
      */

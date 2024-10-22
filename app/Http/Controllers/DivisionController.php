@@ -81,7 +81,7 @@ class DivisionController extends Controller
             // Validate the incoming request
             $request->validate([
                 'div_name' => ['sometimes', 'required', 'string'],
-                'note' => ['sometimes','string'],
+                'note' => ['sometimes', 'string'],
             ]);
 
             // Store the old division name before updating
@@ -132,29 +132,28 @@ class DivisionController extends Controller
         }
     }
 
-
     /**
      * Get all college offices.
      */
     public function getDivisions(Request $request)
     {
         try {
-           
+
             $search = $request->input('search'); // Get the search term from the request
 
-            
+
             $query = Division::select('id', 'div_name', 'note')
                 ->where('is_archived', 'A');
 
-            
+
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('div_name', 'LIKE', '%' . $search . '%')
-                        ->orWhere('note', 'LIKE', '%' . $search . '%'); 
+                        ->orWhere('note', 'LIKE', '%' . $search . '%');
                 });
             }
 
-            
+
             $divnames = $query->get();
 
             $response = [
@@ -162,7 +161,7 @@ class DivisionController extends Controller
                 'message' => "Division names list:",
                 'division' => $divnames
 
-                
+
             ];
 
             // Log API calls
@@ -183,7 +182,6 @@ class DivisionController extends Controller
             return response()->json($response, 500);
         }
     }
-
 
     /**
      * Delete a college office.

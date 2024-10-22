@@ -75,8 +75,7 @@ class Requests extends Model
         return $validator;
     }
 
-    
-     public function office()
+    public function office()
     {
         return $this->belongsTo(Office::class);
     }
@@ -86,9 +85,9 @@ class Requests extends Model
         return $this->belongsTo(Location::class);
     }
 
-    public function categories() 
+    public function categories()
     {
-    return $this->belongsTo(Category::class);
+        return $this->belongsTo(Category::class);
     }
 
 

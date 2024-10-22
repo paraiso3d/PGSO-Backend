@@ -261,7 +261,6 @@ Route::controller(InspectionController::class)->group(function () {
     Route::post('updatestatus/{id}', 'updateWorkStatus');
 });
 
-
 /*
 |--------------------TEST API-----------------------\
 */

@@ -43,9 +43,6 @@ class AuthController extends Controller
                         'token' => $token,
                         'user_type' => $user->user_type_id,
                         'message' => 'Logged in successfully'
-                        'token' => $token,
-                        'user_type' => $user->user_type_id,
-                        'message' => 'Logged in successfully'
                     ];
 
                     $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
@@ -55,11 +52,6 @@ class AuthController extends Controller
 
                 } else {
                     return $this->sendError('Invalid Credentials.');
-                    return $this->sendError('Invalid Credentials.');
-                }
-
-                } else {
-                return $this->sendError('Provided email address does not exist.');
                 }
 
                 } else {
@@ -69,9 +61,6 @@ class AuthController extends Controller
             // Define the error response
             // Define the error response
             $response = [
-                'isSuccess' => false,
-                'message' => 'An error occurred during login.',
-                'error' => $e->getMessage(),
                 'isSuccess' => false,
                 'message' => 'An error occurred during login.',
                 'error' => $e->getMessage(),
@@ -209,24 +198,17 @@ class AuthController extends Controller
                 return response()->json($response, 200);
             } else {
                 return $this->sendError('User not found or already logged out.', 401);
-            } else {
-                return $this->sendError('User not found or already logged out.', 401);
-            }
-        } catch (Throwable $e) {
+            } 
+            }catch (Throwable $e) {
             // Define the error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'An error occurred during logout.',
-            // Define the error response
-            $response = [
-                'isSuccess' => false,
-                'message' => 'An error occurred during logout.',
-                'error' => $e->getMessage(),
             ];
     
             $this->logAPICalls('logout', 'unknown', $request->all(), $response);
             return response()->json($response, 500);
-        }
+            }
     }
 
     // Method to insert session

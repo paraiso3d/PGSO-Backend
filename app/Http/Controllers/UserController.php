@@ -91,7 +91,6 @@ class UserController extends Controller
         }
     }
 
-
     public function getUserAccounts(Request $request)
     {
         try {
@@ -168,8 +167,6 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
-
-
 
     /**
      * Update an existing user account.
@@ -281,7 +278,6 @@ class UserController extends Controller
         }
     }
 
-
     public function deleteUserAccount($id)
     {
         try {
@@ -310,7 +306,6 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
-
 
     public function getDropdownOptionsUsertype(Request $request)
     {
@@ -348,7 +343,6 @@ class UserController extends Controller
         }
     }
 
-
     public function getDropdownOptionsUseroffice(Request $request)
     {
         try {
@@ -382,7 +376,6 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
-
 
     /**
      * Log all API calls.
