@@ -256,7 +256,7 @@ class DivisionController extends Controller
         }
     }
 
-    /**
+    /*
      * Log all API calls.
      */
     public function logAPICalls(string $methodName, string $userId, array $param, array $resp)

@@ -54,7 +54,7 @@ class AuthController extends Controller
                 } else {
                     return $this->sendError('Invalid Credentials.');
                 }
-    
+                
             } else {
                 return $this->sendError('Provided email address does not exist.');
             }

@@ -65,7 +65,7 @@ class RequestController extends Controller
 
 
     // Method to create a new request.    
-    
+
     public function createRequest(Request $request)
     {
 
@@ -183,20 +183,26 @@ class RequestController extends Controller
             // Get the authenticated user's ID and user_type_id
             $userId = $request->user()->id;
             $userTypeId = $request->user()->user_type_id;
-    
+
             // Retrieve the corresponding role from the database
             $role = DB::table('user_types')
                 ->where('id', $userTypeId)
                 ->value('name');
-    
+
+            // Debug: Log the role to ensure it's fetched properly
+            Log::info("User Role: " . $role);
+
+            // Pagination settings
+            $perPage = $request->input('per_page', 10);  // Default per page is 10
+            $searchTerm = $request->input('search', null); // Optional search term
+
             // Initialize query
-            $query = Requests::query();
-            $query->select(
+            $query = Requests::select(
                 'requests.id',
                 'requests.control_no',
                 'requests.description',
-                'requests.office_name',
-                'requests.location_name',
+                'offices.office_name',
+                'locations.location_name',
                 'requests.overtime',
                 'requests.file_path',
                 'requests.area',
@@ -206,69 +212,105 @@ class RequestController extends Controller
                 'requests.location_id',
                 DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
             )
-            ->where('requests.is_archived', 'A');
-    
-            // Optional search by control_no
-            if ($request->has('search') && !empty($request->input('search'))) {
-                $query->where('requests.control_no', 'like', '%' . $request->input('search') . '%');
-            }
-    
+                ->leftJoin('offices', 'requests.office_id', '=', 'offices.id')
+                ->leftJoin('locations', 'requests.location_id', '=', 'locations.id')
+                ->where('requests.is_archived', '=', 'A') // Filter active requests
+                ->when($searchTerm, function ($query, $searchTerm) {
+                    // Apply search filter if a search term is provided
+                    return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
+                });
+
             // Filter based on the role
             switch ($role) {
-                case 'Admin':
-                    // Admin gets all requests
+                case 'Administrator':
+                    // Admin gets all requests, no extra filter needed
                     break;
-    
+
                 case 'Controller':
                     // Controller only gets pending requests
                     $query->where('requests.status', 'Pending');
                     break;
-    
+
                 case 'DeanHead':
                     // Dean gets only the requests they created
                     $query->where('requests.user_id', $userId);
                     break;
-    
+
                 case 'TeamLeader':
-                    // Team Leader only gets 'Actual Work' status
+                    // Team Leader only gets 'On-going' status
                     $query->where('requests.status', 'On-going');
                     break;
-    
+
                 case 'Supervisor':
                     // Supervisor only gets requests 'For Inspection'
                     $query->where('requests.status', 'For Inspection');
                     break;
-    
+
                 default:
                     // If no matching role, return no results
                     $query->whereRaw('1 = 0');
                     break;
             }
-    
-            // Execute the query and get the result
-            $requests = $query->get();
-    
-            // Prepare the response
+
+            // Execute the query with pagination
+            $result = $query->paginate($perPage);
+
+            // Check if there are no results
+            if ($result->isEmpty()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'No requests found matching the criteria.',
+                ];
+                $this->logAPICalls('getRequests', "", $request->all(), $response);
+                return response()->json($response, 500);
+            }
+
+            // Format the response
+            $formattedRequests = $result->getCollection()->transform(function ($request) {
+                return [
+                    'id' => $request->id,
+                    'control_no' => $request->control_no,
+                    'description' => $request->description,
+                    'office_name' => $request->office_name,
+                    'location_name' => $request->location_name,
+                    'overtime' => $request->overtime,
+                    'area' => $request->area,
+                    'fiscal_year' => $request->fiscal_year,
+                    'status' => $request->status,
+                    'file_path' => $request->file_path,
+                    'updated_at' => $request->updated_at,
+                ];
+            });
+
+            // Prepare the response with pagination
             $response = [
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
-                'requests' => $requests,
+                'requests' => $formattedRequests,
+                'pagination' => [
+                    'total' => $result->total(),
+                    'per_page' => $result->perPage(),
+                    'current_page' => $result->currentPage(),
+                    'last_page' => $result->lastPage(),
+                    'url' => url('api/requestList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
+                ],
             ];
-    
+
+            $this->logAPICalls('getRequests', "", $request->all(), $response);
             return response()->json($response, 200);
-    
+
         } catch (Throwable $e) {
-            // Handle any exceptions
+            // Handle error cases
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to retrieve the requests.',
+                'message' => 'Failed to retrieve requests.',
                 'error' => $e->getMessage(),
             ];
-    
+
+            $this->logAPICalls('getRequests', "", $request->all(), $response);
             return response()->json($response, 500);
         }
     }
-
 
     // Method to delete (archive) a request
     public function deleteRequest($id)
@@ -296,7 +338,6 @@ class RequestController extends Controller
     }
 
     //Dropdown Request Location
-
     public function getDropdownOptionsRequestslocation(Request $request)
     {
         try {
@@ -332,7 +373,6 @@ class RequestController extends Controller
 
 
     //Dropdown Request Status
-
     public function getDropdownOptionsRequeststatus(Request $request)
     {
         try {
@@ -371,7 +411,6 @@ class RequestController extends Controller
     }
 
     //Dropdown Request Status
-
     public function getDropdownOptionsRequestyear(Request $request)
     {
         try {
@@ -408,7 +447,6 @@ class RequestController extends Controller
     }
 
     //Dropdown Request Division
-
     public function getDropdownOptionsRequestdivision(Request $request)
     {
         try {
@@ -445,7 +483,6 @@ class RequestController extends Controller
     }
 
     //  Dropdown Request Category
-
     public function getDropdownOptionsRequestcategory(Request $request)
     {
         try {
@@ -483,7 +520,6 @@ class RequestController extends Controller
     }
 
     //Dropdown Create Request office
-
     public function getDropdownOptionscreateRequestsoffice(Request $request)
     {
         try {
@@ -518,7 +554,6 @@ class RequestController extends Controller
     }
 
     //Dropdown CreateRequest location
-
     public function getDropdownOptionscreateRequestslocation(Request $request)
     {
         try {
@@ -605,6 +640,4 @@ class RequestController extends Controller
         }
         return true;
     }
-
-
 }
