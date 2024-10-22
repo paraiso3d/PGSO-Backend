@@ -136,18 +136,18 @@ class DivisionController extends Controller
      * Get all college offices.
      */
     public function getDivisions(Request $request)
-    {
-        try {
-            // Validate request parameters
-            $validated = $request->validate([
-                'per_page' => 'nullable|integer',
-                'search' => 'nullable|string',
-            ]);
+{
+    try {
+       
+        $validated = $request->validate([
+            'per_page' => 'nullable|integer',
+            'search' => 'nullable|string',
+        ]);
 
-            // Build the query to retrieve categories with their related division
-            $query = Category::with(['divisions:id,div_name,note']) // Include 'note' in the query
-                ->where('is_archived', 'A')
-                ->select('id', 'category_name', 'division_id', 'is_archived');
+       
+        $query = Category::with(['divisions:id,div_name,note']) 
+            ->where('is_archived', 'A')
+            ->select('id', 'category_name', 'division_id', 'is_archived');
 
             // Apply search filter
             if (!empty($validated['search'])) {
@@ -159,68 +159,68 @@ class DivisionController extends Controller
                 });
             }
 
-            // Pagination settings
-            $perPage = $validated['per_page'] ?? 10;
-            $categories = $query->paginate($perPage);
+        
+        $perPage = $validated['per_page'] ?? 10;
+        $categories = $query->paginate($perPage);
 
-            // If no categories found, return an error message
-            if ($categories->isEmpty()) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'No active categories found matching the criteria.',
-                ], 500);
-            }
+       
+        if ($categories->isEmpty()) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'No active categories found matching the criteria.',
+            ], 500);
+        }
 
-            // Group by division_id
-            $groupedCategories = $categories->getCollection()->groupBy(function ($category) {
-                return optional($category->divisions)->id;
-            });
+       
+        $groupedCategories = $categories->getCollection()->groupBy(function ($category) {
+            return optional($category->divisions)->id;
+        });
 
-            // Prepare the formatted response with 'note' field
-            $formattedResponse = [];
-            foreach ($groupedCategories as $divisionId => $group) {
-                $formattedResponse[] = [
-                    'division_id' => $divisionId,
-                    'division_name' => optional($group->first()->divisions)->div_name,
-                    'note' => optional($group->first()->divisions)->note, // Get the note for the division
-                    'categories' => $group->map(function ($category) {
-                        return [
-                            'id' => $category->id,
-                            'category_name' => $category->category_name,
-                            'is_archived' => $category->is_archived,
-                        ];
-                    }),
-                ];
-            }
 
-            // Structure the full response with pagination details
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Divisions retrieved successfully.',
-                'category' => $formattedResponse,
-                'pagination' => [
-                    'total' => $categories->total(),
-                    'per_page' => $categories->perPage(),
-                    'current_page' => $categories->currentPage(),
-                    'last_page' => $categories->lastPage(),
-                    'url' => url('api/categoryList?page=' . $categories->currentPage() . '&per_page=' . $categories->perPage()),
-                ]
+        $formattedResponse = [];
+        foreach ($groupedCategories as $divisionId => $group) {
+            $formattedResponse[] = [
+                'division_id' => $divisionId,
+                'division_name' => optional($group->first()->divisions)->div_name,
+                'note' => optional($group->first()->divisions)->note, 
+                'categories' => $group->map(function ($division) {
+                    return [
+                        'id' => $division->id,
+                        'category_name' => $division->category_name,
+                        'is_archived' => $division->is_archived,
+                    ];
+                }),
             ];
+        }
 
-            // Log the API call
-            $this->logAPICalls('getCategory', "", $request->all(), $response);
+        // Structure the full response with pagination details
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Divisions retrieved successfully.',
+            'division' => $formattedResponse,
+            'pagination' => [
+                'total' => $categories->total(),
+                'per_page' => $categories->perPage(),
+                'current_page' => $categories->currentPage(),
+                'last_page' => $categories->lastPage(),
+                'url' => url('api/categoryList?page=' . $categories->currentPage() . '&per_page=' . $categories->perPage()),
+            ]
+        ];
+
+        // Log the API call
+        $this->logAPICalls('getDivisions', "", $request->all(), $response);
 
             // Return the successful response
             return response()->json($response, 200);
 
-        } catch (Throwable $e) {
-            // Handle any exceptions and return a failure message
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve the categories.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('getCategory', "", $request->all(), $response);
+    } catch (Throwable $e) {
+        // Handle any exceptions and return a failure message
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve the categories.',
+            'error' => $e->getMessage(),
+        ];
+        $this->logAPICalls('getDivisions', "", $request->all(), $response);
 
             // Return the error response
             return response()->json($response, 500);
