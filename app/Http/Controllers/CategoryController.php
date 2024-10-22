@@ -65,92 +65,85 @@ class CategoryController extends Controller
     }
 
     public function getCategory(Request $request)
-    {
-        try {
-            
-            $validated = $request->validate([
-                'per_page' => 'nullable|integer',  
-                'search' => 'nullable|string',     
-            ]);
-    
-            
-            $query = Category::with(['divisions:id,div_name']) 
-                ->where('is_archived', 'A')
-                ->select('id', 'category_name', 'division_id', 'is_archived');
-    
-            if (!empty($validated['search'])) {
-                $query->where(function ($q) use ($validated) {
-                    $q->where('category_name', 'like', '%' . $validated['search'] . '%')
-                      ->orWhereHas('divisions', function ($q) use ($validated) {
-                          $q->where('div_name', 'like', '%' . $validated['search'] . '%');
-                      });
-                });
-            }
-    
-            
-            $perPage = $validated['per_page'] ?? 10;
-            $categories = $query->paginate($perPage);
-    
-            if ($categories->isEmpty()) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'No active categories found matching the criteria.',
-                ], 500);
-            }
-    
-            
-            $groupedCategories = $categories->getCollection()->groupBy(function ($category) {
-                return optional($category->divisions)->id; 
+{
+    try {
+        // Validate request parameters
+        $validated = $request->validate([
+            'per_page' => 'nullable|integer',
+            'search' => 'nullable|string',
+        ]);
+
+        // Build the query to retrieve categories with their related division
+        $query = Category::with(['divisions:id,div_name']) 
+            ->where('is_archived', 'A')
+            ->select('id', 'category_name', 'division_id', 'is_archived');
+
+        // Apply search filter
+        if (!empty($validated['search'])) {
+            $query->where(function ($q) use ($validated) {
+                $q->where('category_name', 'like', '%' . $validated['search'] . '%')
+                  ->orWhereHas('divisions', function ($q) use ($validated) {
+                      $q->where('div_name', 'like', '%' . $validated['search'] . '%');
+                  });
             });
-    
-            
-            $formattedResponse = [];
-            foreach ($groupedCategories as $divisionId => $group) {
-                $formattedResponse[] = [
-                    'division_id' => $divisionId,
-                    'division_name' => optional($group->first()->divisions)->div_name, 
-                    'categories' => $group->map(function ($category) {
-                        return [
-                            'id' => $category->id,
-                            'category_name' => $category->category_name,
-                            'is_archived' => $category->is_archived,
-                        ];
-                    }),
-                ];
-            }
-    
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Categories retrieved successfully.',
-                'data' => $formattedResponse,
-                'pagination' => [
-                    'total' => $categories->total(),
-                    'per_page' => $categories->perPage(),
-                    'current_page' => $categories->currentPage(),
-                    'last_page' => $categories->lastPage(),
-                    'url' => url('api/categoryList?page=' . $categories->currentPage() . '&per_page=' . $categories->perPage()),
-                ]
-            ];
-    
-           
-            $this->logAPICalls('getCategory', "", $request->all(), $response);
-    
-            
-            return response()->json($response, 200);
-    
-        } catch (Throwable $e) {
-           
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve the categories.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('getCategory', "", $request->all(), $response);
-    
-            
-            return response()->json($response, 500);
         }
+
+        // Pagination settings
+        $perPage = $validated['per_page'] ?? 10;
+        $categories = $query->paginate($perPage);
+
+        // If no categories found, return an error message
+        if ($categories->isEmpty()) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'No active categories found matching the criteria.',
+            ], 500);
+        }
+
+        // Prepare the formatted response to group by categories first
+        $formattedResponse = $categories->getCollection()->map(function ($category) {
+            return [
+                'id' => $category->id,
+                'category_name' => $category->category_name,
+                'is_archived' => $category->is_archived,
+                'division_name' => optional($category->divisions)->div_name, // Fetch the division name
+            ];
+        });
+
+        // Structure the full response with pagination details
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Categories retrieved successfully.',
+            'category' => $formattedResponse,
+            'pagination' => [
+                'total' => $categories->total(),
+                'per_page' => $categories->perPage(),
+                'current_page' => $categories->currentPage(),
+                'last_page' => $categories->lastPage(),
+                'url' => url('api/categoryList?page=' . $categories->currentPage() . '&per_page=' . $categories->perPage()),
+            ]
+        ];
+
+        // Log the API call
+        $this->logAPICalls('getCategory', "", $request->all(), $response);
+
+        // Return the successful response
+        return response()->json($response, 200);
+
+    } catch (Throwable $e) {
+        // Handle any exceptions and return a failure message
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve the categories.',
+            'error' => $e->getMessage(),
+        ];
+        $this->logAPICalls('getCategory', "", $request->all(), $response);
+
+        // Return the error response
+        return response()->json($response, 500);
     }
+}
+
     
     
 
@@ -291,7 +284,7 @@ class CategoryController extends Controller
                 'api_response' => json_encode($resp)
             ]);
         } catch (Throwable $e) {
-            
+            // Handle logging error if necessary
             return false;
         }
         return true;
