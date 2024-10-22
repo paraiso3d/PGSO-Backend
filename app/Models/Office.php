@@ -9,7 +9,7 @@ class Office extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'officename',
+        'office_name',
         'acronym',
         'office_type',
         'is_archived'

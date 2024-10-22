@@ -11,6 +11,7 @@ use App\Models\Office;
 use App\Models\Requests;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -52,8 +53,7 @@ class RequestController extends Controller
             $value = DB::table('settings')
                 ->where('setting_code', $code)
                 ->value('setting_value');
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             return $e->getMessage();
         }
         return $value;
@@ -62,10 +62,10 @@ class RequestController extends Controller
     // Method to create a new request.    
     public function createRequest(Request $request)
     {
-       
+
         $validator = Requests::validateRequest($request->all());
-    
-    
+
+
         if ($validator->fails()) {
             $response = [
                 'isSuccess' => false,
@@ -75,44 +75,47 @@ class RequestController extends Controller
             $this->logAPICalls('createRequest', '', $request->all(), $response);
             return response()->json($response, 500);
         }
-    
-       
+
+
         $controlNo = Requests::generateControlNo();
-    
-        
+
+
         $filePath = null;
         $fileUrl = null;
-    
-       
+
+
         if ($request->hasFile('file_path')) {
             // Get the uploaded file
             $file = $request->file('file_path');
-            
+
             // Convert the uploaded file to base64
             $fileContents = file_get_contents($file->getRealPath());
             $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
-    
+
             // Call your saveImage method to handle the base64 image
             $path = $this->getSetting("ASSET_IMAGE_PATH");
             $fdateNow = now()->format('Y-m-d');
             $ftimeNow = now()->format('His');
             $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $controlNo, $fdateNow . '_' . $ftimeNow);
-            
-          
+
+
             $fileUrl = asset('storage/' . $filePath);
         }
-    
-    
+
+
         $status = $request->input('status', 'Pending');
-    
+
         try {
-            
+
+            $user = auth()->user();
+
             $locationId = $request->input('location_id');
             $officeId = $request->input('office_id');
-    
+
             $location = Location::findOrFail($locationId);
             $office = Office::findOrFail($officeId);
-    
+
+
             // Create the new request record
             $newRequest = Requests::create([
                 'control_no' => $controlNo,
@@ -122,12 +125,13 @@ class RequestController extends Controller
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
-                'file_path' => $filePath, 
+                'file_path' => $filePath,
                 'status' => $status,
                 'office_id' => $office->id,
                 'location_id' => $location->id,
+                'user_id' => $user->id,
             ]);
-    
+
             // Prepare the success response
             $response = [
                 'isSuccess' => true,
@@ -135,12 +139,12 @@ class RequestController extends Controller
                 'request' => $newRequest,
                 'file_url' => $fileUrl, // Return the public URL of the uploaded file
             ];
-    
+
             $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
-    
-    
+
+
             return response()->json($response, 200);
-    
+
         } catch (Throwable $e) {
             // Handle any exceptions
             $response = [
@@ -148,27 +152,31 @@ class RequestController extends Controller
                 'message' => 'Failed to create the request.',
                 'error' => $e->getMessage(),
             ];
-    
+
             $this->logAPICalls('createRequest', '', $request->all(), $response);
-    
+
             return response()->json($response, 500);
         }
     }
 
-    // Method to retrieve all requests
-
     public function getRequests(Request $request)
     {
         try {
+            // Get the authenticated user's ID and user_type_id
+            $userId = $request->user()->id;
+            $userTypeId = $request->user()->user_type_id;
+    
+            // Retrieve the corresponding role from the database
+            $role = DB::table('user_types')
+                ->where('id', $userTypeId)
+                ->value('name');
+    
             // Initialize query
             $query = Requests::query();
-    
-            // Select specific fields from the requests table with formatted updated_at
             $query->select(
                 'requests.id',
                 'requests.control_no',
                 'requests.description',
-                'requests.office_name',
                 'requests.office_name',
                 'requests.location_name',
                 'requests.overtime',
@@ -178,45 +186,71 @@ class RequestController extends Controller
                 'requests.status',
                 'requests.office_id',
                 'requests.location_id',
-                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at") // Format updated_at to YYYY-MM-DD
+                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
             )
-                // Only get active requests (is_archived = 'A')
-                ->where('requests.is_archived', 'A');
+            ->where('requests.is_archived', 'A');
     
-            // Search by control_no if provided
+            // Optional search by control_no
             if ($request->has('search') && !empty($request->input('search'))) {
                 $query->where('requests.control_no', 'like', '%' . $request->input('search') . '%');
             }
     
-            // Pagination
-            $perPage = $request->input('per_page', 10);
+            // Filter based on the role
+            switch ($role) {
+                case 'Admin':
+                    // Admin gets all requests
+                    break;
     
-            // Sort by control_no or any other field if needed
-            $requests = $query->orderBy('requests.control_no', 'asc')->paginate($perPage);
+                case 'Controller':
+                    // Controller only gets pending requests
+                    $query->where('requests.status', 'Pending');
+                    break;
     
-            // Response
+                case 'DeanHead':
+                    // Dean gets only the requests they created
+                    $query->where('requests.user_id', $userId);
+                    break;
+    
+                case 'TeamLeader':
+                    // Team Leader only gets 'Actual Work' status
+                    $query->where('requests.status', 'On-going');
+                    break;
+    
+                case 'Supervisor':
+                    // Supervisor only gets requests 'For Inspection'
+                    $query->where('requests.status', 'For Inspection');
+                    break;
+    
+                default:
+                    // If no matching role, return no results
+                    $query->whereRaw('1 = 0');
+                    break;
+            }
+    
+            // Execute the query and get the result
+            $requests = $query->get();
+    
+            // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
-                'request' => $requests,
+                'requests' => $requests,
             ];
-    
-            $this->logAPICalls('getRequests', '', $request->all(), $response);
     
             return response()->json($response, 200);
     
         } catch (Throwable $e) {
+            // Handle any exceptions
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve the requests.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('getRequests', '', $request->all(), $response);
     
             return response()->json($response, 500);
         }
     }
-    
+
 
     // Method to delete (archive) a request
     public function deleteRequest($id)

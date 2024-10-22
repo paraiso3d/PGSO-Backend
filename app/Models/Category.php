@@ -41,6 +41,12 @@ public static function updatevalidateCategory($data)
     return $validator;
 }
 
+    public function requests()
+    {
+    return $this->belongsTo(Requests::class);
+    }
+
+
 }
 
 

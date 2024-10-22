@@ -25,6 +25,7 @@ class Requests extends Model
         'overtime',
         'area',
         'fiscal_year',
+        'remarks',
         'file_path',
         'status',
         'user_id',
@@ -68,7 +69,7 @@ class Requests extends Model
             'overtime' => ['nullable', 'in:Yes,No'],
             'area' => ['required', 'string'],
             'fiscal_year' => ['required', 'string', 'in:' . $currentYear],
-            'user_id' => 'get|string|exists:Requests,id',
+            'user_id' => ['get|string|exists:users,id'],
             'file_path' => [
                 'required',
                 'file',
@@ -91,5 +92,11 @@ class Requests extends Model
     {
         return $this->belongsTo(Location::class);
     }
+
+    public function categories() 
+    {
+    return $this->belongsTo(Category::class);
+    }
+
 
 }

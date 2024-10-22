@@ -58,33 +58,24 @@ class ReviewController extends Controller
                     'message' => 'Invalid ID provided.',
                 ], 400);
             }
-
-            // Log the ID being searched
-            \Log::info('Fetching request with ID: ' . $id);
-
-            // Enable query logging
-            \DB::enableQueryLog();
-
-            // Initialize the query with a join to fetch the full officename
+    
+            // Fetch the request data along with the category_id
             $result = Requests::select(
                 'requests.id',
                 'requests.control_no',
                 'requests.description',
-                'requests.office_name',
-                'requests.location_name',
+                'requests.office_id',
+                'requests.location_id',
                 'requests.overtime',
                 'requests.file_path',
                 'requests.area',
                 'requests.fiscal_year',
-                'requests.status'
+                'requests.category_id'  // Add the category_id to the result
             )
-                ->where('requests.id', $id)
-                ->where('requests.is_archived', 'A')
-                ->first();
-
-            // Log executed queries
-            \Log::info(\DB::getQueryLog());
-
+            ->where('requests.id', $id)
+            ->where('requests.is_archived', 'A')
+            ->first();
+    
             // Check if the result is null
             if (!$result) {
                 return response()->json([
@@ -94,13 +85,27 @@ class ReviewController extends Controller
                     'searched_id' => $id,
                 ], 200);
             }
-
+    
+            // Decode the category_id (stored as JSON) to get an array of category IDs
+            $categoryIds = json_decode($result->category_id, true);
+    
+            // Fetch the corresponding category names using the IDs
+            $categoryNames = [];
+            if (!empty($categoryIds)) {
+                $categoryNames = Category::whereIn('id', $categoryIds)->pluck('category_name');
+            }
+    
+            // Log the executed queries (if needed)
+            \Log::info(\DB::getQueryLog());
+    
+            // Return the result including the category names
             return response()->json([
                 'isSuccess' => true,
                 'message' => 'Request retrieved successfully.',
                 'data' => $result,
+                'category_names' => $categoryNames,  
             ], 200);
-
+    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -108,112 +113,106 @@ class ReviewController extends Controller
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('getReviews', '', ['id' => $id], $response);
-
+    
             return response()->json($response, 500);
         }
     }
 
-    // Method to update an existing request
-    public function updateReview(Request $request, $id = null)
-    {
-        // Validate the incoming request data, including the location_id and office_id
-        $validator = Validator::make($request->all(), [
-            'description' => 'sometimes|string',
-            'office_id' => 'required|exists:offices,id',  // Ensure office_id exists
-            'location_id' => 'required|exists:locations,id',  // Ensure location_id exists
-            'location_name' => 'sometimes|string',
-            'overtime' => 'sometimes|string|in:Yes,No',  // Explicitly check for 'Yes' or 'No'
-            'area' => 'sometimes|string',
-            'fiscal_year' => 'sometimes|string',
-            'file_path' => 'sometimes|file',
-        ]);
+public function updateReview(Request $request, $id = null)
+{
+    // Validate the incoming request data
+    $validator = Validator::make($request->all(), [
+        'description' => 'sometimes|string',
+        'office_id' => 'required|exists:offices,id',
+        'location_id' => 'required|exists:locations,id',
+        'area' => 'sometimes|string',
+        'fiscal_year' => 'sometimes|string',
+        'file_path' => 'sometimes|file',
+        'categories' => 'sometimes|array',
+        'categories.*' => 'exists:categories,id',
+        'overtime' => 'sometimes|string|in:Yes,No',
+        'remarks' => 'sometimes|string',
+    ]);
 
-        if ($validator->fails()) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors(),
-            ];
-            $this->logAPICalls('saveReview', $id, $request->all(), $response);
-            return response()->json($response, 500);
-        }
-
-        try {
-            // Fetch the existing request using the provided ID
-            $existingRequest = Requests::find($id);
-
-            if (!$existingRequest) {
-                $response = [
-                    'isSuccess' => false,
-                    'message' => "No request found with ID {$id}.",
-                ];
-                $this->logAPICalls('saveReview', $id, $request->all(), $response);
-                return response()->json($response, 404);
-            }
-
-            // Fetch location and office based on the IDs from the request
-            $location = Location::find($request->input('location_id'));
-            $office = Office::find($request->input('office_id'));
-
-            // Fetch categories for checkbox functionality
-            $categories = Category::select('id', 'category_name')
-                ->where('is_archived', 'A')  // Only active categories
-                ->get();
-
-            // Update fields that are present in the request
-            $reviewChangeData = [
-                'description' => $request->filled('description') ? $request->input('description') : $existingRequest->description,
-                'control_no' => $existingRequest->control_no,
-                'office_name' => $office->office_name,  // Use the name from the office
-                'location_name' => $location->location_name,  // Use the name from the location
-                'overtime' => $request->filled('overtime') ? $request->input('overtime') : $existingRequest->overtime,
-                'area' => $request->filled('area') ? $request->input('area') : $existingRequest->area,
-                'fiscal_year' => $request->filled('fiscal_year') ? $request->input('fiscal_year') : $existingRequest->fiscal_year,
-                'file_path' => $request->hasFile('file') ? $request->file('file')->store('storage/uploads') : $existingRequest->file_path,
-                'remarks' => $request->input('remarks'),
-                'office_id' => $office->id,  // Store office ID
-                'location_id' => $location->id,  // Store location ID
-                'status' => 'For Inspection',
-            ];
-
-            // Update or create the review change record in the Requests table
-            $reviewChange = Requests::updateOrCreate(['id' => $existingRequest->id], $reviewChangeData);
-
-            // Update only if overtime or office_name have changed
-            $requestUpdateData = [];
-            if ($request->filled('overtime') && $existingRequest->overtime !== $request->input('overtime')) {
-                $requestUpdateData['overtime'] = $request->input('overtime');
-            }
-            if (!empty($requestUpdateData)) {
-                $existingRequest->update($requestUpdateData);
-            }
-
-            // Update the status of the existing request
-            $existingRequest->update(['status' => 'For Inspection']);
-
-            // Response for successful update including categories for checkbox
-            $response = [
-                'isSuccess' => true,
-                'message' => $reviewChange->wasRecentlyCreated ? 'Review change created successfully.' : 'Review change updated successfully.',
-                'data' => $reviewChange,
-                'categories' => $categories,  // Categories for the checkbox function
-            ];
-            $this->logAPICalls('saveReview', $existingRequest->id, $request->all(), $response);
-
-            return response()->json($response, 200);
-
-        } catch (Throwable $e) {
-            // Handle exception
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to save the review change.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('saveReview', $id ?? '', $request->all(), $response);
-            return response()->json($response, 500);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Validation error',
+            'errors' => $validator->errors(),
+        ], 422);
     }
 
+    try {
+        // Fetch the existing request using the provided ID
+        $existingRequest = Requests::find($id);
+
+        if (!$existingRequest) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => "No request found with ID {$id}.",
+            ], 404);
+        }
+
+        // Fetch location and office based on the IDs from the request
+        $location = Location::find($request->input('location_id'));
+        $office = Office::find($request->input('office_id'));
+
+        // Handle file upload
+        $filePath = $existingRequest->file_path;
+        if ($request->hasFile('file_path')) {
+            $filePath = $request->file('file_path')->store('uploads');
+        }
+
+        // Handle categories (multiple checkboxes)
+        $categories = $request->input('categories', []); // Fetch selected categories or default to empty
+
+        // Update fields that are present in the request
+        $reviewChangeData = [
+            'description' => $request->filled('description') ? $request->input('description') : $existingRequest->description,
+            'control_no' => $existingRequest->control_no,
+            'office_name' => $office->office_name,
+            'location_name' => $location->location_name,
+            'overtime' => $request->filled('overtime') ? $request->input('overtime') : $existingRequest->overtime,
+            'area' => $request->filled('area') ? $request->input('area') : $existingRequest->area,
+            'fiscal_year' => $request->filled('fiscal_year') ? $request->input('fiscal_year') : $existingRequest->fiscal_year,
+            'file_path' => $filePath,
+            'remarks' => $request->filled('remarks') ? $request->input('remarks') : $existingRequest->remarks,
+            'office_id' => $office->id,
+            'location_id' => $location->id,
+            'status' => 'For Inspection',
+        ];
+
+        // Update or create the review change record in the Requests table
+        $reviewChange = Requests::updateOrCreate(['id' => $existingRequest->id], $reviewChangeData);
+
+        // Store category IDs as JSON
+        if (!empty($categories)) {
+            $reviewChange->category_id = json_encode($categories);  // Store category IDs as JSON
+            $reviewChange->save();
+        }
+
+        // Fetch the category names based on the stored IDs
+        $categoryIds = json_decode($reviewChange->category_id, true);
+        $categoryNames = Category::whereIn('id', $categoryIds)->pluck('category_name');
+
+        // Return the updated response with category names
+        return response()->json([
+            'isSuccess' => true,
+            'message' => $reviewChange->wasRecentlyCreated ? 'Review change created successfully.' : 'Review change updated successfully.',
+            'data' => $reviewChange,
+            'category_names' => $categoryNames,  
+        ], 200);
+
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Failed to save the review change.',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+    
     //DROPDOWN FOR EDITING LOCATION IN REVIEW
     public function getDropdownOptionsReviewlocation(Request $request)
     {
@@ -247,7 +246,7 @@ class ReviewController extends Controller
             return response()->json($response, 500);
         }
     }
-    
+
     //DROPDOWN FOR EDITING OFFICE IN REVIEW
     public function getDropdownOptionsReviewoffice(Request $request)
     {
