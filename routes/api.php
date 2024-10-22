@@ -8,6 +8,7 @@ use App\Http\Controllers\RequestController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\BaseController;
 use App\Http\Controllers\UsertypeController;
 use App\Http\Controllers\OfficeController;
@@ -77,51 +78,49 @@ Route::controller(DivisionController::class)->group(function () {
 /*
 |--------------------Profile Api-----------------------\
 */
-Route::controller(AuthController::class)->group(function () {
-    Route::post('editprofile/{id}', 'editProfile');
-
-});
-
-// Route::middleware(['auth:sanctum', 'UserTypeAuth'])->group(function () {
-//     Route::middleware('auth:sanctum')->get('profile', [AuthController::class, 'viewProfile']);
-//     Route::middleware('auth:sanctum')->post('profile/edit', [AuthController::class, 'editProfile']);
-//     Route::middleware('auth:sanctum')->post('editpassword', [AuthController::class, 'changePassword']);
-
+// Route::controller(AuthController::class)->group(function () {
+//     Route::post('editprofile/{id}', 'editProfile');
 
 // });
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('profile', [AuthController::class, 'viewProfile']);
+    Route::post('profile/edit', [AuthController::class, 'editProfile']);
+    Route::post('editpassword', [AuthController::class, 'changePassword']);
+});
 
 /*
 |--------------------LOGOUT API-----------------------\
 */
 
-Route::middleware('auth:sanctum')->post('logout', [AuthController::class, 'logout']);
-
-
-
+//Route::middleware('auth:sanctum')->post('logout', [AuthController::class, 'logout']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('logout', [AuthController::class, 'logout']);
+});
 /*
 |--------------------Request API-----------------------\
 */
 
 Route::controller(RequestController::class)->group(function () {
-    Route::post('createRequest', 'createRequest');
-    Route::get('requestList', 'getRequests');
-    Route::post('deleteCategory/{id}', 'deleteCategory');
+    //Route::post('createRequest', 'createRequest');
+    //Route::get('requestList', 'getRequests');
 
     //REQUEST DROPDOWN API
-    Route::get('getdropdownrequestLocation', 'getDropdownOptionsRequestslocation');
-    Route::get('getdropdownrequestStatus', 'getDropdownOptionsRequeststatus');
-    Route::get('getdropdownrequestYear', 'getDropdownOptionsRequestyear');
-    Route::get('getdropdownoptionsrequestDivision', 'getDropdownOptionsRequestdivision');
-    Route::get('getdropdownoptionsrequestCategory', 'getDropdownOptionsRequestcategory');
-    Route::get('getdropdownoptionscreaterequestsOffice', 'getDropdownOptionscreateRequestsoffice');
-    Route::get('getdropdownoptionscreaterequestsLocation', 'getDropdownOptionscreateRequestslocation');
+    Route::get('dropdownLocation', 'getDropdownOptionsRequestslocation');
+    Route::get('dropdownStatus', 'getDropdownOptionsRequeststatus');
+    Route::get('dropdownYear', 'getDropdownOptionsRequestyear');
+    Route::get('dropdownDivision', 'getDropdownOptionsRequestdivision');
+    Route::get('dropdownCategory', 'getDropdownOptionsRequestcategory');
+    Route::get('dropdownOffice', 'getDropdownOptionscreateRequestsoffice');
 });
 
-Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
-Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');
-Route::get('requests/ongoing/{id}', [ActualWorkController::class, 'getWorkreports'])->name('requests.ongoing');
-//Route::get('/requests/completed/{control_no}', [RequestController::class, 'showCompletedRequest'])->name('requests.completed');
+Route::middleware('auth:sanctum')->get('requestList', [RequestController::class, 'getRequests']);
+Route::middleware('auth:sanctum')->post('createRequest', [RequestController::class, 'createRequest']);
 
+// Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
+// Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');
+// Route::get('requests/ongoing/{id}', [ActualWorkController::class, 'getWorkreports'])->name('requests.ongoing');
+// Route::get('/requests/completed/{control_no}', [RequestController::class, 'showCompletedRequest'])->name('requests.completed');
 
 /*
 |--------------------\Accomplishment Report API-----------------------\
@@ -224,8 +223,8 @@ Route::controller(UserTypeController::class)->group(function () {
 */
 
 Route::controller(ReviewController::class)->group(function () {
-    Route::get('reviewList/{id}', 'getReviews');
     Route::post('updatereview/{id}', 'updateReview');
+    Route::get('reviewList/{id}', 'getReviews');
 
     Route::get('getdropdownReviewOffice', 'getDropdownOptionsReviewoffice');
     Route::get('getdropdownReviewLocation', 'getDropdownOptionsReviewlocation');
@@ -260,7 +259,6 @@ Route::controller(InspectionController::class)->group(function () {
     Route::post('deleteInspection/{id}', 'deleteInspection');
     Route::post('updatestatus/{id}', 'updateWorkStatus');
 });
-
 
 /*
 |--------------------TEST API-----------------------\

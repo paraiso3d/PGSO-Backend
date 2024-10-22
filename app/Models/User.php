@@ -31,7 +31,6 @@ class User extends Authenticatable
         'is_archived'
     ];
 
-
     protected $attributes = [
         'is_archived' => 'A',  // Default value
     ];
@@ -46,32 +45,31 @@ class User extends Authenticatable
     ];
 
     public static function validateUserAccount($data)
-{
-    // Retrieve arrays of valid user types and offices
+    {
+        // Retrieve arrays of valid user types and offices
 
-    // Validate user data
-    $validator = Validator::make($data, [
-        'first_name' => ['required', 'string', 'alpha_spaces'],
-        'middle_initial' => ['required', 'string', 'alpha_spaces', 'max:5'],
-        'last_name' => ['required', 'string', 'alpha_spaces'],
-        'email' => ['required', 'email', 'unique:users,email'],
-        'user_type_id' => ['required', 'exists:user_types,id'],  
-        'office_id' => ['required', 'exists:offices,id'],       
-        'password' => ['required', 'string', 'min:8'],
-        'is_archived' => ['nullable', 'in:A,I']
-    ]);
+        // Validate user data
+        $validator = Validator::make($data, [
+            'first_name' => ['required', 'string', 'alpha_spaces'],
+            'middle_initial' => ['required', 'string', 'alpha_spaces', 'max:5'],
+            'last_name' => ['required', 'string', 'alpha_spaces'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'user_type_id' => ['required', 'exists:user_types,id'],
+            'office_id' => ['required', 'exists:offices,id'],
+            'password' => ['required', 'string', 'min:8'],
+            'is_archived' => ['nullable', 'in:A,I']
+        ]);
 
-    return $validator;
-}
-public function user_types()
-{
-    return $this->belongsTo(user_type::class, 'user_type_id');
-}
+        return $validator;
+    }
+    public function user_types()
+    {
+        return $this->belongsTo(user_type::class, 'user_type_id');
+    }
 
-// Define the relationship with Office
-public function office()
-{
-    return $this->belongsTo(Office::class, 'office_id');
-}
-
+    // Define the relationship with Office
+    public function office()
+    {
+        return $this->belongsTo(Office::class, 'office_id');
+    }
 }

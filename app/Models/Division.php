@@ -15,5 +15,4 @@ class Division extends Model
         'note',
         'is_archived'
     ];
-
 }

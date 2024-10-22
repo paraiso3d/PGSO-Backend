@@ -81,7 +81,7 @@ class DivisionController extends Controller
             // Validate the incoming request
             $request->validate([
                 'div_name' => ['sometimes', 'required', 'string'],
-                'note' => ['sometimes','string'],
+                'note' => ['sometimes', 'string'],
             ]);
 
             // Store the old division name before updating
@@ -132,7 +132,6 @@ class DivisionController extends Controller
         }
     }
 
-
     /**
      * Get all college offices.
      */
@@ -150,15 +149,15 @@ class DivisionController extends Controller
             ->where('is_archived', 'A')
             ->select('id', 'category_name', 'division_id', 'is_archived');
 
-        // Apply search filter
-        if (!empty($validated['search'])) {
-            $query->where(function ($q) use ($validated) {
-                $q->where('category_name', 'like', '%' . $validated['search'] . '%')
-                  ->orWhereHas('divisions', function ($q) use ($validated) {
-                      $q->where('div_name', 'like', '%' . $validated['search'] . '%');
-                  });
-            });
-        }
+            // Apply search filter
+            if (!empty($validated['search'])) {
+                $query->where(function ($q) use ($validated) {
+                    $q->where('category_name', 'like', '%' . $validated['search'] . '%')
+                        ->orWhereHas('divisions', function ($q) use ($validated) {
+                            $q->where('div_name', 'like', '%' . $validated['search'] . '%');
+                        });
+                });
+            }
 
         
         $perPage = $validated['per_page'] ?? 10;
@@ -211,8 +210,8 @@ class DivisionController extends Controller
         // Log the API call
         $this->logAPICalls('getDivisions', "", $request->all(), $response);
 
-        // Return the successful response
-        return response()->json($response, 200);
+            // Return the successful response
+            return response()->json($response, 200);
 
     } catch (Throwable $e) {
         // Handle any exceptions and return a failure message
@@ -223,10 +222,10 @@ class DivisionController extends Controller
         ];
         $this->logAPICalls('getDivisions', "", $request->all(), $response);
 
-        // Return the error response
-        return response()->json($response, 500);
+            // Return the error response
+            return response()->json($response, 500);
+        }
     }
-}
 
 
 
@@ -257,7 +256,7 @@ class DivisionController extends Controller
         }
     }
 
-    /**
+    /*
      * Log all API calls.
      */
     public function logAPICalls(string $methodName, string $userId, array $param, array $resp)

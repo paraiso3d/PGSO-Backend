@@ -106,7 +106,6 @@ class ManpowerController extends Controller
         }
     }
 
-
     /**
      * List manpower
      */
@@ -114,11 +113,11 @@ class ManpowerController extends Controller
     {
         try {
             $search = $request->input('search');
-    
+
             // Initialize query
-            $query = Manpower::select('id', 'first_name', 'last_name','is_archived')
+            $query = Manpower::select('id', 'first_name', 'last_name', 'is_archived')
                 ->where('is_archived', 'A');
-    
+
             // Optional search filter
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
@@ -126,11 +125,11 @@ class ManpowerController extends Controller
                         ->orWhere('last_name', 'LIKE', '%' . $search . '%');
                 });
             }
-    
-          
-            $perPage = $request->input('per_page', 10); 
+
+
+            $perPage = $request->input('per_page', 10);
             $manpowers = $query->paginate($perPage);
-    
+
             // Prepare response
             $response = [
                 'isSuccess' => true,
@@ -144,7 +143,7 @@ class ManpowerController extends Controller
                     'url' => url('api/manpowerList?page=' . $manpowers->currentPage() . '&per_page=' . $manpowers->perPage()),
                 ]
             ];
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -152,13 +151,10 @@ class ManpowerController extends Controller
                 'message' => 'Failed to retrieve manpower list.',
                 'error' => $e->getMessage(),
             ];
-    
+
             return response()->json($response, 500);
         }
     }
-    
-    
-
 
     /**
      * Delete a manpower
@@ -184,13 +180,12 @@ class ManpowerController extends Controller
                 'error' => $e->getMessage()
             ];
 
-           
+
             $this->logAPICalls('deletemanpower', "", [], [$response]);
 
             return response()->json($response, 500);
         }
     }
-
 
     /**
      * Log all API calls.
