@@ -23,45 +23,57 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         try {
+            // Fetch the user by email
             $user = User::where('email', $request->email)->first();
-
+    
             // Check if user exists
             if ($user) {
-                // Check if password matches
+                // Verify the password
                 if (Hash::check($request->password, $user->password)) {
+                    // Generate token
                     $token = $user->createToken('auth-token')->plainTextToken;
-
-
+    
+                    
+                    $userTypeName = optional($user->user_types)->name;  
+    
+                    // Prepare the response
                     $response = [
                         'isSuccess' => true,
                         'user' => $user->only(['id', 'email']),
                         'token' => $token,
-                        'user_type' => $user->user_type_id,
+                        'user_type' => $userTypeName,  
                         'message' => 'Logged in successfully'
                     ];
-
+    
+                    // Log the API call
                     $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
+    
+                    // Return the successful response
                     return response()->json($response, 200);
-
+    
                 } else {
                     return $this->sendError('Invalid Credentials.');
                 }
-
-                } else {
+    
+            } else {
                 return $this->sendError('Provided email address does not exist.');
-                }
+            }
+    
         } catch (Throwable $e) {
-            // Define the error response
+            // Handle errors during login
             $response = [
                 'isSuccess' => false,
                 'message' => 'An error occurred during login.',
                 'error' => $e->getMessage(),
             ];
-
+    
             $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
+    
+            // Return error response
             return response()->json($response, 500);
         }
     }
+    
 
     public function editProfile(Request $request)
     {

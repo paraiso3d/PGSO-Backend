@@ -139,14 +139,14 @@ class DivisionController extends Controller
     public function getDivisions(Request $request)
 {
     try {
-        // Validate request parameters
+       
         $validated = $request->validate([
             'per_page' => 'nullable|integer',
             'search' => 'nullable|string',
         ]);
 
-        // Build the query to retrieve categories with their related division
-        $query = Category::with(['divisions:id,div_name,note']) // Include 'note' in the query
+       
+        $query = Category::with(['divisions:id,div_name,note']) 
             ->where('is_archived', 'A')
             ->select('id', 'category_name', 'division_id', 'is_archived');
 
@@ -160,11 +160,11 @@ class DivisionController extends Controller
             });
         }
 
-        // Pagination settings
+        
         $perPage = $validated['per_page'] ?? 10;
         $categories = $query->paginate($perPage);
 
-        // If no categories found, return an error message
+       
         if ($categories->isEmpty()) {
             return response()->json([
                 'isSuccess' => false,
@@ -172,23 +172,23 @@ class DivisionController extends Controller
             ], 500);
         }
 
-        // Group by division_id
+       
         $groupedCategories = $categories->getCollection()->groupBy(function ($category) {
             return optional($category->divisions)->id;
         });
 
-        // Prepare the formatted response with 'note' field
+
         $formattedResponse = [];
         foreach ($groupedCategories as $divisionId => $group) {
             $formattedResponse[] = [
                 'division_id' => $divisionId,
                 'division_name' => optional($group->first()->divisions)->div_name,
-                'note' => optional($group->first()->divisions)->note, // Get the note for the division
-                'categories' => $group->map(function ($category) {
+                'note' => optional($group->first()->divisions)->note, 
+                'categories' => $group->map(function ($division) {
                     return [
-                        'id' => $category->id,
-                        'category_name' => $category->category_name,
-                        'is_archived' => $category->is_archived,
+                        'id' => $division->id,
+                        'category_name' => $division->category_name,
+                        'is_archived' => $division->is_archived,
                     ];
                 }),
             ];
@@ -198,7 +198,7 @@ class DivisionController extends Controller
         $response = [
             'isSuccess' => true,
             'message' => 'Divisions retrieved successfully.',
-            'category' => $formattedResponse,
+            'division' => $formattedResponse,
             'pagination' => [
                 'total' => $categories->total(),
                 'per_page' => $categories->perPage(),
@@ -209,7 +209,7 @@ class DivisionController extends Controller
         ];
 
         // Log the API call
-        $this->logAPICalls('getCategory', "", $request->all(), $response);
+        $this->logAPICalls('getDivisions', "", $request->all(), $response);
 
         // Return the successful response
         return response()->json($response, 200);
@@ -221,7 +221,7 @@ class DivisionController extends Controller
             'message' => 'Failed to retrieve the categories.',
             'error' => $e->getMessage(),
         ];
-        $this->logAPICalls('getCategory', "", $request->all(), $response);
+        $this->logAPICalls('getDivisions', "", $request->all(), $response);
 
         // Return the error response
         return response()->json($response, 500);
