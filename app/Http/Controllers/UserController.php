@@ -149,6 +149,8 @@ class UserController extends Controller
                     'per_page' => $result->perPage(),
                     'current_page' => $result->currentPage(),
                     'last_page' => $result->lastPage(),
+                    'next_page_url' => $result->nextPageUrl(),
+                    'prev_page_url' => $result->previousPageUrl(), 
                     'url' => url('api/userList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
                 ],
             ];

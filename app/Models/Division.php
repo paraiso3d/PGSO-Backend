@@ -13,7 +13,12 @@ class Division extends Model
     protected $fillable = [
         'div_name',
         'note',
-        'is_archived'
+        'is_archived',
+        'category_id'
     ];
 
+    public function categories()
+{
+    return $this->belongsToMany(Category::class);
+}
 }

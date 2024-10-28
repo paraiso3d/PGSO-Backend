@@ -69,6 +69,8 @@ Route::controller(DivisionController::class)->group(function () {
     Route::post('updateDivision/{id}', 'updateDivision');
     Route::get('divisionList', 'getDivisions');
     Route::post('deleteDivision/{id}', 'deleteDivision');
+    Route::post('dropdownCategory', 'getdropdownCategory');
+
 
 });
 
@@ -108,13 +110,12 @@ Route::controller(RequestController::class)->group(function () {
     Route::post('deleteCategory/{id}', 'deleteCategory');
 
     //REQUEST DROPDOWN API
-    Route::get('getdropdownrequestLocation', 'getDropdownOptionsRequestslocation');
-    Route::get('getdropdownrequestStatus', 'getDropdownOptionsRequeststatus');
-    Route::get('getdropdownrequestYear', 'getDropdownOptionsRequestyear');
-    Route::get('getdropdownoptionsrequestDivision', 'getDropdownOptionsRequestdivision');
-    Route::get('getdropdownoptionsrequestCategory', 'getDropdownOptionsRequestcategory');
-    Route::get('getdropdownoptionscreaterequestsOffice', 'getDropdownOptionscreateRequestsoffice');
-    Route::get('getdropdownoptionscreaterequestsLocation', 'getDropdownOptionscreateRequestslocation');
+    Route::get('dropdownLocation', 'getDropdownOptionsRequestslocation');
+    Route::get('dropdownStatus', 'getDropdownOptionsRequeststatus');
+    Route::get('dropdownYear', 'getDropdownOptionsRequestyear');
+    Route::get('dropdownDivision', 'getDropdownOptionsRequestdivision');
+    Route::get('dropdownCategory', 'getDropdownOptionsRequestcategory');
+    Route::get('dropdownOffice', 'getDropdownOptionscreateRequestsoffice');
 });
 
 Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
