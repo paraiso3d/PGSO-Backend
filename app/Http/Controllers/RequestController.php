@@ -23,32 +23,7 @@ use Illuminate\Support\Facades\Storage;
 
 class RequestController extends Controller
 {
-    // public function __construct(Request $request)
-    // {
-    //     // Retrieve the authenticated user
-    //     $user = $request->user();
-
-    //     // Apply middleware based on the user type
-    //     if ($user && $user->user_type === 'Administrator') {
-    //         $this->middleware('UserTypeAuth:Administrator')->only(['createRequest', 'updateRequest', 'getRequests', 'getRequestById']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Supervisor') {
-    //         $this->middleware('UserTypeAuth:Supervisor')->only(['getRequests']);
-    //     }
-
-    //     if ($user && $user->user_type === 'TeamLeader') {
-    //         $this->middleware('UserTypeAuth:TeamLeader')->only(['getRequests']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Controller') {
-    //         $this->middleware('UserTypeAuth:Controller')->only(['getRequests']);
-    //     }
-
-    //     if ($user && $user->user_type === 'DeanHead') {
-    //         $this->middleware('UserTypeAuth:DeanHead')->only(['createRequest', 'getRequests']);
-    //     }
-    // }
+ 
 
     public function getSetting(string $code)
     {
