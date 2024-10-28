@@ -17,12 +17,12 @@ class Category extends Model
     ];
 
     public static function validateCategory($data)
-    {
-        $validator = Validator::make($data, [
-            'category_name' => ['required', 'string'],
-            'division_id' => ['required', 'exists:divisions,id'], // Validate based on division_id
-            'is_archived' => ['nullable', 'in:A,I']
-        ]);
+{
+    $validator = Validator::make($data, [
+        'category_name' => ['required', 'string', 'unique:categories,category_name'],
+        'division_id' => ['required', 'exists:divisions,id'], 
+        'is_archived' => ['nullable', 'in:A,I']
+    ]);
 
         return $validator;
     }

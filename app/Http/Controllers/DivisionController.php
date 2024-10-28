@@ -18,56 +18,67 @@ class DivisionController extends Controller
     public function createDivision(Request $request)
     {
         try {
-            // Validate the request data
+            
             $request->validate([
-                'div_name' => ['required', 'string', 'unique:divisions,div_name'], // Corrected unique rule
-                'note' => ['required', 'string'],
-                'is_archived' => ['nullable', 'in: A, I']
+                'div_name' => 'required|string|unique:divisions,div_name',
+                'note' => 'required|string',
+                'categories' => 'required|array',
             ]);
-
-            // Create the division
-            $divname = Division::create([
+    
+           
+            $division = Division::create([
                 'div_name' => $request->div_name,
                 'note' => $request->note,
+                'category_id' => json_encode($request->categories),
             ]);
-
-            // Prepare a success response
+    
+            $assignedCategories = Category::whereIn('id', $request->categories)
+                ->select('id', 'category_name')
+                ->get();
+    
+            
             $response = [
                 'isSuccess' => true,
-                'message' => "Division successfully created.",
-                'division' => $divname
+                'message' => 'Division created successfully.',
+                'division' => [
+                    'id' => $division->id,
+                    'div_name' => $division->div_name,
+                    'note' => $division->note,
+                    'categories' => $assignedCategories,
+                ],
             ];
-            // Log the API call
-            $this->logAPICalls('createDivision', $divname->id, $request->all(), [$response]);
-
-            // Return the success response
-            return response()->json($response, 201);
+    
+           
+            $this->logAPICalls('createDivision', $division->id, $request->all(), [$response]);
+    
+           
+            return response()->json($response, 200);
+    
         } catch (ValidationException $v) {
-            // Handle validation errors
+          
             $response = [
                 'isSuccess' => false,
-                'message' => "Invalid input data.",
-                'error' => $v->errors()
+                'message' => 'Invalid input data.',
+                'error' => $v->errors(),
             ];
-            // Log the API call with validation errors
             $this->logAPICalls('createDivision', "", $request->all(), [$response]);
-
-            // Return the validation error response
-            return response()->json($response, 422);
+            return response()->json($response, 500);
+    
         } catch (Throwable $e) {
-            // Handle any other exceptions
+            
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to create the Division.",
-                'error' => $e->getMessage()
+                'message' => 'Failed to create the Division.',
+                'error' => $e->getMessage(),
             ];
-            // Log the API call with error
             $this->logAPICalls('createDivision', "", $request->all(), [$response]);
-
-            // Return the internal server error response
             return response()->json($response, 500);
         }
     }
+    
+
+
+
 
     /**
      * Update an existing college office.
@@ -81,8 +92,9 @@ class DivisionController extends Controller
             // Validate the incoming request
             $request->validate([
                 'div_name' => ['sometimes', 'required', 'string'],
-                'note' => ['sometimes', 'string'],
-            ]);
+                'note' => ['sometimes','string'],
+                'categories' => ['sometimes', 'required', 'array']
+            ]); 
 
             // Store the old division name before updating
             $oldDivName = $division->div_name;
@@ -91,46 +103,87 @@ class DivisionController extends Controller
             $division->update([
                 'div_name' => $request->div_name,
                 'note' => $request->note,
+                'category_id' => json_encode($request->categories),
             ]);
 
-            if ($oldDivName !== $division->div_name) {
-                DB::table('categories')
-                    ->where('division', $oldDivName)
-                    ->update(['division' => $division->div_name]);
+            $categoryIds = json_decode($division->category_id, true);
+            $categories = Category::whereIn('id', $categoryIds)
+                ->select('id', 'category_name')
+                ->get();
+
+                $response = [
+                    'isSuccess' => true,
+                    'message' => "Division successfully updated, and associated categories updated.",
+                    'division' => [
+                        'id' => $division->id,
+                        'div_name' => $division->div_name,
+                        'note' => $division->note,
+                        'is_archived' => $division->is_archived,
+                        'category_id' => $division->category_id,
+                        'categories' => $categories,
+                        'manpower_id' => $division->manpower_id,
+                        'inspection_report_id' => $division->inspection_report_id,
+                        'teamleader_user_id' => $division->teamleader_user_id,
+                        'created_at' => $division->created_at,
+                        'updated_at' => $division->updated_at,
+                    ],
+                ];
+        
+                // Log the API call
+                $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
+        
+                // Return the success response
+                return response()->json($response, 200);
+            } catch (ValidationException $v) {
+                // Prepare the validation error response
+                $response = [
+                    'isSuccess' => false,
+                    'message' => "Invalid input data.",
+                    'error' => $v->errors()
+                ];
+                $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
+                return response()->json($response, 422);
+            } catch (Throwable $e) {
+                // Prepare the error response in case of an exception
+                $response = [
+                    'isSuccess' => false,
+                    'message' => "Failed to update the Division.",
+                    'error' => $e->getMessage()
+                ];
+                $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
+                return response()->json($response, 500);
             }
-
-            // Prepare the success response
-            $response = [
-                'isSuccess' => true,
-                'message' => "Division successfully updated, and associated categories updated.",
-                'division' => $division, // Return the updated division
-            ];
-
-            // Log the API call
-            $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
-
-            // Return the success response
-            return response()->json($response, 200);
-        } catch (ValidationException $v) {
-            // Prepare the validation error response
-            $response = [
-                'isSuccess' => false,
-                'message' => "Invalid input data.",
-                'error' => $v->errors()
-            ];
-            $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
-            return response()->json($response, 422);
-        } catch (Throwable $e) {
-            // Prepare the error response in case of an exception
-            $response = [
-                'isSuccess' => false,
-                'message' => "Failed to update the Division.",
-                'error' => $e->getMessage()
-            ];
-            $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
-            return response()->json($response, 500);
         }
+
+
+
+    public function getdropdownCategory()
+{
+    try {
+        // Retrieve categories with relevant fields
+        $categories = Category::select('id', 'category_name')->get();
+
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Dropdown options retrieved successfully.',
+            'data' => $categories,
+        ];
+
+        // Log the API call
+        $this->logAPICalls('getDropdownOptions', null, [], [$response]);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve dropdown options.',
+            'error' => $e->getMessage(),
+        ];
+        $this->logAPICalls('getDropdownOptions', null, [], [$response]);
+        return response()->json($response, 500);
     }
+}
+
 
     /**
      * Get all college offices.
@@ -161,10 +214,10 @@ class DivisionController extends Controller
 
         
         $perPage = $validated['per_page'] ?? 10;
-        $categories = $query->paginate($perPage);
+        $division = $query->paginate($perPage);
 
        
-        if ($categories->isEmpty()) {
+        if ($division->isEmpty()) {
             return response()->json([
                 'isSuccess' => false,
                 'message' => 'No active categories found matching the criteria.',
@@ -172,7 +225,7 @@ class DivisionController extends Controller
         }
 
        
-        $groupedCategories = $categories->getCollection()->groupBy(function ($category) {
+        $groupedCategories = $division->getCollection()->groupBy(function ($category) {
             return optional($category->divisions)->id;
         });
 
@@ -187,7 +240,6 @@ class DivisionController extends Controller
                     return [
                         'id' => $division->id,
                         'category_name' => $division->category_name,
-                        'is_archived' => $division->is_archived,
                     ];
                 }),
             ];
@@ -199,11 +251,13 @@ class DivisionController extends Controller
             'message' => 'Divisions retrieved successfully.',
             'division' => $formattedResponse,
             'pagination' => [
-                'total' => $categories->total(),
-                'per_page' => $categories->perPage(),
-                'current_page' => $categories->currentPage(),
-                'last_page' => $categories->lastPage(),
-                'url' => url('api/categoryList?page=' . $categories->currentPage() . '&per_page=' . $categories->perPage()),
+                'total' => $division->total(),
+                'per_page' => $division->perPage(),
+                'current_page' => $division->currentPage(),
+                'last_page' => $division->lastPage(),
+                'next_page_url' => $division->nextPageUrl(), 
+                'prev_page_url' => $division->previousPageUrl(), 
+                'url' => url('api/categoryList?page=' . $division->currentPage() . '&per_page=' . $division->perPage()),
             ]
         ];
 
@@ -222,10 +276,11 @@ class DivisionController extends Controller
         ];
         $this->logAPICalls('getDivisions', "", $request->all(), $response);
 
-            // Return the error response
-            return response()->json($response, 500);
-        }
+        // Return the error response
+        return response()->json($response, 500);
     }
+}
+
 
 
 

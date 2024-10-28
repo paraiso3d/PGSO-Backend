@@ -23,32 +23,7 @@ use Illuminate\Support\Facades\Storage;
 
 class RequestController extends Controller
 {
-    // public function __construct(Request $request)
-    // {
-    //     // Retrieve the authenticated user
-    //     $user = $request->user();
-
-    //     // Apply middleware based on the user type
-    //     if ($user && $user->user_type === 'Administrator') {
-    //         $this->middleware('UserTypeAuth:Administrator')->only(['createRequest', 'updateRequest', 'getRequests', 'getRequestById']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Supervisor') {
-    //         $this->middleware('UserTypeAuth:Supervisor')->only(['getRequests']);
-    //     }
-
-    //     if ($user && $user->user_type === 'TeamLeader') {
-    //         $this->middleware('UserTypeAuth:TeamLeader')->only(['getRequests']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Controller') {
-    //         $this->middleware('UserTypeAuth:Controller')->only(['getRequests']);
-    //     }
-
-    //     if ($user && $user->user_type === 'DeanHead') {
-    //         $this->middleware('UserTypeAuth:DeanHead')->only(['createRequest', 'getRequests']);
-    //     }
-    // }
+ 
 
     public function getSetting(string $code)
     {
@@ -180,21 +155,21 @@ class RequestController extends Controller
     public function getRequests(Request $request)
     {
         try {
-            // Get the authenticated user's ID and user_type_id
+         
             $userId = $request->user()->id;
             $userTypeId = $request->user()->user_type_id;
 
-            // Retrieve the corresponding role from the database
+            
             $role = DB::table('user_types')
                 ->where('id', $userTypeId)
                 ->value('name');
 
-            // Debug: Log the role to ensure it's fetched properly
+           
             Log::info("User Role: " . $role);
 
             // Pagination settings
-            $perPage = $request->input('per_page', 10);  // Default per page is 10
-            $searchTerm = $request->input('search', null); // Optional search term
+            $perPage = $request->input('per_page', 10);  
+            $searchTerm = $request->input('search', null); 
 
             // Initialize query
             $query = Requests::select(
@@ -220,34 +195,34 @@ class RequestController extends Controller
                     return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
                 });
 
-            // Filter based on the role
+          
             switch ($role) {
                 case 'Administrator':
                     // Admin gets all requests, no extra filter needed
                     break;
 
                 case 'Controller':
-                    // Controller only gets pending requests
+                    
                     $query->where('requests.status', 'Pending');
                     break;
 
                 case 'DeanHead':
-                    // Dean gets only the requests they created
+                    
                     $query->where('requests.user_id', $userId);
                     break;
 
                 case 'TeamLeader':
-                    // Team Leader only gets 'On-going' status
+                   
                     $query->where('requests.status', 'On-going');
                     break;
 
                 case 'Supervisor':
-                    // Supervisor only gets requests 'For Inspection'
+                   
                     $query->where('requests.status', 'For Inspection');
                     break;
 
                 default:
-                    // If no matching role, return no results
+                   
                     $query->whereRaw('1 = 0');
                     break;
             }
