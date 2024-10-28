@@ -12,5 +12,5 @@ class Setting extends Model
     protected $fillable = [
     'setting_code', 
     'setting_value'
-];
+    ];
 }

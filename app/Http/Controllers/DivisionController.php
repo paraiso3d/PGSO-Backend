@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Models\User;
 use App\Models\Category;
 use App\Models\Division;
 use App\Models\ApiLog;
@@ -18,44 +19,47 @@ class DivisionController extends Controller
     public function createDivision(Request $request)
     {
         try {
-            
             $request->validate([
                 'div_name' => 'required|string|unique:divisions,div_name',
                 'note' => 'required|string',
                 'categories' => 'required|array',
+                'categories.*' => 'exists:categories,id',
+                'supervisor' => 'required|integer|exists:users,id'
             ]);
     
-           
             $division = Division::create([
                 'div_name' => $request->div_name,
                 'note' => $request->note,
-                'category_id' => json_encode($request->categories),
+                'category_id' => json_encode($request->categories), // Store as JSON
+                'user_id' => $request->supervisor
             ]);
     
+            // Fetch the assigned categories
             $assignedCategories = Category::whereIn('id', $request->categories)
                 ->select('id', 'category_name')
                 ->get();
     
-            
+            // Retrieve the supervisor's information
+            $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
+                ->find($request->supervisor);
+    
             $response = [
                 'isSuccess' => true,
                 'message' => 'Division created successfully.',
                 'division' => [
-                    'id' => $division->id,
+                    'id' => $division->id,  
                     'div_name' => $division->div_name,
                     'note' => $division->note,
-                    'categories' => $assignedCategories,
+                    'user_id' => $supervisor, // Include supervisor details
+                    'categories' => $assignedCategories, // Include categories
                 ],
             ];
     
-           
             $this->logAPICalls('createDivision', $division->id, $request->all(), [$response]);
     
-           
             return response()->json($response, 200);
     
         } catch (ValidationException $v) {
-          
             $response = [
                 'isSuccess' => false,
                 'message' => 'Invalid input data.',
@@ -65,7 +69,6 @@ class DivisionController extends Controller
             return response()->json($response, 500);
     
         } catch (Throwable $e) {
-            
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to create the Division.',
@@ -76,10 +79,8 @@ class DivisionController extends Controller
         }
     }
     
-
-
-
-
+    
+    
     /**
      * Update an existing college office.
      */
@@ -88,89 +89,86 @@ class DivisionController extends Controller
         try {
             // Find the division by its ID
             $division = Division::findOrFail($id);
-
+    
             // Validate the incoming request
             $request->validate([
                 'div_name' => ['sometimes', 'required', 'string'],
-                'note' => ['sometimes','string'],
-                'categories' => ['sometimes', 'required', 'array']
-            ]); 
-
-            // Store the old division name before updating
-            $oldDivName = $division->div_name;
-
+                'note' => ['sometimes', 'string'],
+                'categories' => ['sometimes', 'required', 'array'],
+                'categories.*' => 'exists:categories,id',
+                'supervisor' => 'required|integer|exists:users,id'
+            ]);
+    
             // Update the division
             $division->update([
-                'div_name' => $request->div_name,
-                'note' => $request->note,
-                'category_id' => json_encode($request->categories),
+                'div_name' => $request->div_name ?? $division->div_name,
+                'note' => $request->note ?? $division->note,
+                'category_id' => json_encode($request->categories ?? json_decode($division->category_id, true)),
+                'user_id' => $request->supervisor
             ]);
-
-            $categoryIds = json_decode($division->category_id, true);
-            $categories = Category::whereIn('id', $categoryIds)
+    
+            // Fetch the assigned categories
+            $assignedCategories = Category::whereIn('id', json_decode($division->category_id, true))
                 ->select('id', 'category_name')
                 ->get();
-
-                $response = [
-                    'isSuccess' => true,
-                    'message' => "Division successfully updated, and associated categories updated.",
-                    'division' => [
-                        'id' => $division->id,
-                        'div_name' => $division->div_name,
-                        'note' => $division->note,
-                        'is_archived' => $division->is_archived,
-                        'category_id' => $division->category_id,
-                        'categories' => $categories,
-                        'manpower_id' => $division->manpower_id,
-                        'inspection_report_id' => $division->inspection_report_id,
-                        'teamleader_user_id' => $division->teamleader_user_id,
-                        'created_at' => $division->created_at,
-                        'updated_at' => $division->updated_at,
-                    ],
-                ];
-        
-                // Log the API call
-                $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
-        
-                // Return the success response
-                return response()->json($response, 200);
-            } catch (ValidationException $v) {
-                // Prepare the validation error response
-                $response = [
-                    'isSuccess' => false,
-                    'message' => "Invalid input data.",
-                    'error' => $v->errors()
-                ];
-                $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
-                return response()->json($response, 422);
-            } catch (Throwable $e) {
-                // Prepare the error response in case of an exception
-                $response = [
-                    'isSuccess' => false,
-                    'message' => "Failed to update the Division.",
-                    'error' => $e->getMessage()
-                ];
-                $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
-                return response()->json($response, 500);
-            }
+    
+            // Retrieve the supervisor's information
+            $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
+                ->find($request->supervisor);
+    
+            $response = [
+                'isSuccess' => true,
+                'message' => "Division successfully updated.",
+                'division' => [
+                    'id' => $division->id,
+                    'div_name' => $division->div_name,
+                    'note' => $division->note,
+                    'supervisor' => $supervisor, // Include supervisor details
+                    'categories' => $assignedCategories, // Include categories
+                ],
+            ];
+    
+            // Log the API call
+            $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
+    
+            return response()->json($response, 200);
+    
+        } catch (ValidationException $v) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Invalid input data.",
+                'error' => $v->errors()
+            ];
+            $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
+            return response()->json($response, 422);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to update the Division.",
+                'error' => $e->getMessage()
+            ];
+            $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
+            return response()->json($response, 500);
         }
+    }
+    
 
-
-
-    public function getdropdownCategory()
+    
+    public function getdropdownCategories(Request $request)
 {
     try {
-        // Retrieve categories with relevant fields
-        $categories = Category::select('id', 'category_name')->get();
+        
+        $categories = Category::select('id', 'category_name')
+        ->get();
 
         $response = [
             'isSuccess' => true,
             'message' => 'Dropdown options retrieved successfully.',
-            'data' => $categories,
+            'category' => $categories,
         ];
 
-        // Log the API call
-        $this->logAPICalls('getDropdownOptions', null, [], [$response]);
+
+        $this->logAPICalls('getDropdownOptions', "", [], [$response]);
 
         return response()->json($response, 200);
     } catch (Throwable $e) {
@@ -179,10 +177,44 @@ class DivisionController extends Controller
             'message' => 'Failed to retrieve dropdown options.',
             'error' => $e->getMessage(),
         ];
-        $this->logAPICalls('getDropdownOptions', null, [], [$response]);
+        $this->logAPICalls('getDropdownOptions', "", [], [$response]);
         return response()->json($response, 500);
     }
 }
+
+
+    public function dropdownSupervisor(Request $request)
+{
+    try {
+
+        $supervisorTypeId = DB::table('user_types')->where('name', 'Supervisor')->value('id');
+
+        // Retrieve categories with relevant fields
+        $User = User::select('id', 'first_name', 'middle_initial', 'last_name')
+        ->where('user_type_id', $supervisorTypeId)
+        ->get();
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Dropdown options retrieved successfully.',
+            'supervisor' => $User,
+        ];
+
+        // Log the API call
+        $this->logAPICalls('dropdownUserCategory', "", $request->all(), $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve dropdown options.',
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('dropdownUserCategory', "", $request->all(), $response);
+        return response()->json($response, 500);
+    }
+}
+
 
 
     /**

@@ -103,14 +103,13 @@ class RequestController extends Controller
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
-                'file_path' => $filePath,
+                'file_path' => $path, $filePath,
                 'status' => $status,
                 'office_id' => $office->id,
                 'location_id' => $location->id,
                 'user_id' => $user->id,
             ]);
 
-            // Prepare the success response
             $response = [
                 $response = [
                     'isSuccess' => true,
@@ -128,7 +127,8 @@ class RequestController extends Controller
                         'location_id' => $location->id,
                         'location_name' => $location->location_name,
                         'user_id' => $user->id,
-                        'file_url' => $fileUrl, // Return the public URL of the uploaded file
+                        'file_path' => $filePath,
+                        'file_url' => $fileUrl,
                     ]
                 ]
             ];

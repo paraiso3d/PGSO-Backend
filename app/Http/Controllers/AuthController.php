@@ -183,10 +183,9 @@ class AuthController extends Controller
            
             $user = Auth::user();
     
-            if ($user) {
-                
+            if ($user->tokens()->exists()) {
                 $user->tokens()->delete();
-    
+            
               
                 $response = [
                     'isSuccess' => true,
