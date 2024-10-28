@@ -25,6 +25,7 @@ class Requests extends Model
         'overtime',
         'area',
         'fiscal_year',
+        'remarks',
         'file_path',
         'status',
         'user_id',
@@ -74,8 +75,7 @@ class Requests extends Model
         return $validator;
     }
 
-    
-     public function office()
+    public function office()
     {
         return $this->belongsTo(Office::class);
     }
@@ -84,6 +84,13 @@ class Requests extends Model
     {
         return $this->belongsTo(Location::class);
     }
+
+    public function categories()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+
 }
 
 

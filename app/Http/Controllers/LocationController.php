@@ -98,7 +98,6 @@ class LocationController extends Controller
         }
     }
 
-
     /**
      * Get all locations
      */
@@ -106,11 +105,11 @@ class LocationController extends Controller
     {
         try {
             $search = $request->input('search');
-    
+
             // Initialize query
             $query = Location::select('id', 'location_name', 'note')
                 ->where('is_archived', 'A');
-    
+
             // Optional search filter
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
@@ -118,25 +117,25 @@ class LocationController extends Controller
                         ->orWhere('note', 'LIKE', '%' . $search . '%');
                 });
             }
-    
+
             // Reapply pagination
             $perPage = $request->input('per_page', 10); // Default 10 per page
             $locations = $query->paginate($perPage);
-    
+
             // Prepare response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Locations list retrieved successfully.',
                 'locations' => $locations,
                 'pagination' => [
-                'total' => $locations->total(),
-                'per_page' => $locations->perPage(),
-                'current_page' => $locations->currentPage(),
-                'last_page' => $locations->lastPage(),
-                'url' => url('api/locationList?page=' . $locations->currentPage() . '&per_page=' . $locations->perPage()),
-            ],
+                    'total' => $locations->total(),
+                    'per_page' => $locations->perPage(),
+                    'current_page' => $locations->currentPage(),
+                    'last_page' => $locations->lastPage(),
+                    'url' => url('api/locationList?page=' . $locations->currentPage() . '&per_page=' . $locations->perPage()),
+                ],
             ];
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -144,12 +143,10 @@ class LocationController extends Controller
                 'message' => 'Failed to retrieve locations list.',
                 'error' => $e->getMessage(),
             ];
-    
+
             return response()->json($response, 500);
         }
     }
-
-
 
     /**
      * Delete a user type.

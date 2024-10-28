@@ -54,7 +54,7 @@ class AuthController extends Controller
                 } else {
                     return $this->sendError('Invalid Credentials.');
                 }
-    
+                
             } else {
                 return $this->sendError('Provided email address does not exist.');
             }
@@ -86,16 +86,16 @@ class AuthController extends Controller
             'middle_initial' => 'nullable|string',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'profile_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
-            'signature' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', 
+            'signature' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
         try {
             // Update user information
-            $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email','profile_image','signature']));
+            $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email', 'profile_image', 'signature']));
 
             // Handle profile image upload
             $profileImagePath = null;
-            
+
             if ($request->hasFile('profile_image')) {
                 $profileImagePath = $request->file('profile_image')->store('public/uploads');
                 $user->update(['profile_image' => $profileImagePath]);
@@ -134,7 +134,7 @@ class AuthController extends Controller
 
     public function changePassword(Request $request)
     {
-    
+
         $user = $request->user(); // Get the authenticated user
 
         // Validate the input
@@ -182,38 +182,35 @@ class AuthController extends Controller
         try {
             // Get the authenticated user
             $user = Auth::user();
-
+    
             if ($user) {
                 // Revoke all tokens issued to the user
                 $user->tokens()->delete();
-
+    
                 // Optionally, log the API call for auditing
                 $response = [
                     'isSuccess' => true,
                     'message' => 'Logged out successfully',
                     'user' => $user->only(['id', 'email']),
                 ];
-
+    
                 $this->logAPICalls('logout', $user->email, $request->all(), $response);
-
+    
                 return response()->json($response, 200);
             } else {
                 return $this->sendError('User not found or already logged out.', 401);
-            }
-        } catch (Throwable $e) {
+            } 
+            }catch (Throwable $e) {
             // Define the error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'An error occurred during logout.',
-                'error' => $e->getMessage(),
             ];
-
+    
             $this->logAPICalls('logout', 'unknown', $request->all(), $response);
             return response()->json($response, 500);
-        }
+            }
     }
-
-
 
     // Method to insert session
     public function insertSession(Request $request)
@@ -261,32 +258,47 @@ class AuthController extends Controller
         if (preg_match('/^data:image\/(\w+);base64,/', $image, $type)) {
             $image = substr($image, strpos($image, ',') + 1);
             $type = strtolower($type[1]);
-    
+
             if (!in_array($type, ['jpg', 'jpeg', 'gif', 'png', 'svg'])) {
                 throw new Exception('The provided image is invalid.');
             }
-    
+
             $image = str_replace(' ', '+', $image);
             $image = base64_decode($image);
-    
+
             if ($image === false) {
                 throw new Exception('Unable to process the image.');
             }
         } else {
             throw new Exception('Please make sure the type you are uploading is an image file.');
         }
-    
+
         $dir = 'img/' . $path . '/';
         $file = $empno . '-' . $ln . '.' . $type;
         $absolutePath = public_path($dir);
         $relativePath = $dir . $file;
-    
+
         if (!File::exists($absolutePath)) {
             File::makeDirectory($absolutePath, 0755, true);
         }
-    
+
         file_put_contents($relativePath, $image);
-    
+
         return $relativePath;
     }
+
+    public function sendError($error, $errorMessages = [], $code = 404)
+    {
+        $response = [
+            'isSuccess' => false,
+            'message' => $error,
+        ];
+
+        if (!empty($errorMessages)) {
+            $response['data'] = $errorMessages;
+        }
+
+        return response()->json($response, $code);
+    }
 }
+

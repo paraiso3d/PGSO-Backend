@@ -28,7 +28,7 @@ class CategoryController extends Controller
                     'errors' => $validator->errors()
                 ];
                 $this->logAPICalls('createCategory', "", $request->all(), $response);
-                return response()->json($response, 500); 
+                return response()->json($response, 500);
             }
             $divisionId = $request->input('division_id');
             $division = Division::findOrFail($divisionId);
@@ -36,7 +36,7 @@ class CategoryController extends Controller
             // Create the category, setting the division_name based on division_id
             $category = Category::create([
                 'category_name' => $request->category_name,
-                'division_id' => $division->id,  
+                'division_id' => $division->id,
             ]);
 
             $response = [
@@ -46,13 +46,13 @@ class CategoryController extends Controller
                     'category' => [
                         'id' => $category->id,
                         'category_name' => $category->category_name,
-                        'division_name' =>$division->div_name,
+                        'division_name' => $division->div_name,
                         'division_id' => $division->id,
                     ]
                 ]
             ];
             $this->logAPICalls('createCategory', "", $request->all(), $response);
-            return response()->json($response, 200);  
+            return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -60,7 +60,7 @@ class CategoryController extends Controller
                 'error' => $e->getMessage()
             ];
             $this->logAPICalls('createCategory', "", $request->all(), $response);
-            return response()->json($response, 500);  
+            return response()->json($response, 500);
         }
     }
 
@@ -160,66 +160,64 @@ class CategoryController extends Controller
       Update an existing Category
      */
     public function updateCategory(Request $request, $id)
-{
-    try {
-        
-        $category = Category::findOrFail($id);
+    {
+        try {
 
-        
-        $validator = Category::updatevalidateCategory($request->all());
+            $category = Category::findOrFail($id);
 
-        
-        if ($validator->fails()) {
+
+            $validator = Category::updatevalidateCategory($request->all());
+
+
+            if ($validator->fails()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors(),
+                ];
+                $this->logAPICalls('updateCategory', "", $request->all(), $response);
+                return response()->json($response, 422);  // Return 422 for validation errors
+            }
+
+
+            $divisionId = $request->input('division_id');
+            $division = Division::findOrFail($divisionId);
+
+
+            $category->update([
+                'category_name' => $request->input('category_name', $category->category_name), // Keep existing if not provided
+                'division_id' => $division->id
+            ]);
+
+
+            $response = [
+                'isSuccess' => true,
+                'message' => "Category successfully updated",
+                'category' => [
+                    'id' => $category->id,
+                    'category_name' => $category->category_name,
+                    'division_name' => $division->div_name,
+                    'division_id' => $division->id,
+                ]
+            ];
+
+
+            $this->logAPICalls('updateCategory', $id, $request->all(), $response);
+            return response()->json($response, 200);
+
+        } catch (Throwable $e) {
+
             $response = [
                 'isSuccess' => false,
-                'message' => 'Validation failed.',
-                'errors' => $validator->errors(),
+                'message' => "Failed to update the Category.",
+                'error' => $e->getMessage(),
             ];
+
+
             $this->logAPICalls('updateCategory', "", $request->all(), $response);
-            return response()->json($response, 422);  // Return 422 for validation errors
+            return response()->json($response, 500);
         }
-
-      
-        $divisionId = $request->input('division_id');
-        $division = Division::findOrFail($divisionId);
-
-    
-        $category->update([
-            'category_name' => $request->input('category_name', $category->category_name), // Keep existing if not provided
-            'division_id' => $division->id      
-        ]);
-
-        
-        $response = [
-            'isSuccess' => true,
-            'message' => "Category successfully updated",
-            'category' => [
-                'id' => $category->id,
-                'category_name' => $category->category_name,
-                'division_name' => $division->div_name,
-                'division_id' => $division->id,
-            ]
-        ];
-
-        
-        $this->logAPICalls('updateCategory', $id, $request->all(), $response);
-        return response()->json($response, 200);  
-
-    } catch (Throwable $e) {
-        
-        $response = [
-            'isSuccess' => false,
-            'message' => "Failed to update the Category.",
-            'error' => $e->getMessage(),
-        ];
-
-       
-        $this->logAPICalls('updateCategory', "", $request->all(), $response);
-        return response()->json($response, 500);  
     }
-}
-
-
 
     /**
      * Delete a Category by ID
@@ -235,7 +233,7 @@ class CategoryController extends Controller
                 'message' => 'Category successfully deleted.'
             ];
             $this->logAPICalls('deleteCategory', $id, [], $response);
-            return response()->json($response, 200); 
+            return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -243,7 +241,7 @@ class CategoryController extends Controller
                 'error' => $e->getMessage()
             ];
             $this->logAPICalls('deleteCategory', "", [], $response);
-            return response()->json($response, 500);  
+            return response()->json($response, 500);
         }
     }
 
@@ -260,25 +258,24 @@ class CategoryController extends Controller
                 'div_name' => $divisions,
             ];
 
-         
+
             $this->logAPICalls('getDropdownOptionsCategory', "", $request->all(), $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
-            
+
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve dropdown data.',
                 'error' => $e->getMessage()
             ];
 
-            
+
             $this->logAPICalls('getDropdownOptionsCategory', "", $request->all(), $response);
 
             return response()->json($response, 500);
         }
     }
-
 
     /**
      * Log all API calls.
