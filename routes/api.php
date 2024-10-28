@@ -119,10 +119,10 @@ Route::controller(RequestController::class)->group(function () {
 Route::middleware('auth:sanctum')->get('requestList', [RequestController::class, 'getRequests']);
 Route::middleware('auth:sanctum')->post('createRequest', [RequestController::class, 'createRequest']);
 
-// Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
-// Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');
-// Route::get('requests/ongoing/{id}', [ActualWorkController::class, 'getWorkreports'])->name('requests.ongoing');
-// Route::get('/requests/completed/{control_no}', [RequestController::class, 'showCompletedRequest'])->name('requests.completed');
+Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
+Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');
+Route::get('requests/ongoing/{id}', [ActualWorkController::class, 'getWorkreports'])->name('requests.ongoing');
+Route::get('/requests/completed/{control_no}', [RequestController::class, 'showCompletedRequest'])->name('requests.completed');
 
 /*
 |--------------------\Accomplishment Report API-----------------------\

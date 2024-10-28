@@ -180,14 +180,14 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         try {
-            // Get the authenticated user
+           
             $user = Auth::user();
     
             if ($user) {
-                // Revoke all tokens issued to the user
+                
                 $user->tokens()->delete();
     
-                // Optionally, log the API call for auditing
+              
                 $response = [
                     'isSuccess' => true,
                     'message' => 'Logged out successfully',
