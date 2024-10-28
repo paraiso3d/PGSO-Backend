@@ -311,7 +311,6 @@ class CategoryController extends Controller
     public function getdropdownteamleader(Request $request)
 {
     try {
-       
         $teamleaderTypeId = DB::table('user_types')->where('name', 'TeamLeader')->value('id');
         
         if (!$teamleaderTypeId) {
@@ -320,22 +319,28 @@ class CategoryController extends Controller
                 'message' => 'TeamLeader type not found.'
             ], 404);
         }
-
+    
         // Fetch active team leaders
-        $teamLeaders = User::select('id', 'first_name', 'middle_initial', 'last_name')
-            ->where('user_type_id', $teamleaderTypeId)
+        $teamLeaders = User::where('user_type_id', $teamleaderTypeId)
             ->where('is_archived', 'A')
-            ->get();
-
+            ->get()
+            ->map(function ($leader) {
+                // Concatenate full name and return it only
+                return [
+                    'id' => $leader->id,
+                    'full_name' => trim($leader->first_name . ' ' . $leader->middle_initial . ' ' . $leader->last_name),
+                ];
+            });
+    
         $response = [
             'isSuccess' => true,
             'message' => 'Dropdown options retrieved successfully.',
             'team_leader' => $teamLeaders,
         ];
-
+    
         // Log the API call
         $this->logAPICalls('dropdownUserCategory', "", $request->all(), $response);
-
+    
         return response()->json($response, 200);
     } catch (Throwable $e) {
         $response = [
@@ -343,10 +348,11 @@ class CategoryController extends Controller
             'message' => 'Failed to retrieve dropdown options.',
             'error' => $e->getMessage(),
         ];
-
+    
         $this->logAPICalls('dropdownUserCategory', "", $request->all(), $response);
         return response()->json($response, 500);
     }
+    
 }
 
     /**
