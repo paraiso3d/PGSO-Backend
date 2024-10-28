@@ -70,7 +70,8 @@ Route::controller(DivisionController::class)->group(function () {
     Route::post('updateDivision/{id}', 'updateDivision');
     Route::get('divisionList', 'getDivisions');
     Route::post('deleteDivision/{id}', 'deleteDivision');
-    Route::post('dropdownCategory', 'getdropdownCategory');
+    Route::get('dropdownCategories', 'getdropdownCategories');
+    Route::get('dropdownSupervisor', 'dropdownSupervisor');
 
 
 });
@@ -95,7 +96,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
 |--------------------LOGOUT API-----------------------\
 */
 
-//Route::middleware('auth:sanctum')->post('logout', [AuthController::class, 'logout']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
 });
@@ -159,7 +159,8 @@ Route::controller(CategoryController::class)->group(function () {
     Route::post('updateCategory/{id}', 'updateCategory');
     Route::get('categoryList', 'getCategory');
     Route::post('deleteCategory/{id}', 'deleteCategory');
-    Route::get('getdropdownCategory', 'getDropdownOptionsCategory');
+    Route::get('getdropdownCategories', 'getDropdownOptionsCategory');
+    Route::get('dropdownTeamleader', 'getdropdownteamleader');
 
 });
 

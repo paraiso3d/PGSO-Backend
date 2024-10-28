@@ -14,11 +14,17 @@ class Division extends Model
         'div_name',
         'note',
         'is_archived',
-        'category_id'
+        'category_id',
+        'user_id'
     ];
 
     public function categories()
 {
     return $this->belongsToMany(Category::class);
+}
+
+public function supervisor()
+{
+    return $this->belongsTo(User::class, 'user_id');
 }
 }
