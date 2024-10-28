@@ -184,7 +184,7 @@ class AuthController extends Controller
             $user = Auth::user();
     
             if ($user->tokens()->exists()) {
-                $user->tokens()->delete();
+                $user->currentAccessToken()->delete();
             
               
                 $response = [
