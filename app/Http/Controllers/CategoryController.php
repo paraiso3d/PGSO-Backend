@@ -181,7 +181,7 @@ class CategoryController extends Controller
             $request->validate([
                 'category_name' => 'sometimes|required|string|unique:categories,category_name,' . $id,
                 'division_id' => 'sometimes|required|integer|exists:divisions,id',
-                'team_leader' => 'sometimes|required|integer|exists:users,id'
+                'team_leader' => 'sometimes|required|exists:users,id'
             ]);
 
 
