@@ -191,21 +191,34 @@ class DivisionController extends Controller
             // Retrieve the Supervisor user type ID
             $supervisorTypeId = DB::table('user_types')->where('name', 'Supervisor')->value('id');
     
-            
-            $users = User::select('id', DB::raw("CONCAT(first_name, ' ', middle_initial, ' ', last_name) as full_name"))
-                ->where('user_type_id', $supervisorTypeId)
+            if (!$supervisorTypeId) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Supervisor type not found.'
+                ], 404);
+            }
+        
+            // Fetch active team leaders
+            $supervisors = User::where('user_type_id', $supervisorTypeId)
                 ->where('is_archived', 'A')
-                ->get();
-    
+                ->get()
+                ->map(function ($leader) {
+                    // Concatenate full name and return it only
+                    return [
+                        'id' => $leader->id,
+                        'full_name' => trim($leader->first_name . ' ' . $leader->middle_initial . ' ' . $leader->last_name),
+                    ];
+                });
+        
             $response = [
                 'isSuccess' => true,
                 'message' => 'Dropdown options retrieved successfully.',
-                'supervisors' => $users, // Return the list of supervisors
+                'supervisor' => $supervisors,
             ];
-    
+        
             // Log the API call
-            $this->logAPICalls('dropdownUserCategory', "", $request->all(), $response);
-    
+            $this->logAPICalls('dropdownSupervisor', "", $request->all(), $response);
+        
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -213,12 +226,12 @@ class DivisionController extends Controller
                 'message' => 'Failed to retrieve dropdown options.',
                 'error' => $e->getMessage(),
             ];
-    
-            $this->logAPICalls('dropdownUserCategory', "", $request->all(), $response);
+        
+            $this->logAPICalls('dropdownSupervisor', "", $request->all(), $response);
             return response()->json($response, 500);
         }
+        
     }
-    
 
 
     /**
