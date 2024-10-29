@@ -25,40 +25,40 @@ class AuthController extends Controller
         try {
             // Fetch the user by email
             $user = User::where('email', $request->email)->first();
-    
+
             // Check if user exists
             if ($user) {
                 // Verify the password
                 if (Hash::check($request->password, $user->password)) {
                     // Generate token
                     $token = $user->createToken('auth-token')->plainTextToken;
-    
-                    
-                    $userTypeName = optional($user->user_types)->name;  
-    
+
+
+                    $userTypeName = optional($user->user_types)->name;
+
                     // Prepare the response
                     $response = [
                         'isSuccess' => true,
                         'user' => $user->only(['id', 'email']),
                         'token' => $token,
-                        'user_type' => $userTypeName,  
+                        'user_type' => $userTypeName,
                         'message' => 'Logged in successfully'
                     ];
-    
+
                     // Log the API call
                     $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
-    
+
                     // Return the successful response
                     return response()->json($response, 200);
-    
+
                 } else {
                     return $this->sendError('Invalid Credentials.');
                 }
-                
+
             } else {
                 return $this->sendError('Provided email address does not exist.');
             }
-    
+
         } catch (Throwable $e) {
             // Handle errors during login
             $response = [
@@ -66,14 +66,14 @@ class AuthController extends Controller
                 'message' => 'An error occurred during login.',
                 'error' => $e->getMessage(),
             ];
-    
+
             $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
-    
+
             // Return error response
             return response()->json($response, 500);
         }
     }
-    
+
 
     public function editProfile(Request $request)
     {
@@ -180,35 +180,35 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         try {
-           
+
             $user = Auth::user();
-    
+
             if ($user->tokens()->exists()) {
-                $user->tokens()->delete();
-            
-              
+                $user->currentAccessToken()->delete();
+
+
                 $response = [
                     'isSuccess' => true,
                     'message' => 'Logged out successfully',
                     'user' => $user->only(['id', 'email']),
                 ];
-    
+
                 $this->logAPICalls('logout', $user->email, $request->all(), $response);
-    
+
                 return response()->json($response, 200);
             } else {
                 return $this->sendError('User not found or already logged out.', 401);
-            } 
-            }catch (Throwable $e) {
+            }
+        } catch (Throwable $e) {
             // Define the error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'An error occurred during logout.',
             ];
-    
+
             $this->logAPICalls('logout', 'unknown', $request->all(), $response);
             return response()->json($response, 500);
-            }
+        }
     }
 
     // Method to insert session

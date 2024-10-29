@@ -41,6 +41,10 @@ class Category extends Model
         return $validator;
     }
 
+    public function user()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
     public function divisions()
     {
         return $this->belongsTo(Division::class, 'division_id');

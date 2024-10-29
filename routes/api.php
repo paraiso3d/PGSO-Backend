@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccomplishmentReportController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DivisionController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\UserController;
@@ -132,6 +133,10 @@ Route::controller(AccomplishmentReportController::class)->group(function () {
 
 });
 
+Route::controller(FeedbackController::class)->group(function () {
+    Route::post('saveFeedback/{id}', 'saveFeedback');
+
+});
 
 // Route::middleware(['auth:sanctum'])->group(function () {
 //     // Admin can access all CRUD routes
