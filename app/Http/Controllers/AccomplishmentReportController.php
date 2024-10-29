@@ -22,7 +22,8 @@ class AccomplishmentReportController extends Controller
         // Validate the incoming request data
         $validator = Validator::make($request->all(), [
             'remarks' => 'string',
-            'date_completed' => 'required|date|after_or_equal:today'
+            'date_completed' => 'required|date|after_or_equal:today',
+            'status' => 'required','string'
         ]);
 
         if ($validator->fails()) {
@@ -36,7 +37,7 @@ class AccomplishmentReportController extends Controller
         try {
             // Fetch the existing request using the provided ID
             $existingRequest = Requests::findOrFail($id);
-            $status = $request->input('status', 'Completed'); // Set status to Completed or the input value
+            $status = $request->status;
             $dateStarted = $existingRequest->created_at;
             $dateCompleted = $request->input('date_completed');
 
