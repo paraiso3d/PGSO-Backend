@@ -84,7 +84,6 @@ class CategoryController extends Controller
         }
     }
 
-
     public function getCategory(Request $request)
     {
         try {
@@ -92,12 +91,12 @@ class CategoryController extends Controller
                 'per_page' => 'nullable|integer',
                 'search' => 'nullable|string',
             ]);
-
+    
             // Start building the query
             $query = Category::with(['divisions:id,div_name', 'user:id,first_name,last_name,middle_initial']) // Include user for team leader
                 ->where('is_archived', 'A')
                 ->select('id as category_id', 'category_name', 'division_id', 'user_id', 'is_archived'); // Rename id to category_id
-
+    
             // Add search functionality if a search term is provided
             if (!empty($validated['search'])) {
                 $query->where(function ($q) use ($validated) {
@@ -107,11 +106,11 @@ class CategoryController extends Controller
                         });
                 });
             }
-
+    
             // Paginate the results
             $perPage = $validated['per_page'] ?? 10;
             $categories = $query->paginate($perPage);
-
+    
             // Check if categories are found
             if ($categories->isEmpty()) {
                 return response()->json([
@@ -119,23 +118,22 @@ class CategoryController extends Controller
                     'message' => 'No active categories found matching the criteria.',
                 ], 404);
             }
-
+    
             // Prepare the response
             $formattedResponse = $categories->map(function ($category) {
-                // Get the associated user (team leader) safely
+                // Safely get the associated user (team leader) information
                 $teamLeader = $category->user;
-
+    
                 return [
                     'id' => $category->category_id, // Include category_id
                     'category_name' => $category->category_name,
                     'division_name' => optional($category->divisions)->div_name,
-                    'team_leader' => $teamLeader ? [
-                        'user_id' => $teamLeader->id,
-                        'full_name' => trim($teamLeader->first_name . ' ' . $teamLeader->last_name . ' ' . $teamLeader->middle_initial),
-                    ] : null, // Return null if team leader not found
+                    'division_id' => $category->division_id,
+                    'user_id' => optional($teamLeader)->id,
+                    'full_name' => optional($teamLeader)->first_name . ' ' . optional($teamLeader)->last_name . ' ' . optional($teamLeader)->middle_initial,
                 ];
             });
-
+    
             $response = [
                 'isSuccess' => true,
                 'message' => 'Categories retrieved successfully.',
@@ -149,12 +147,12 @@ class CategoryController extends Controller
                     'prev_page_url' => $categories->previousPageUrl(),
                 ]
             ];
-
+    
             // Log API call
             $this->logAPICalls('getCategory', "", $request->all(), $response);
-
+    
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -162,12 +160,11 @@ class CategoryController extends Controller
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('getCategory', "", $request->all(), $response);
-
+    
             return response()->json($response, 500);
         }
     }
-
-
+    
 
 
 
