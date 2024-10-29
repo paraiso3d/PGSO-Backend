@@ -78,10 +78,6 @@ Route::controller(DivisionController::class)->group(function () {
 /*
 |--------------------Profile Api-----------------------\
 */
-// Route::controller(AuthController::class)->group(function () {
-//     Route::post('editprofile/{id}', 'editProfile');
-
-// });
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('profile', [AuthController::class, 'viewProfile']);
@@ -116,11 +112,12 @@ Route::controller(RequestController::class)->group(function () {
 
 Route::middleware('auth:sanctum')->get('requestList', [RequestController::class, 'getRequests']);
 Route::middleware('auth:sanctum')->post('createRequest', [RequestController::class, 'createRequest']);
+Route::middleware('auth:sanctum')->post('updateReturn/{id}', [RequestController::class, 'updateReturn']);
 
-// Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
-// Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');
-// Route::get('requests/ongoing/{id}', [ActualWorkController::class, 'getWorkreports'])->name('requests.ongoing');
-// Route::get('/requests/completed/{control_no}', [RequestController::class, 'showCompletedRequest'])->name('requests.completed');
+Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
+Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');
+Route::get('requests/ongoing/{id}', [ActualWorkController::class, 'getWorkreports'])->name('requests.ongoing');
+Route::get('/requests/completed/{id}', [RequestController::class, 'showCompletedRequest'])->name('requests.completed');
 
 /*
 |--------------------\Accomplishment Report API-----------------------\
@@ -225,6 +222,7 @@ Route::controller(UserTypeController::class)->group(function () {
 Route::controller(ReviewController::class)->group(function () {
     Route::post('updatereview/{id}', 'updateReview');
     Route::get('reviewList/{id}', 'getReviews');
+    Route::post('returnReview/{id}', 'returnReview');
 
     Route::get('getdropdownReviewOffice', 'getDropdownOptionsReviewoffice');
     Route::get('getdropdownReviewLocation', 'getDropdownOptionsReviewlocation');

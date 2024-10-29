@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use Auth;
+use DB;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\user_type;
@@ -25,40 +26,40 @@ class AuthController extends Controller
         try {
             // Fetch the user by email
             $user = User::where('email', $request->email)->first();
-    
+
             // Check if user exists
             if ($user) {
                 // Verify the password
                 if (Hash::check($request->password, $user->password)) {
                     // Generate token
                     $token = $user->createToken('auth-token')->plainTextToken;
-    
-                    
-                    $userTypeName = optional($user->user_types)->name;  
-    
+
+
+                    $userTypeName = optional($user->user_types)->name;
+
                     // Prepare the response
                     $response = [
                         'isSuccess' => true,
                         'user' => $user->only(['id', 'email']),
                         'token' => $token,
-                        'user_type' => $userTypeName,  
+                        'user_type' => $userTypeName,
                         'message' => 'Logged in successfully'
                     ];
-    
+
                     // Log the API call
                     $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
-    
+
                     // Return the successful response
                     return response()->json($response, 200);
-    
+
                 } else {
                     return $this->sendError('Invalid Credentials.');
                 }
-                
+
             } else {
                 return $this->sendError('Provided email address does not exist.');
             }
-    
+
         } catch (Throwable $e) {
             // Handle errors during login
             $response = [
@@ -66,14 +67,13 @@ class AuthController extends Controller
                 'message' => 'An error occurred during login.',
                 'error' => $e->getMessage(),
             ];
-    
+
             $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
-    
+
             // Return error response
             return response()->json($response, 500);
         }
     }
-    
 
     public function editProfile(Request $request)
     {
@@ -90,20 +90,36 @@ class AuthController extends Controller
         ]);
 
         try {
-            // Update user information
-            $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email', 'profile_image', 'signature']));
+            // Update user information except profile image and signature
+            $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email']));
 
-            // Handle profile image upload
             $profileImagePath = null;
+            $signaturePath = null;
 
+            // Handle profile image upload in base64 format
             if ($request->hasFile('profile_image')) {
-                $profileImagePath = $request->file('profile_image')->store('public/uploads');
+                $profileImageContents = file_get_contents($request->file('profile_image')->getRealPath());
+                $base64ProfileImage = 'data:image/' . $request->file('profile_image')->extension() . ';base64,' . base64_encode($profileImageContents);
+
+                // Save the image using saveImage method
+                $path = $this->getSetting("ASSET_IMAGE_PATH");
+                $fdateNow = now()->format('Y-m-d');
+                $ftimeNow = now()->format('His');
+                $profileImagePath = (new AuthController)->saveImage($base64ProfileImage, 'profile', 'Profile-' . $user->id, $fdateNow . '_' . $ftimeNow);
+
+                // Update the profile image path in user record
                 $user->update(['profile_image' => $profileImagePath]);
             }
-            $signaturePath = null;
-            // Handle signature upload
+
+            // Handle signature upload in base64 format
             if ($request->hasFile('signature')) {
-                $signaturePath = $request->file('signature')->store('public/uploads');
+                $signatureContents = file_get_contents($request->file('signature')->getRealPath());
+                $base64Signature = 'data:image/' . $request->file('signature')->extension() . ';base64,' . base64_encode($signatureContents);
+
+                // Save the signature using saveImage method
+                $signaturePath = (new AuthController)->saveImage($base64Signature, 'signature', 'Signature-' . $user->id, $fdateNow . '_' . $ftimeNow);
+
+                // Update the signature path in user record
                 $user->update(['signature' => $signaturePath]);
             }
 
@@ -181,36 +197,37 @@ class AuthController extends Controller
     {
         try {
             // Get the authenticated user
-            $user = Auth::user();
-    
+            $user = $request->user();
+
             if ($user) {
-                // Revoke all tokens issued to the user
-                $user->tokens()->delete();
-    
+                // Revoke only the current access token
+                $user->currentAccessToken()->delete();
+
                 // Optionally, log the API call for auditing
                 $response = [
                     'isSuccess' => true,
                     'message' => 'Logged out successfully',
                     'user' => $user->only(['id', 'email']),
                 ];
-    
+
                 $this->logAPICalls('logout', $user->email, $request->all(), $response);
-    
+
                 return response()->json($response, 200);
             } else {
                 return $this->sendError('User not found or already logged out.', 401);
-            } 
-            }catch (Throwable $e) {
+            }
+        } catch (Throwable $e) {
             // Define the error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'An error occurred during logout.',
             ];
-    
+
             $this->logAPICalls('logout', 'unknown', $request->all(), $response);
             return response()->json($response, 500);
-            }
+        }
     }
+
 
     // Method to insert session
     public function insertSession(Request $request)
@@ -285,6 +302,18 @@ class AuthController extends Controller
         file_put_contents($relativePath, $image);
 
         return $relativePath;
+    }
+
+    public function getSetting(string $code)
+    {
+        try {
+            $value = DB::table('settings')
+                ->where('setting_code', $code)
+                ->value('setting_value');
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+        return $value;
     }
 
     public function sendError($error, $errorMessages = [], $code = 404)

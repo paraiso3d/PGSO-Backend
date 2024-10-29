@@ -23,49 +23,7 @@ use Illuminate\Support\Facades\Storage;
 
 class RequestController extends Controller
 {
-    // public function __construct(Request $request)
-    // {
-    //     // Retrieve the authenticated user
-    //     $user = $request->user();
-
-    //     // Apply middleware based on the user type
-    //     if ($user && $user->user_type === 'Administrator') {
-    //         $this->middleware('UserTypeAuth:Administrator')->only(['createRequest', 'updateRequest', 'getRequests', 'getRequestById']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Supervisor') {
-    //         $this->middleware('UserTypeAuth:Supervisor')->only(['getRequests']);
-    //     }
-
-    //     if ($user && $user->user_type === 'TeamLeader') {
-    //         $this->middleware('UserTypeAuth:TeamLeader')->only(['getRequests']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Controller') {
-    //         $this->middleware('UserTypeAuth:Controller')->only(['getRequests']);
-    //     }
-
-    //     if ($user && $user->user_type === 'DeanHead') {
-    //         $this->middleware('UserTypeAuth:DeanHead')->only(['createRequest', 'getRequests']);
-    //     }
-    // }
-
-    public function getSetting(string $code)
-    {
-        try {
-            $value = DB::table('settings')
-                ->where('setting_code', $code)
-                ->value('setting_value');
-        } catch (Throwable $e) {
-            return $e->getMessage();
-        }
-        return $value;
-    }
-
-
-
     // Method to create a new request.    
-
     public function createRequest(Request $request)
     {
 
@@ -128,7 +86,8 @@ class RequestController extends Controller
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
-                'file_path' => $filePath,
+                'file_path' => $path,
+                $filePath,
                 'status' => $status,
                 'office_id' => $office->id,
                 'location_id' => $location->id,
@@ -153,7 +112,8 @@ class RequestController extends Controller
                         'location_id' => $location->id,
                         'location_name' => $location->location_name,
                         'user_id' => $user->id,
-                        'file_url' => $fileUrl, // Return the public URL of the uploaded file
+                        'file_path' => $filePath,
+                        'file_url' => $fileUrl,
                     ]
                 ]
             ];
@@ -177,24 +137,129 @@ class RequestController extends Controller
         }
     }
 
+    public function updateReturn(Request $request, $id)
+    {
+        $existingRequest = Requests::findOrFail($id);
+
+        // Check if the request status is "Returned"
+        if ($existingRequest->status !== 'Returned') {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Only requests with the status "Returned" can be updated.',
+            ];
+            $this->logAPICalls('updateRequest', '', $request->all(), $response);
+            return response()->json($response, 403);
+        }
+
+        $validator = Requests::validateRequest($request->all());
+
+        if ($validator->fails()) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors(),
+            ];
+            $this->logAPICalls('updateRequest', '', $request->all(), $response);
+            return response()->json($response, 500);
+        }
+
+        $filePath = $existingRequest->file_path;
+        $fileUrl = $filePath ? asset('storage/' . $filePath) : null;
+
+        if ($request->hasFile('file_path')) {
+            // Get the uploaded file
+            $file = $request->file('file_path');
+
+            // Convert the uploaded file to base64
+            $fileContents = file_get_contents($file->getRealPath());
+            $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
+
+            // Call your saveImage method to handle the base64 image
+            $path = $this->getSetting("ASSET_IMAGE_PATH");
+            $fdateNow = now()->format('Y-m-d');
+            $ftimeNow = now()->format('His');
+            $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $existingRequest->control_no, $fdateNow . '_' . $ftimeNow);
+
+            $fileUrl = asset('storage/' . $filePath);
+        }
+
+        try {
+            $user = auth()->user();
+
+            $locationId = $request->input('location_id', $existingRequest->location_id);
+            $officeId = $request->input('office_id', $existingRequest->office_id);
+
+            $location = Location::findOrFail($locationId);
+            $office = Office::findOrFail($officeId);
+
+            // Update the existing request record with status set to "Pending"
+            $existingRequest->update([
+                'description' => $request->input('description', $existingRequest->description),
+                'overtime' => $request->input('overtime', $existingRequest->overtime),
+                'area' => $request->input('area', $existingRequest->area),
+                'fiscal_year' => $request->input('fiscal_year', $existingRequest->fiscal_year),
+                'file_path' => $filePath,
+                'status' => 'Pending', // Automatically update status to "Pending"
+                'office_id' => $office->id,
+                'location_id' => $location->id,
+                'user_id' => $user->id,
+            ]);
+
+            // Prepare the success response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Request successfully updated.',
+                'returnRequest' => [
+                    'id' => $existingRequest->id,
+                    'control_no' => $existingRequest->control_no,
+                    'description' => $existingRequest->description,
+                    'overtime' => $existingRequest->overtime,
+                    'area' => $existingRequest->area,
+                    'fiscal_year' => $existingRequest->fiscal_year,
+                    'status' => 'Pending',
+                    'office_id' => $office->id,
+                    'office_name' => $office->office_name,
+                    'location_id' => $location->id,
+                    'location_name' => $location->location_name,
+                    'user_id' => $user->id,
+                    'file_path' => $filePath,
+                    'file_url' => $fileUrl,
+                ]
+            ];
+
+            $this->logAPICalls('updateRequest', $existingRequest->id, $request->all(), $response);
+
+            return response()->json($response, 200);
+
+        } catch (Throwable $e) {
+            // Handle any exceptions
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to update the request.',
+                'error' => $e->getMessage(),
+            ];
+
+            $this->logAPICalls('updateRequest', '', $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
     public function getRequests(Request $request)
     {
         try {
-            // Get the authenticated user's ID and user_type_id
             $userId = $request->user()->id;
             $userTypeId = $request->user()->user_type_id;
 
-            // Retrieve the corresponding role from the database
             $role = DB::table('user_types')
                 ->where('id', $userTypeId)
                 ->value('name');
 
-            // Debug: Log the role to ensure it's fetched properly
             Log::info("User Role: " . $role);
 
             // Pagination settings
-            $perPage = $request->input('per_page', 10);  // Default per page is 10
-            $searchTerm = $request->input('search', null); // Optional search term
+            $perPage = $request->input('per_page', 10);
+            $searchTerm = $request->input('search', null);
 
             // Initialize query
             $query = Requests::select(
@@ -220,34 +285,53 @@ class RequestController extends Controller
                     return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
                 });
 
-            // Filter based on the role
+            // Apply filters based on input from the request
+            if ($request->has('type')) {
+                if ($request->type === 'Returned') {
+                    $query->where('requests.status', 'Returned');
+                } elseif ($request->type === 'For Overtime') {
+                    $query->where('requests.overtime', '>', 0);
+                }
+            }
+
+            if ($request->has('status') && $request->status !== 'All Status') {
+                $query->where('requests.status', $request->status);
+            }
+
+            if ($request->has('location') && $request->location !== 'All Location') {
+                $query->where('requests.location_id', $request->location);
+            }
+
+            if ($request->has('division') && $request->division !== 'All Division') {
+                $query->where('requests.office_id', $request->division);
+            }
+
+            if ($request->has('category') && $request->category !== 'All Category') {
+                $query->whereJsonContains('requests.category_id', $request->category);
+            }
+
+            if ($request->has('year') && $request->year !== 'All Year') {
+                $query->whereYear('requests.fiscal_year', $request->year);
+            }
+
+            // Role-based filtering
             switch ($role) {
                 case 'Administrator':
                     // Admin gets all requests, no extra filter needed
                     break;
-
                 case 'Controller':
-                    // Controller only gets pending requests
                     $query->where('requests.status', 'Pending');
                     break;
-
                 case 'DeanHead':
-                    // Dean gets only the requests they created
                     $query->where('requests.user_id', $userId);
                     break;
-
                 case 'TeamLeader':
-                    // Team Leader only gets 'On-going' status
                     $query->where('requests.status', 'On-going');
                     break;
-
                 case 'Supervisor':
-                    // Supervisor only gets requests 'For Inspection'
                     $query->where('requests.status', 'For Inspection');
                     break;
-
                 default:
-                    // If no matching role, return no results
                     $query->whereRaw('1 = 0');
                     break;
             }
@@ -255,7 +339,6 @@ class RequestController extends Controller
             // Execute the query with pagination
             $result = $query->paginate($perPage);
 
-            // Check if there are no results
             if ($result->isEmpty()) {
                 $response = [
                     'isSuccess' => false,
@@ -300,7 +383,6 @@ class RequestController extends Controller
             return response()->json($response, 200);
 
         } catch (Throwable $e) {
-            // Handle error cases
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve requests.',
@@ -334,6 +416,44 @@ class RequestController extends Controller
             ];
             $this->logAPICalls('deleteRequest', $id, [], $response);
             return response()->json($response, 500);
+        }
+    }
+
+    // Method to click on control number by status
+    public function handleRequestClick($id)
+    {
+        // Fetch the request based on the control number
+        $request = Requests::where('id', $id)->first();
+
+        // Check if the request exists
+        if (!$request) {
+            return response()->json(['error' => 'Request not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Conditional logic based on the status of the request
+        switch ($request->status) {
+            case 'Pending':
+                return response()->json([
+                    'redirect_url' => route('requests.pending', ['id' => $id]),
+                ]);
+
+            case 'For Inspection':
+                return response()->json([
+                    'redirect_url' => route('requests.inspection', ['id' => $id]),
+                ]);
+
+            case 'On-Going':
+                return response()->json([
+                    'redirect_url' => route('requests.ongoing', ['id' => $id]),
+                ]);
+
+            case 'Completed':
+                return response()->json([
+                    'redirect_url' => route('requests.completed', ['id' => $id]),
+                ]);
+
+            default:
+                return response()->json(['error' => 'Unknown status'], Response::HTTP_BAD_REQUEST);
         }
     }
 
@@ -588,41 +708,16 @@ class RequestController extends Controller
         }
     }
 
-    public function handleRequestClick($id)
+    public function getSetting(string $code)
     {
-        // Fetch the request based on the control number
-        $request = Request::where('id', $id)->first();
-
-        // Check if the request exists
-        if (!$request) {
-            return response()->json(['error' => 'Request not found'], Response::HTTP_NOT_FOUND);
+        try {
+            $value = DB::table('settings')
+                ->where('setting_code', $code)
+                ->value('setting_value');
+        } catch (Throwable $e) {
+            return $e->getMessage();
         }
-
-        // Conditional logic based on the status of the request
-        switch ($request->status) {
-            case 'Pending':
-                return response()->json([
-                    'redirect_url' => route('requests.pending', ['id' => $id]),
-                ]);
-
-            case 'For Inspection':
-                return response()->json([
-                    'redirect_url' => route('requests.inspection', ['id' => $id]),
-                ]);
-
-            case 'On-Going':
-                return response()->json([
-                    'redirect_url' => route('requests.ongoing', ['id' => $id]),
-                ]);
-
-            case 'Completed':
-                return response()->json([
-                    'redirect_url' => route('requests.completed', ['id' => $id]),
-                ]);
-
-            default:
-                return response()->json(['error' => 'Unknown status'], Response::HTTP_BAD_REQUEST);
-        }
+        return $value;
     }
 
     // Log API calls for requests

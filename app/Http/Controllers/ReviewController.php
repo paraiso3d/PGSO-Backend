@@ -317,6 +317,42 @@ class ReviewController extends Controller
         }
     }
 
+    public function returnReview(Request $request)
+    {
+        try {
+            // Retrieve the record based on the provided control_no from the request
+            $work = Requests::where('id', $request->id)
+                ->firstOrFail(); // Throws a 404 error if no matching record is found
+
+            // Update the status to "On-going"
+            $work->update(['status' => 'Returned']);
+
+            // Prepare the response
+            $response = [
+                'isSuccess' => true,
+                'request_id' => $work->id,
+                'status' => $work->status,
+            ];
+
+            // Log the API call (assuming this method works properly)
+            $this->logAPICalls('updateWorkStatus', $work->id, $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Prepare the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to update the review report status.",
+                'error' => $e->getMessage(),
+            ];
+
+            // Log the API call with failure response
+            $this->logAPICalls('updateWorkStatus', $request->id ?? '', $request->all(), $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
     // Log API calls for requests
     public function logAPICalls(string $methodName, string $requestId, array $param, array $resp)
     {
