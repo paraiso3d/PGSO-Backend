@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Storage;
 
 class RequestController extends Controller
 {
- 
+
 
     public function getSetting(string $code)
     {
@@ -103,7 +103,8 @@ class RequestController extends Controller
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
-                'file_path' => $path, $filePath,
+                'file_path' => $path,
+                $filePath,
                 'status' => $status,
                 'office_id' => $office->id,
                 'location_id' => $location->id,
@@ -155,21 +156,21 @@ class RequestController extends Controller
     public function getRequests(Request $request)
     {
         try {
-         
+
             $userId = $request->user()->id;
             $userTypeId = $request->user()->user_type_id;
 
-            
+
             $role = DB::table('user_types')
                 ->where('id', $userTypeId)
                 ->value('name');
 
-           
+
             Log::info("User Role: " . $role);
 
             // Pagination settings
-            $perPage = $request->input('per_page', 10);  
-            $searchTerm = $request->input('search', null); 
+            $perPage = $request->input('per_page', 10);
+            $searchTerm = $request->input('search', null);
 
             // Initialize query
             $query = Requests::select(
@@ -195,34 +196,34 @@ class RequestController extends Controller
                     return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
                 });
 
-          
+
             switch ($role) {
                 case 'Administrator':
                     // Admin gets all requests, no extra filter needed
                     break;
 
                 case 'Controller':
-                    
+
                     $query->where('requests.status', 'Pending');
                     break;
 
                 case 'DeanHead':
-                    
+
                     $query->where('requests.user_id', $userId);
                     break;
 
                 case 'TeamLeader':
-                   
+
                     $query->where('requests.status', 'On-going');
                     break;
 
                 case 'Supervisor':
-                   
+
                     $query->where('requests.status', 'For Inspection');
                     break;
 
                 default:
-                   
+
                     $query->whereRaw('1 = 0');
                     break;
             }

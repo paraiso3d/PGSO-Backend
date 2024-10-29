@@ -184,6 +184,9 @@ class UsertypeController extends Controller
         }
     }
 
+    /**
+      Tooggle Active Inactive a user type.
+     */
     public function toggleUsertype(Request $request, $id)
     {
 

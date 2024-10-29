@@ -31,7 +31,7 @@ class DivisionController extends Controller
             $division = Division::create([
                 'div_name' => $request->div_name,
                 'note' => $request->note,
-                'category_id' => json_encode($request->categories), 
+                'category_id' => json_encode($request->categories),
                 'user_id' => $request->user_id
             ]);
 
@@ -51,8 +51,8 @@ class DivisionController extends Controller
                     'id' => $division->id,
                     'div_name' => $division->div_name,
                     'note' => $division->note,
-                    'user_id' => $supervisor, 
-                    'categories' => $assignedCategories, 
+                    'user_id' => $supervisor,
+                    'categories' => $assignedCategories,
                 ],
             ];
 
@@ -190,14 +190,14 @@ class DivisionController extends Controller
         try {
             // Retrieve the Supervisor user type ID
             $supervisorTypeId = DB::table('user_types')->where('name', 'Supervisor')->value('id');
-    
+
             if (!$supervisorTypeId) {
                 return response()->json([
                     'isSuccess' => false,
                     'message' => 'Supervisor type not found.'
                 ], 404);
             }
-        
+
             // Fetch active team leaders
             $supervisors = User::where('user_type_id', $supervisorTypeId)
                 ->where('is_archived', 'A')
@@ -209,16 +209,16 @@ class DivisionController extends Controller
                         'full_name' => trim($leader->first_name . ' ' . $leader->middle_initial . ' ' . $leader->last_name),
                     ];
                 });
-        
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'Dropdown options retrieved successfully.',
                 'supervisor' => $supervisors,
             ];
-        
+
             // Log the API call
             $this->logAPICalls('dropdownSupervisor', "", $request->all(), $response);
-        
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -226,11 +226,11 @@ class DivisionController extends Controller
                 'message' => 'Failed to retrieve dropdown options.',
                 'error' => $e->getMessage(),
             ];
-        
+
             $this->logAPICalls('dropdownSupervisor', "", $request->all(), $response);
             return response()->json($response, 500);
         }
-        
+
     }
 
 
@@ -242,15 +242,15 @@ class DivisionController extends Controller
         try {
             // Retrieve all divisions
             $divisions = Division::all();
-    
+
             // Fetch categories and supervisors for each division
             foreach ($divisions as $division) {
                 // Hide timestamp fields
                 $division->makeHidden(['created_at', 'updated_at', 'is_archived']);
-    
+
                 // Initialize categories as an empty collection if category_id is null
                 $division->categories = [];
-    
+
                 // Check if category_id is not null
                 if ($division->category_id) {
                     // Fetch the assigned categories for the current division
@@ -259,22 +259,22 @@ class DivisionController extends Controller
                         ->where('is_archived', 'A')
                         ->get();
                 }
-    
+
                 // Retrieve the supervisor's information
                 $division->supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
                     ->find($division->user_id);
             }
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'Divisions retrieved successfully.',
                 'divisions' => $divisions,
             ];
-    
+
             $this->logAPICalls('getDivisions', '', [], [$response]);
-    
+
             return response()->json($response, 200);
-    
+
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -285,7 +285,7 @@ class DivisionController extends Controller
             return response()->json($response, 500);
         }
     }
-    
+
 
 
 

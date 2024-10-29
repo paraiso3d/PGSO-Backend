@@ -121,7 +121,7 @@ class ActualWorkController extends Controller
             // Prepare the data for updating the inspection report
             $actualworkData = [
                 'recommended_action' => $request->input('recommended_action') ? $request->input('recommended_action') : $existingWorkreport->recommended_action,
-                'remarks' => $request->input('remarks')  ? $request->input('remarks') : $existingWorkreport->remarks,
+                'remarks' => $request->input('remarks') ? $request->input('remarks') : $existingWorkreport->remarks,
             ];
 
             // Update the existing inspection report with the new data
@@ -208,60 +208,60 @@ class ActualWorkController extends Controller
 
     //ADD MANPOWER DEPLOYMENT
     public function addManpowerDeploy(Request $request)
-{
-    // Validate input
-    $request->validate([
-        'manpower_id' => 'required|exists:manpowers,id', // Assuming you have a manpower ID
-        'rating' => 'required|numeric|between:0,100',
-    ]);
-
-    try {
-        // Fetch the manpower record using the provided ID
-        $manpower = Manpower::findOrFail($request->input('manpower_id'));
-
-        // Clean the rating input (removing the '%' sign)
-        $ratingInput = $request->input('rating');
-        $numericRating = str_replace('%', '', $ratingInput);
-
-        // Prepare the rating for storage
-        $ratingToStore = $numericRating . '%';
-
-        // Create a new manpower deployment record
-        $newManpowerDeploy = ManpowerDeployment::create([
-            'first_name' => $manpower->first_name,
-            'last_name' => $manpower->last_name,
-            'rating' => $ratingToStore,
-            'manpower_id'=>$manpower->id
+    {
+        // Validate input
+        $request->validate([
+            'manpower_id' => 'required|exists:manpowers,id', // Assuming you have a manpower ID
+            'rating' => 'required|numeric|between:0,100',
         ]);
 
-        // Prepare the response
-        $response = [
-            'isSuccess' => true,
-            'message' => 'Manpower successfully added.',
-            'manpowerdeployment' => $newManpowerDeploy,
-        ];
+        try {
+            // Fetch the manpower record using the provided ID
+            $manpower = Manpower::findOrFail($request->input('manpower_id'));
 
-        // Log the API call
-        $this->logAPICalls('addManpowerDeploy', $newManpowerDeploy->id, $request->all(), $response);
+            // Clean the rating input (removing the '%' sign)
+            $ratingInput = $request->input('rating');
+            $numericRating = str_replace('%', '', $ratingInput);
 
-        // Return a 200 Created response
-        return response()->json($response, 200);
-        
-    } catch (Throwable $e) {
-        // Handle any exceptions that may occur
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to create the Actual work report.',
-            'error' => $e->getMessage(),
-        ];
+            // Prepare the rating for storage
+            $ratingToStore = $numericRating . '%';
 
-        // Log the API call
-        $this->logAPICalls('addManpowerDeploy', '', $request->all(), $response);
+            // Create a new manpower deployment record
+            $newManpowerDeploy = ManpowerDeployment::create([
+                'first_name' => $manpower->first_name,
+                'last_name' => $manpower->last_name,
+                'rating' => $ratingToStore,
+                'manpower_id' => $manpower->id
+            ]);
 
-        // Return a 500 Internal Server Error response
-        return response()->json($response, 500);
+            // Prepare the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Manpower successfully added.',
+                'manpowerdeployment' => $newManpowerDeploy,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('addManpowerDeploy', $newManpowerDeploy->id, $request->all(), $response);
+
+            // Return a 200 Created response
+            return response()->json($response, 200);
+
+        } catch (Throwable $e) {
+            // Handle any exceptions that may occur
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to create the Actual work report.',
+                'error' => $e->getMessage(),
+            ];
+
+            // Log the API call
+            $this->logAPICalls('addManpowerDeploy', '', $request->all(), $response);
+
+            // Return a 500 Internal Server Error response
+            return response()->json($response, 500);
+        }
     }
-}
 
 
     //GET MANPOWER DEPLOYMENT
