@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Models\User;
 use App\Models\Category;
 use App\Models\Division;
 use App\Models\ApiLog;
@@ -8,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 
 class DivisionController extends Controller
@@ -18,56 +20,67 @@ class DivisionController extends Controller
     public function createDivision(Request $request)
     {
         try {
-            // Validate the request data
             $request->validate([
-                'div_name' => ['required', 'string', 'unique:divisions,div_name'], // Corrected unique rule
-                'note' => ['required', 'string'],
-                'is_archived' => ['nullable', 'in: A, I']
+                'div_name' => 'required|string|unique:divisions,div_name',
+                'note' => 'required|string',
+                'categories' => 'required|array',
+                'categories.*' => 'exists:categories,id',
+                'user_id' => 'required|integer|exists:users,id'
             ]);
 
-            // Create the division
-            $divname = Division::create([
+            $division = Division::create([
                 'div_name' => $request->div_name,
                 'note' => $request->note,
+                'category_id' => json_encode($request->categories),
+                'user_id' => $request->user_id
             ]);
 
-            // Prepare a success response
+            // Fetch the assigned categories
+            $assignedCategories = Category::whereIn('id', $request->categories)
+                ->select('id', 'category_name')
+                ->get();
+
+            // Retrieve the supervisor's information
+            $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
+                ->find($request->user_id);
+
             $response = [
                 'isSuccess' => true,
-                'message' => "Division successfully created.",
-                'division' => $divname
+                'message' => 'Division created successfully.',
+                'division' => [
+                    'id' => $division->id,
+                    'div_name' => $division->div_name,
+                    'note' => $division->note,
+                    'user_id' => $supervisor,
+                    'categories' => $assignedCategories,
+                ],
             ];
-            // Log the API call
-            $this->logAPICalls('createDivision', $divname->id, $request->all(), [$response]);
 
-            // Return the success response
-            return response()->json($response, 201);
+            $this->logAPICalls('createDivision', $division->id, $request->all(), [$response]);
+
+            return response()->json($response, 200);
+
         } catch (ValidationException $v) {
-            // Handle validation errors
             $response = [
                 'isSuccess' => false,
-                'message' => "Invalid input data.",
-                'error' => $v->errors()
+                'message' => 'Invalid input data.',
+                'error' => $v->errors(),
             ];
-            // Log the API call with validation errors
             $this->logAPICalls('createDivision', "", $request->all(), [$response]);
+            return response()->json($response, 500);
 
-            // Return the validation error response
-            return response()->json($response, 422);
         } catch (Throwable $e) {
-            // Handle any other exceptions
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to create the Division.",
-                'error' => $e->getMessage()
+                'message' => 'Failed to create the Division.',
+                'error' => $e->getMessage(),
             ];
-            // Log the API call with error
             $this->logAPICalls('createDivision', "", $request->all(), [$response]);
-
-            // Return the internal server error response
             return response()->json($response, 500);
         }
     }
+
+
 
     /**
      * Update an existing college office.
@@ -82,37 +95,46 @@ class DivisionController extends Controller
             $request->validate([
                 'div_name' => ['sometimes', 'required', 'string'],
                 'note' => ['sometimes', 'string'],
+                'categories' => ['sometimes', 'required', 'array'],
+                'categories.*' => 'exists:categories,id',
+                'supervisor' => 'required|integer|exists:users,id'
             ]);
-
-            // Store the old division name before updating
-            $oldDivName = $division->div_name;
 
             // Update the division
             $division->update([
-                'div_name' => $request->div_name,
-                'note' => $request->note,
+                'div_name' => $request->div_name ?? $division->div_name,
+                'note' => $request->note ?? $division->note,
+                'category_id' => json_encode($request->categories ?? json_decode($division->category_id, true)),
+                'user_id' => $request->supervisor
             ]);
 
-            if ($oldDivName !== $division->div_name) {
-                DB::table('categories')
-                    ->where('division', $oldDivName)
-                    ->update(['division' => $division->div_name]);
-            }
+            // Fetch the assigned categories
+            $assignedCategories = Category::whereIn('id', json_decode($division->category_id, true))
+                ->select('id', 'category_name')
+                ->get();
 
-            // Prepare the success response
+            // Retrieve the supervisor's information
+            $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
+                ->find($request->supervisor);
+
             $response = [
                 'isSuccess' => true,
-                'message' => "Division successfully updated, and associated categories updated.",
-                'division' => $division, // Return the updated division
+                'message' => "Division successfully updated.",
+                'division' => [
+                    'id' => $division->id,
+                    'div_name' => $division->div_name,
+                    'note' => $division->note,
+                    'supervisor' => $supervisor, // Include supervisor details
+                    'categories' => $assignedCategories, // Include categories
+                ],
             ];
 
             // Log the API call
             $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
 
-            // Return the success response
             return response()->json($response, 200);
+
         } catch (ValidationException $v) {
-            // Prepare the validation error response
             $response = [
                 'isSuccess' => false,
                 'message' => "Invalid input data.",
@@ -121,7 +143,6 @@ class DivisionController extends Controller
             $this->logAPICalls('updateDivision', "", $request->all(), [$response]);
             return response()->json($response, 422);
         } catch (Throwable $e) {
-            // Prepare the error response in case of an exception
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to update the Division.",
@@ -132,100 +153,141 @@ class DivisionController extends Controller
         }
     }
 
-    /**
-     * Get all college offices.
-     */
-    public function getDivisions(Request $request)
-{
-    try {
-       
-        $validated = $request->validate([
-            'per_page' => 'nullable|integer',
-            'search' => 'nullable|string',
-        ]);
-
-       
-        $query = Category::with(['divisions:id,div_name,note']) 
-            ->where('is_archived', 'A')
-            ->select('id', 'category_name', 'division_id', 'is_archived');
-
-            // Apply search filter
-            if (!empty($validated['search'])) {
-                $query->where(function ($q) use ($validated) {
-                    $q->where('category_name', 'like', '%' . $validated['search'] . '%')
-                        ->orWhereHas('divisions', function ($q) use ($validated) {
-                            $q->where('div_name', 'like', '%' . $validated['search'] . '%');
-                        });
-                });
-            }
-
-        
-        $perPage = $validated['per_page'] ?? 10;
-        $categories = $query->paginate($perPage);
-
-       
-        if ($categories->isEmpty()) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => 'No active categories found matching the criteria.',
-            ], 500);
-        }
-
-       
-        $groupedCategories = $categories->getCollection()->groupBy(function ($category) {
-            return optional($category->divisions)->id;
-        });
 
 
-        $formattedResponse = [];
-        foreach ($groupedCategories as $divisionId => $group) {
-            $formattedResponse[] = [
-                'division_id' => $divisionId,
-                'division_name' => optional($group->first()->divisions)->div_name,
-                'note' => optional($group->first()->divisions)->note, 
-                'categories' => $group->map(function ($division) {
-                    return [
-                        'id' => $division->id,
-                        'category_name' => $division->category_name,
-                        'is_archived' => $division->is_archived,
-                    ];
-                }),
+    public function getdropdownCategories(Request $request)
+    {
+        try {
+
+            $categories = Category::select('id', 'category_name')
+                ->where('is_archived', 'A')
+                ->get();
+
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown options retrieved successfully.',
+                'category' => $categories,
             ];
-        }
 
-        // Structure the full response with pagination details
-        $response = [
-            'isSuccess' => true,
-            'message' => 'Divisions retrieved successfully.',
-            'division' => $formattedResponse,
-            'pagination' => [
-                'total' => $categories->total(),
-                'per_page' => $categories->perPage(),
-                'current_page' => $categories->currentPage(),
-                'last_page' => $categories->lastPage(),
-                'url' => url('api/categoryList?page=' . $categories->currentPage() . '&per_page=' . $categories->perPage()),
-            ]
-        ];
 
-        // Log the API call
-        $this->logAPICalls('getDivisions', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptions', "", [], [$response]);
 
-            // Return the successful response
             return response()->json($response, 200);
-
-    } catch (Throwable $e) {
-        // Handle any exceptions and return a failure message
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to retrieve the categories.',
-            'error' => $e->getMessage(),
-        ];
-        $this->logAPICalls('getDivisions', "", $request->all(), $response);
-
-            // Return the error response
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown options.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('getDropdownOptions', "", [], [$response]);
             return response()->json($response, 500);
         }
     }
+
+
+    public function dropdownSupervisor(Request $request)
+    {
+        try {
+            // Retrieve the Supervisor user type ID
+            $supervisorTypeId = DB::table('user_types')->where('name', 'Supervisor')->value('id');
+
+            if (!$supervisorTypeId) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Supervisor type not found.'
+                ], 404);
+            }
+
+            // Fetch active team leaders
+            $supervisors = User::where('user_type_id', $supervisorTypeId)
+                ->where('is_archived', 'A')
+                ->get()
+                ->map(function ($leader) {
+                    // Concatenate full name and return it only
+                    return [
+                        'id' => $leader->id,
+                        'full_name' => trim($leader->first_name . ' ' . $leader->middle_initial . ' ' . $leader->last_name),
+                    ];
+                });
+
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Dropdown options retrieved successfully.',
+                'supervisor' => $supervisors,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('dropdownSupervisor', "", $request->all(), $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve dropdown options.',
+                'error' => $e->getMessage(),
+            ];
+
+            $this->logAPICalls('dropdownSupervisor', "", $request->all(), $response);
+            return response()->json($response, 500);
+        }
+
+    }
+
+
+    /**
+     * Get all college offices.
+     */
+    public function getDivisions()
+    {
+        try {
+            // Retrieve all divisions
+            $divisions = Division::all();
+
+            // Fetch categories and supervisors for each division
+            foreach ($divisions as $division) {
+                // Hide timestamp fields
+                $division->makeHidden(['created_at', 'updated_at', 'is_archived']);
+
+                // Initialize categories as an empty collection if category_id is null
+                $division->categories = [];
+
+                // Check if category_id is not null
+                if ($division->category_id) {
+                    // Fetch the assigned categories for the current division
+                    $division->categories = Category::whereIn('id', json_decode($division->category_id))
+                        ->select('id', 'category_name')
+                        ->where('is_archived', 'A')
+                        ->get();
+                }
+
+                // Retrieve the supervisor's information
+                $division->supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
+                    ->find($division->user_id);
+            }
+
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Divisions retrieved successfully.',
+                'divisions' => $divisions,
+            ];
+
+            $this->logAPICalls('getDivisions', '', [], [$response]);
+
+            return response()->json($response, 200);
+
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve divisions.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('getDivisions', '', [], [$response]);
+            return response()->json($response, 500);
+        }
+    }
+
+
+
 
 
 

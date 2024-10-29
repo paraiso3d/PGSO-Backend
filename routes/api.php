@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccomplishmentReportController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DivisionController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\UserController;
@@ -70,6 +71,9 @@ Route::controller(DivisionController::class)->group(function () {
     Route::post('updateDivision/{id}', 'updateDivision');
     Route::get('divisionList', 'getDivisions');
     Route::post('deleteDivision/{id}', 'deleteDivision');
+    Route::get('dropdownCategories', 'getdropdownCategories');
+    Route::get('dropdownSupervisor', 'dropdownSupervisor');
+
 
 });
 
@@ -89,7 +93,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
 |--------------------LOGOUT API-----------------------\
 */
 
-//Route::middleware('auth:sanctum')->post('logout', [AuthController::class, 'logout']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
 });
@@ -127,6 +130,10 @@ Route::controller(AccomplishmentReportController::class)->group(function () {
 
 });
 
+Route::controller(FeedbackController::class)->group(function () {
+    Route::post('saveFeedback/{id}', 'saveFeedback');
+
+});
 
 // Route::middleware(['auth:sanctum'])->group(function () {
 //     // Admin can access all CRUD routes
@@ -154,7 +161,8 @@ Route::controller(CategoryController::class)->group(function () {
     Route::post('updateCategory/{id}', 'updateCategory');
     Route::get('categoryList', 'getCategory');
     Route::post('deleteCategory/{id}', 'deleteCategory');
-    Route::get('getdropdownCategory', 'getDropdownOptionsCategory');
+    Route::get('getdropdownCategories', 'getDropdownOptionsCategory');
+    Route::get('dropdownTeamleader', 'getdropdownteamleader');
 
 });
 

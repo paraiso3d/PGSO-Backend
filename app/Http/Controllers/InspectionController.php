@@ -110,7 +110,7 @@ class InspectionController extends Controller
             return response()->json($response, 500);
         }
     }
-    
+
     public function getInspections(Request $request, $Request_id)
     {
         try {
@@ -167,7 +167,7 @@ class InspectionController extends Controller
             return response()->json($response, 500);
         }
     }
-    
+
     public function updateInspection(Request $request, $id)
     {
         // Validate the incoming request data using Laravel's built-in validation method

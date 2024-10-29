@@ -91,6 +91,9 @@ class UserController extends Controller
         }
     }
 
+     /**
+     * Create a get user account.
+     */
     public function getUserAccounts(Request $request)
     {
         try {
@@ -148,6 +151,8 @@ class UserController extends Controller
                     'per_page' => $result->perPage(),
                     'current_page' => $result->currentPage(),
                     'last_page' => $result->lastPage(),
+                    'next_page_url' => $result->nextPageUrl(),
+                    'prev_page_url' => $result->previousPageUrl(),
                     'url' => url('api/userList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
                 ],
             ];
@@ -207,8 +212,6 @@ class UserController extends Controller
             } else {
                 $usertype = user_type::findOrFail($userAccount->user_type_id);
             }
-
-
             if ($officeId) {
                 $office = Office::findOrFail($officeId);
             } else {
@@ -277,6 +280,7 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
+
 
     public function deleteUserAccount($id)
     {

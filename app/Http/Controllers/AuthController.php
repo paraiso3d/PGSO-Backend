@@ -75,6 +75,7 @@ class AuthController extends Controller
         }
     }
 
+
     public function editProfile(Request $request)
     {
         $user = $request->user(); // Get the authenticated user

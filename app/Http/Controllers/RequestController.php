@@ -94,7 +94,6 @@ class RequestController extends Controller
                 'user_id' => $user->id,
             ]);
 
-            // Prepare the success response
             $response = [
                 $response = [
                     'isSuccess' => true,
@@ -258,6 +257,8 @@ class RequestController extends Controller
             Log::info("User Role: " . $role);
 
             // Pagination settings
+            $perPage = $request->input('per_page', 10);
+            $searchTerm = $request->input('search', null);
             $perPage = $request->input('per_page', 10);
             $searchTerm = $request->input('search', null);
 
