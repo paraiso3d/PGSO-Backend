@@ -242,15 +242,15 @@ class DivisionController extends Controller
         try {
             // Retrieve all divisions
             $divisions = Division::all();
-
-            // Fetch categories and supervisors for each division
+    
+            // Fetch categories and supervisor full name for each division
             foreach ($divisions as $division) {
                 // Hide timestamp fields
-                $division->makeHidden(['created_at', 'updated_at',]);
-
+                $division->makeHidden(['created_at', 'updated_at']);
+    
                 // Initialize categories as an empty collection if category_id is null
                 $division->categories = [];
-
+    
                 // Check if category_id is not null
                 if ($division->category_id) {
                     // Fetch the assigned categories for the current division
@@ -259,22 +259,26 @@ class DivisionController extends Controller
                         ->where('is_archived', 'A')
                         ->get();
                 }
-
+    
                 // Retrieve the supervisor's information
-                $division->supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
+                $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
                     ->find($division->user_id);
+    
+                // Add full name for supervisor
+                $division->full_name = $supervisor ? 
+                    "{$supervisor->first_name} {$supervisor->middle_initial} {$supervisor->last_name}" : null;
             }
-
+    
             $response = [
                 'isSuccess' => true,
                 'message' => 'Divisions retrieved successfully.',
                 'divisions' => $divisions,
             ];
-
+    
             $this->logAPICalls('getDivisions', '', [], [$response]);
-
+    
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -285,6 +289,7 @@ class DivisionController extends Controller
             return response()->json($response, 500);
         }
     }
+    
 
 
 
