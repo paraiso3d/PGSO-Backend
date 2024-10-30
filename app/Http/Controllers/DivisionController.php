@@ -105,8 +105,8 @@ class DivisionController extends Controller
                 'div_name' => $request->div_name ?? $division->div_name,
                 'note' => $request->note ?? $division->note,
                 'category_id' => json_encode($request->categories ?? json_decode($division->category_id, true)),
-                'user_id' => $request->supervisor
-            ]);
+                'user_id' => $request->user_id
+            ]); 
 
             // Fetch the assigned categories
             $assignedCategories = Category::whereIn('id', json_decode($division->category_id, true))
@@ -115,7 +115,7 @@ class DivisionController extends Controller
 
             // Retrieve the supervisor's information
             $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
-                ->find($request->supervisor);
+                ->find($request->user_id);
 
             $response = [
                 'isSuccess' => true,
@@ -124,7 +124,7 @@ class DivisionController extends Controller
                     'id' => $division->id,
                     'div_name' => $division->div_name,
                     'note' => $division->note,
-                    'supervisor' => $supervisor, // Include supervisor details
+                    'user_id' => $supervisor, // Include supervisor details
                     'categories' => $assignedCategories, // Include categories
                 ],
             ];
