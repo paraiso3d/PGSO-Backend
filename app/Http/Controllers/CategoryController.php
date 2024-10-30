@@ -24,13 +24,13 @@ class CategoryController extends Controller
             $request->validate([
                 'category_name' => 'required|string|unique:categories,category_name',
                 'division_id' => 'required|integer|exists:divisions,id', // Ensures division exists
-                'team_leader' => 'required|integer|exists:users,id' // Ensures supervisor exists
+                'user_id' => 'required|integer|exists:users,id' // Ensures supervisor exists
             ]);
 
             // Retrieve division and supervisor details
             $division = Division::findOrFail($request->division_id);
             $teamleader = User::select('id', 'first_name', 'last_name', 'middle_initial')
-                ->findOrFail($request->team_leader);
+                ->findOrFail($request->user_id);
 
             // Create the category
             $category = Category::create([
@@ -179,9 +179,9 @@ class CategoryController extends Controller
 
 
             $request->validate([
-                'category_name' => 'sometimes|required|string|unique:categories,category_name,' . $id,
+                'category_name' => 'sometimes|required|string',
                 'division_id' => 'sometimes|required|integer|exists:divisions,id',
-                'team_leader' => 'sometimes|required|exists:users,id'
+                'user_id' => 'sometimes|required|exists:users,id'
             ]);
 
 
@@ -327,7 +327,7 @@ class CategoryController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Dropdown options retrieved successfully.',
-                'team_leader' => $teamLeaders,
+                'teamleader' => $teamLeaders,
             ];
 
             // Log the API call
