@@ -27,21 +27,28 @@ class AuthController extends Controller
             // Fetch the user by email
             $user = User::where('email', $request->email)->first();
 
-            // Check if user exists
             if ($user) {
                 // Verify the password
                 if (Hash::check($request->password, $user->password)) {
                     // Generate token
                     $token = $user->createToken('auth-token')->plainTextToken;
 
+                    // Attempt to create session
+                    $session = $this->insertSession($user->id);
+                    if (!$session) {
+                        // Return error if session creation fails
+                        return response()->json(['isSuccess' => false, 'message' => 'Failed to create session.'], 500);
+                    }
 
+                    // Get user type name
                     $userTypeName = optional($user->user_types)->name;
 
-                    // Prepare the response
+                    // Prepare response
                     $response = [
                         'isSuccess' => true,
                         'user' => $user->only(['id', 'email']),
                         'token' => $token,
+                        'sessionCode' => $session,
                         'user_type' => $userTypeName,
                         'message' => 'Logged in successfully'
                     ];
@@ -49,13 +56,12 @@ class AuthController extends Controller
                     // Log the API call
                     $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
 
-                    // Return the successful response
+                    // Return success response
                     return response()->json($response, 200);
 
                 } else {
                     return $this->sendError('Invalid Credentials.');
                 }
-
             } else {
                 return $this->sendError('Provided email address does not exist.');
             }
@@ -74,7 +80,6 @@ class AuthController extends Controller
             return response()->json($response, 500);
         }
     }
-
 
     public function editProfile(Request $request)
     {
@@ -201,21 +206,39 @@ class AuthController extends Controller
             $user = $request->user();
 
             if ($user) {
+                // Find the user's active session
+                $session = Session::where('user_id', $user->id)
+                    ->whereNull('logout_date')
+                    ->latest()
+                    ->first();
+
+                if ($session) {
+                    // Update the session's logout date
+                    $session->update([
+                        'logout_date' => Carbon::now()->toDateTimeString(),
+                    ]);
+                }
+
                 // Revoke only the current access token
                 $user->currentAccessToken()->delete();
 
-                // Optionally, log the API call for auditing
+                // Prepare the response with only required fields
                 $response = [
                     'isSuccess' => true,
                     'message' => 'Logged out successfully',
+                    'sessionCode' => [
+                        'session_code' => $session->session_code,
+                        'logout_date' => $session->logout_date,
+                    ],
                     'user' => $user->only(['id', 'email']),
                 ];
 
+                // Log the API call for auditing
                 $this->logAPICalls('logout', $user->email, $request->all(), $response);
 
                 return response()->json($response, 200);
             } else {
-                return $this->sendError('User not found or already logged out.', 401);
+                return $this->sendError('User not found or already logged out.', 500);
             }
         } catch (Throwable $e) {
             // Define the error response
@@ -229,28 +252,26 @@ class AuthController extends Controller
         }
     }
 
-
-    // Method to insert session
-    public function insertSession(Request $request)
+    // // Method to insert session
+    public function insertSession(int $userId)
     {
         try {
-            $request->validate([
-                'user_id' => 'get|string|exists:user,id' // Ensure this table name is correct
-            ]);
-
-            $sessionCode = Str::uuid();
+            $sessionCode = Str::uuid(); // Generate a unique session code
             $dateTime = Carbon::now()->toDateTimeString();
 
+            // Insert session record into the database
             Session::create([
                 'session_code' => $sessionCode,
-                'user_id' => $request->id,
-                'login_date' => $dateTime
+                'user_id' => $userId,
+                'login_date' => $dateTime,
+                'logout_date' => null, // Initially set logout_date to null
             ]);
 
-            return response()->json(['message' => 'Session successfully created.', 'session_code' => $sessionCode], 201);
+            return $sessionCode; // Return the generated session code
 
         } catch (Throwable $e) {
-            return response()->json(['message' => 'Failed to create session.', 'error' => $e->getMessage()], 500);
+            Log::error('Failed to create session.', ['error' => $e->getMessage()]);
+            return null; // Return null if session creation fails
         }
     }
 
