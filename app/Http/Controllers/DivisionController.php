@@ -97,7 +97,7 @@ class DivisionController extends Controller
                 'note' => ['sometimes', 'string'],
                 'categories' => ['sometimes', 'required', 'array'],
                 'categories.*' => 'exists:categories,id',
-                'supervisor' => 'required|integer|exists:users,id'
+                'user_id' => 'required|exists:users,id'
             ]);
 
             // Update the division
@@ -105,8 +105,8 @@ class DivisionController extends Controller
                 'div_name' => $request->div_name ?? $division->div_name,
                 'note' => $request->note ?? $division->note,
                 'category_id' => json_encode($request->categories ?? json_decode($division->category_id, true)),
-                'user_id' => $request->supervisor
-            ]);
+                'user_id' => $request->user_id
+            ]); 
 
             // Fetch the assigned categories
             $assignedCategories = Category::whereIn('id', json_decode($division->category_id, true))
@@ -115,7 +115,7 @@ class DivisionController extends Controller
 
             // Retrieve the supervisor's information
             $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
-                ->find($request->supervisor);
+                ->find($request->user_id);
 
             $response = [
                 'isSuccess' => true,
@@ -124,7 +124,7 @@ class DivisionController extends Controller
                     'id' => $division->id,
                     'div_name' => $division->div_name,
                     'note' => $division->note,
-                    'supervisor' => $supervisor, // Include supervisor details
+                    'user_id' => $supervisor, // Include supervisor details
                     'categories' => $assignedCategories, // Include categories
                 ],
             ];
@@ -237,54 +237,61 @@ class DivisionController extends Controller
     /**
      * Get all college offices.
      */
-    public function getDivisions()
-    {
-        try {
-            // Retrieve all divisions
-            $divisions = Division::all();
+   public function getDivisions()
+{
+    try {
+        // Retrieve all divisions
+        $divisions = Division::select()
+        ->where('is_archived', 'A')
+        ->get();
 
-            // Fetch categories and supervisors for each division
-            foreach ($divisions as $division) {
-                // Hide timestamp fields
-                $division->makeHidden(['created_at', 'updated_at', 'is_archived']);
+        // Fetch categories and supervisor full name for each division
+        foreach ($divisions as $division) {
+            // Hide timestamp fields
+            $division->makeHidden(['created_at', 'updated_at']);
 
-                // Initialize categories as an empty collection if category_id is null
-                $division->categories = [];
+            // Initialize categories as an empty collection if category_id is null
+            $division->categories = [];
 
-                // Check if category_id is not null
-                if ($division->category_id) {
-                    // Fetch the assigned categories for the current division
-                    $division->categories = Category::whereIn('id', json_decode($division->category_id))
-                        ->select('id', 'category_name')
-                        ->where('is_archived', 'A')
-                        ->get();
-                }
-
-                // Retrieve the supervisor's information
-                $division->supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
-                    ->find($division->user_id);
+            // Check if category_id is not null
+            if ($division->category_id) {
+                // Fetch the assigned categories for the current division
+                $division->categories = Category::whereIn('id', json_decode($division->category_id))
+                    ->select('id', 'category_name')
+                    ->where('is_archived', 'A')
+                    ->get();
             }
 
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Divisions retrieved successfully.',
-                'divisions' => $divisions,
-            ];
+            // Retrieve the supervisor's information
+            $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
+                ->find($division->user_id);
 
-            $this->logAPICalls('getDivisions', '', [], [$response]);
-
-            return response()->json($response, 200);
-
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve divisions.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('getDivisions', '', [], [$response]);
-            return response()->json($response, 500);
+            // Add full name for supervisor
+            $division->full_name = $supervisor ? 
+                "{$supervisor->first_name} {$supervisor->middle_initial} {$supervisor->last_name}" : null;
         }
+
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Divisions retrieved successfully.',
+            'divisions' => $divisions,
+        ];
+
+        $this->logAPICalls('getDivisions', '', [], [$response]);
+
+        return response()->json($response, 200);
+
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve divisions.',
+            'error' => $e->getMessage(),
+        ];
+        $this->logAPICalls('getDivisions', '', [], [$response]);
+        return response()->json($response, 500);
     }
+}
+
 
 
 
