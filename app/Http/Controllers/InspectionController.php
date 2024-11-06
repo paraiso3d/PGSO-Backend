@@ -114,39 +114,37 @@ class InspectionController extends Controller
     public function getInspections(Request $request, $Request_id)
     {
         try {
-            // Check if the `request_id` exists in the Control_Request table
-            $Requestexists = Requests::where('id', $Request_id)->exists();
+            // Check if the `request_id` exists in the Requests table
+            $requestExists = Requests::where('id', $Request_id)->exists();
 
-            if (!$Requestexists) {
+            if (!$requestExists) {
                 return response()->json([
                     'isSuccess' => false,
                     'message' => "No request found for this id: {$Request_id}.",
-                ], 500); // Return a 404 Not Found if no matching control request is found
+                    'inspection' => [],  // Empty inspection array for consistency
+                ], 500);
             }
 
-            // Fetch and group inspection reports by 'control_no' using the provided `request_id`
-            $inspectionReports = Inspection_report::select('control_no', 'id', 'description', 'recommendation')
-                ->where('is_archived', 'A')
-                ->where('request_id', $Request_id) // Filter by the provided request_id
-                ->get()
-                ->groupBy('control_no'); // Group records by 'control_no'
+            // Fetch inspection reports related to the `request_id`
+            $inspectionReports = Inspection_report::where('is_archived', 'A')
+                ->where('request_id', $Request_id)
+                ->get(['control_no', 'id', 'description', 'recommendation']);
 
-            // Prepare the grouped data structure
-            $groupedInspections = $inspectionReports->map(function ($group) {
-                return $group->map(function ($inspection) {
-                    return [
-                        'id' => $inspection->id,
-                        'description' => $inspection->description,
-                        'recommendation' => $inspection->recommendation,
-                    ];
-                });
-            });
+            // Map each inspection to the required structure
+            $inspections = $inspectionReports->map(function ($inspection) {
+                return [
+                    'id' => $inspection->id,
+                    'control_no' => $inspection->control_no,
+                    'description' => $inspection->description,
+                    'recommendation' => $inspection->recommendation,
+                ];
+            })->values(); // Ensure it's an array instead of a collection
 
             // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Inspections retrieved successfully.',
-                'inspection' => $groupedInspections,
+                'inspections' => $inspections,  // Consistently named 'inspections' key
             ];
 
             // Log API calls
@@ -154,11 +152,12 @@ class InspectionController extends Controller
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
-            // Prepare the error response
+            // Error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve inspections.',
                 'error' => $e->getMessage(),
+                'inspections' => [],  // Empty inspections array for consistency
             ];
 
             // Log the error
