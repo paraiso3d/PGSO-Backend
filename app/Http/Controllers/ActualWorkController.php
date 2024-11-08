@@ -35,7 +35,7 @@ class ActualWorkController extends Controller
                 'message' => 'Validation error',
                 'errors' => $validator->errors(),
             ];
-            $this->logAPICalls('createWorkreport', $id, $request->all(), $response);
+            $this->logAPICalls('createWorkreport', $id, [], $response);
             return response()->json($response, 500);
         }
 
@@ -48,8 +48,8 @@ class ActualWorkController extends Controller
                     'isSuccess' => false,
                     'message' => "No request found.",
                 ];
-                $this->logAPICalls('createWorkreport', $id, $request->all(), $response);
-                return response()->json($response, 404);
+                $this->logAPICalls('createWorkreport', $id, [], $response);
+                return response()->json($response, 500);
             }
 
 
@@ -70,7 +70,7 @@ class ActualWorkController extends Controller
                 'message' => 'Actual work report created successfully.',
                 'actualwork' => $newWorkreport,
             ];
-            $this->logAPICalls('createInspection', $existingRequest->id, $request->all(), $response);
+            $this->logAPICalls('createInspection', $existingRequest->id, [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -80,7 +80,7 @@ class ActualWorkController extends Controller
                 'message' => 'Failed to create the actual work report.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('createInspection', $id ?? '', $request->all(), $response);
+            $this->logAPICalls('createInspection', $id ?? '', [], $response);
             return response()->json($response, 500);
         }
     }
@@ -100,7 +100,7 @@ class ActualWorkController extends Controller
                 'message' => 'Validation error',
                 'errors' => $validator->errors(),
             ];
-            $this->logAPICalls('updateWorkreport', $id, $request->all(), $response);
+            $this->logAPICalls('updateWorkreport', $id, [], $response);
             return response()->json($response, 500);
         }
 
@@ -114,8 +114,8 @@ class ActualWorkController extends Controller
                     'isSuccess' => false,
                     'message' => "No actual work report found.",
                 ];
-                $this->logAPICalls('updateWorkreport', $id, $request->all(), $response);
-                return response()->json($response, 404);
+                $this->logAPICalls('updateWorkreport', $id, [], $response);
+                return response()->json($response, 500);
             }
 
             // Prepare the data for updating the inspection report
@@ -133,7 +133,7 @@ class ActualWorkController extends Controller
                 'message' => 'Actual work report updated successfully.',
                 'actualwork' => $existingWorkreport,
             ];
-            $this->logAPICalls('updateWorkreport', $existingWorkreport->id, $request->all(), $response);
+            $this->logAPICalls('updateWorkreport', $existingWorkreport->id, [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -143,7 +143,7 @@ class ActualWorkController extends Controller
                 'message' => 'Failed to update the actual work report.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('updateWorkreport', $id, $request->all(), $response);
+            $this->logAPICalls('updateWorkreport', $id, [], $response);
             return response()->json($response, 500);
         }
     }
@@ -153,13 +153,15 @@ class ActualWorkController extends Controller
     {
         try {
             // Check if the `request_id` exists in the Control_Request table
-            $Requestexists = Requests::where('id', $Request_id)->exists();
-
-            if (!$Requestexists) {
-                return response()->json([
+            if (!Requests::where('id', $Request_id)->exists()) {
+                $response = [
                     'isSuccess' => false,
-                    'message' => "No control request found for this id: {$Request_id}.",
-                ], 500); // Return a 404 Not Found if no matching control request is found
+                    'message' => "No request found for this ID: {$Request_id}.",
+                    'inspections' => [],  // Empty inspections array for consistency
+                ];
+                $this->logAPICalls('getWorkreports', $Request_id, [], $response);
+
+                return response()->json($response, 500);
             }
 
             // Fetch and group inspection reports by 'control_no' using the provided `request_id`
@@ -188,9 +190,10 @@ class ActualWorkController extends Controller
             ];
 
             // Log API calls
-            $this->logAPICalls('getWorkreports', $Request_id, $request->all(), $response);
+            $this->logAPICalls('getWorkreports', $Request_id, [], $response);
 
             return response()->json($response, 200);
+
         } catch (Throwable $e) {
             // Prepare the error response
             $response = [
@@ -200,7 +203,7 @@ class ActualWorkController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getWorkreports', $Request_id ?? '', $request->all(), $response);
+            $this->logAPICalls('getWorkreports', $Request_id ?? '', [], $response);
 
             return response()->json($response, 500);
         }
@@ -242,9 +245,8 @@ class ActualWorkController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('addManpowerDeploy', $newManpowerDeploy->id, $request->all(), $response);
+            $this->logAPICalls('addManpowerDeploy', $newManpowerDeploy->id, [], $response);
 
-            // Return a 200 Created response
             return response()->json($response, 200);
 
         } catch (Throwable $e) {
@@ -256,18 +258,15 @@ class ActualWorkController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('addManpowerDeploy', '', $request->all(), $response);
+            $this->logAPICalls('addManpowerDeploy', '', [], $response);
 
-            // Return a 500 Internal Server Error response
             return response()->json($response, 500);
         }
     }
 
-
     //GET MANPOWER DEPLOYMENT
     public function getManpowerDeploy(Request $request)
     {
-
         try {
             // Fetch all manpower deployment records
             $manpowerDeployments = ManpowerDeployment::select('id', 'first_name', 'last_name', 'rating')
@@ -283,7 +282,7 @@ class ActualWorkController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getManpowerDeploy', '', $request->all(), $response);
+            $this->logAPICalls('getManpowerDeploy', '', [], $response);
 
             return response()->json($response, 200);
 
@@ -297,7 +296,7 @@ class ActualWorkController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getManpowerDeploy', '', $request->all(), $response);
+            $this->logAPICalls('getManpowerDeploy', '', [], $response);
 
             return response()->json($response, 500);
         }
@@ -350,7 +349,7 @@ class ActualWorkController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsActualwork', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsActualwork', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -362,7 +361,7 @@ class ActualWorkController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsActualwork', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsActualwork', "", [], $response);
 
             return response()->json($response, 500);
         }
@@ -384,5 +383,4 @@ class ActualWorkController extends Controller
         }
         return true;
     }
-
 }

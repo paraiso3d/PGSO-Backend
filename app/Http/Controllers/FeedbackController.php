@@ -83,7 +83,7 @@ class FeedbackController extends Controller
                 'feedback' => $feedbackReport,
             ];
     
-            $this->logAPICalls('saveFeedback', $existingAccomplishment->id, $request->all(), $response);
+            $this->logAPICalls('saveFeedback', $existingAccomplishment->id, [], $response);
     
             return response()->json($response, 200);
     
@@ -98,7 +98,7 @@ class FeedbackController extends Controller
                 'message' => 'Failed to save the feedback.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('saveFeedback', $id ?? '', $request->all(), $response);
+            $this->logAPICalls('saveFeedback', $id ?? '', [], $response);
             return response()->json($response, 500);
         }
     }
@@ -115,9 +115,9 @@ class FeedbackController extends Controller
                 'api_response' => json_encode($resp),
             ]);
         } catch (Throwable $e) {
-            return false;  // Return false to indicate logging failure
+            return false; 
         }
-        return true;  // Return true to indicate successful logging
+        
+        return true;  
     }
-
 }

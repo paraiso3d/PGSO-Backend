@@ -17,34 +17,7 @@ use App\Models\Session;
 
 class InspectionController extends Controller
 {
-
-    // public function __construct(Request $request)
-    // {
-    //     // Retrieve the authenticated user
-    //     $user = $request->user();
-
-    //     // Apply middleware based on the user type
-    //     if ($user && $user->user_type === 'Administrator') {
-    //         $this->middleware('UserTypeAuth:Administrator')->only(['updateReview', 'getReviews']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Supervisor') {
-    //         $this->middleware('UserTypeAuth:Supervisor')->only(['updateReview', 'getReviews']);
-    //     }
-
-    //     if ($user && $user->user_type === 'TeamLeader') {
-    //         $this->middleware('UserTypeAuth:TeamLeader')->only(['updateReview', 'getReviews']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Controller') {
-    //         $this->middleware('UserTypeAuth:Controller')->only(['updateReview', 'getReviews']);
-    //     }
-
-    //     if ($user && $user->user_type === 'DeanHead') {
-    //         $this->middleware('UserTypeAuth:DeanHead')->only(['getReviews']);
-    //     }
-    // }
-
+    // Method to create new Inspection report.
     public function createInspection(Request $request, $id = null)
     {
 
@@ -60,7 +33,7 @@ class InspectionController extends Controller
                 'message' => 'Validation error',
                 'errors' => $validator->errors(),
             ];
-            $this->logAPICalls('createInspection', $id, $request->all(), $response);
+            $this->logAPICalls('createInspection', $id, [], $response);
             return response()->json($response, 500);
         }
 
@@ -74,7 +47,7 @@ class InspectionController extends Controller
                     'isSuccess' => false,
                     'message' => "No request found.",
                 ];
-                $this->logAPICalls('createInspection', $id, $request->all(), $response);
+                $this->logAPICalls('createInspection', $id, [], $response);
                 return response()->json($response, 404);
             }
 
@@ -96,7 +69,7 @@ class InspectionController extends Controller
                 'message' => 'Inspection report created successfully.',
                 'inspection' => $newInspection,
             ];
-            $this->logAPICalls('createInspection', $existingRequest->id, $request->all(), $response);
+            $this->logAPICalls('createInspection', $existingRequest->id, [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -106,52 +79,54 @@ class InspectionController extends Controller
                 'message' => 'Failed to create the inspection report.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('createInspection', $id ?? '', $request->all(), $response);
+            $this->logAPICalls('createInspection', $id ?? '', [], $response);
             return response()->json($response, 500);
         }
     }
 
-    public function getInspections(Request $request, $Request_id)
+    // Method for getting Inspection report list.
+    public function getInspections(Request $request, $requestId)
     {
+        // Generate a unique identifier for logging
+        $logRequestId = (string) Str::uuid();
+
         try {
             // Check if the `request_id` exists in the Requests table
-            $requestExists = Requests::where('id', $Request_id)->exists();
-
-            if (!$requestExists) {
-                return response()->json([
+            if (!Requests::where('id', $requestId)->exists()) {
+                $response = [
                     'isSuccess' => false,
-                    'message' => "No request found for this id: {$Request_id}.",
-                    'inspection' => [],  // Empty inspection array for consistency
-                ], 500);
+                    'message' => "No request found for this ID: {$requestId}.",
+                    'inspections' => [],  // Empty inspections array for consistency
+                ];
+                $this->logAPICalls('getInspections', $logRequestId, [], $response);
+                return response()->json($response, 500);
             }
 
             // Fetch inspection reports related to the `request_id`
-            $inspectionReports = Inspection_report::where('is_archived', 'A')
-                ->where('request_id', $Request_id)
-                ->get(['request_id','control_no', 'id', 'description', 'recommendation']);
-
-            // Map each inspection to the required structure
-            $inspections = $inspectionReports->map(function ($inspection) {
-                return [
-                    'request_id' =>$inspection->request_id,
-                    'id' => $inspection->id,
-                    'control_no' => $inspection->control_no,
-                    'description' => $inspection->description,
-                    'recommendation' => $inspection->recommendation,
-                ];
-            })->values(); // Ensure it's an array instead of a collection
+            $inspections = Inspection_report::where('is_archived', 'A')
+                ->where('request_id', $requestId)
+                ->get(['request_id', 'control_no', 'id', 'description', 'recommendation'])
+                ->map(function ($inspection) {
+                    return [
+                        'request_id' => $inspection->request_id,
+                        'id' => $inspection->id,
+                        'control_no' => $inspection->control_no,
+                        'description' => $inspection->description,
+                        'recommendation' => $inspection->recommendation,
+                    ];
+                })->all(); // Convert to array for consistent output
 
             // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Inspections retrieved successfully.',
-                'inspections' => $inspections,  // Consistently named 'inspections' key
+                'inspections' => $inspections,
             ];
 
-            // Log API calls
-            $this->logAPICalls('getInspections', $Request_id, $request->all(), $response);
-
+            // Log API call
+            $this->logAPICalls('getInspections', $logRequestId, [], $response);
             return response()->json($response, 200);
+
         } catch (Throwable $e) {
             // Error response
             $response = [
@@ -162,12 +137,12 @@ class InspectionController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getInspections', $Request_id ?? '', $request->all(), $response);
-
+            $this->logAPICalls('getInspections', $logRequestId, [], $response);
             return response()->json($response, 500);
         }
     }
 
+    // Method for updating the Inspection report.
     public function updateInspection(Request $request, $id)
     {
         // Validate the incoming request data using Laravel's built-in validation method
@@ -182,7 +157,8 @@ class InspectionController extends Controller
                 'message' => 'Validation error',
                 'errors' => $validator->errors(),
             ];
-            $this->logAPICalls('updateInspection', $id, $request->all(), $response);
+            $this->logAPICalls('updateInspection', $id, [], $response);
+
             return response()->json($response, 500);
         }
 
@@ -196,7 +172,8 @@ class InspectionController extends Controller
                     'isSuccess' => false,
                     'message' => "No inspection report found.",
                 ];
-                $this->logAPICalls('updateInspection', $id, $request->all(), $response);
+                $this->logAPICalls('updateInspection', $id, [], $response);
+
                 return response()->json($response, 404);
             }
 
@@ -215,9 +192,10 @@ class InspectionController extends Controller
                 'message' => 'Inspection report updated successfully.',
                 'inspection' => $existingInspection,
             ];
-            $this->logAPICalls('updateInspection', $existingInspection->id, $request->all(), $response);
+            $this->logAPICalls('updateInspection', $existingInspection->id, [], $response);
 
             return response()->json($response, 200);
+
         } catch (Throwable $e) {
             // Response for failed operation
             $response = [
@@ -225,7 +203,8 @@ class InspectionController extends Controller
                 'message' => 'Failed to update the inspection report.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('updateInspection', $id, $request->all(), $response);
+            $this->logAPICalls('updateInspection', $id, [], $response);
+
             return response()->json($response, 500);
         }
     }
@@ -248,9 +227,10 @@ class InspectionController extends Controller
             ];
 
             // Log the API call (assuming this method works properly)
-            $this->logAPICalls('deleteInspection', $inspection->request_id, $request->all(), $response);
+            $this->logAPICalls('deleteInspection', $inspection->request_id, [], $response);
 
             return response()->json($response, 200);
+
         } catch (Throwable $e) {
             // Prepare the error response
             $response = [
@@ -260,7 +240,7 @@ class InspectionController extends Controller
             ];
 
             // Log the API call with failure response
-            $this->logAPICalls('deleteInspection', $request->request_id ?? '', $request->all(), $response);
+            $this->logAPICalls('deleteInspection', $request->request_id ?? '', [], $response);
 
             return response()->json($response, 500);
         }
@@ -284,9 +264,10 @@ class InspectionController extends Controller
             ];
 
             // Log the API call (assuming this method works properly)
-            $this->logAPICalls('updateWorkStatus', $work->id, $request->all(), $response);
+            $this->logAPICalls('updateWorkStatus', $work->id, [], $response);
 
             return response()->json($response, 200);
+            
         } catch (Throwable $e) {
             // Prepare the error response
             $response = [
@@ -296,7 +277,7 @@ class InspectionController extends Controller
             ];
 
             // Log the API call with failure response
-            $this->logAPICalls('updateWorkStatus', $request->id ?? '', $request->all(), $response);
+            $this->logAPICalls('updateWorkStatus', $request->id ?? '', [], $response);
 
             return response()->json($response, 500);
         }

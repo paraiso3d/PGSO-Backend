@@ -78,7 +78,7 @@ class AccomplishmentReportController extends Controller
                 'accomplishment' => $accomplishmentReport,
             ];
 
-            $this->logAPICalls('saveAccomplishmentReport', $existingRequest->id, $request->all(), $response);
+            $this->logAPICalls('saveAccomplishmentReport', $existingRequest->id, [], $response);
 
             return response()->json($response, 200);
 
@@ -95,7 +95,8 @@ class AccomplishmentReportController extends Controller
                 'message' => 'Failed to save the accomplishment report.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('saveAccomplishmentReport', $id ?? '', $request->all(), $response);
+            $this->logAPICalls('saveAccomplishmentReport', $id ?? '', [], $response);
+            
             return response()->json($response, 500);
         }
     }
@@ -111,19 +112,10 @@ class AccomplishmentReportController extends Controller
                 'api_response' => json_encode($resp),
             ]);
         } catch (Throwable $e) {
-            // Log any exceptions that occur during database logging
-            Log::error("Failed to log API call to database: {$e->getMessage()}");
-            return false;  // Return false to indicate logging failure
+            return false;  
         }
 
-        // Also log to the Laravel log file
-        Log::info("API Call: {$methodName}", [
-            'user_id' => $userId,
-            'request_data' => $param,
-            'response' => $resp,
-        ]);
-
-        return true;  // Return true to indicate successful logging
+        return true; 
     }
 
 }

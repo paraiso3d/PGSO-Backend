@@ -20,47 +20,24 @@ use Illuminate\Validation\Rule;
 
 class ReviewController extends Controller
 {
-
-    // public function __construct(Request $request)
-    // {
-    //     // Retrieve the authenticated user
-    //     $user = $request->user();
-
-    //     // Apply middleware based on the user type
-    //     if ($user && $user->user_type === 'Administrator') {
-    //         $this->middleware('UserTypeAuth:Administrator')->only(['updateReview', 'getReviews']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Supervisor') {
-    //         $this->middleware('UserTypeAuth:Supervisor')->only(['updateReview', 'getReviews']);
-    //     }
-
-    //     if ($user && $user->user_type === 'TeamLeader') {
-    //         $this->middleware('UserTypeAuth:TeamLeader')->only(['updateReview', 'getReviews']);
-    //     }
-
-    //     if ($user && $user->user_type === 'Controller') {
-    //         $this->middleware('UserTypeAuth:Controller')->only(['updateReview', 'getReviews']);
-    //     }
-
-    //     if ($user && $user->user_type === 'DeanHead') {
-    //         $this->middleware('UserTypeAuth:DeanHead')->only(['getReviews']);
-    //     }
-    // }
     // Method to retrieve all requests
-
     public function getReviews($id)
     {
+        // Generate a unique identifier for logging
+        $requestId = (string) Str::uuid();
+
         try {
             // Validate the ID
             if (!is_numeric($id)) {
-                return response()->json([
+                $response = [
                     'isSuccess' => false,
                     'message' => 'Invalid ID provided.',
-                ], 400);
+                ];
+                $this->logAPICalls('getReviews', $requestId, [], $response);
+                return response()->json($response, 500);
             }
 
-            // Fetch the request data along with the related office, location, and category_id
+            // Fetch the request data along with related office, location, and category ID
             $result = Requests::select(
                 'requests.id',
                 'requests.control_no',
@@ -71,36 +48,35 @@ class ReviewController extends Controller
                 'requests.file_path',
                 'requests.area',
                 'requests.fiscal_year',
-                'requests.category_id'  // Add the category_id to the result
+                'requests.category_id'
             )
                 ->where('requests.id', $id)
                 ->where('requests.is_archived', 'A')
                 ->first();
 
-            // Check if the result is null
+            // Check if the request data is found
             if (!$result) {
-                return response()->json([
+                $response = [
                     'isSuccess' => true,
                     'message' => 'No request found.',
                     'data' => null,
                     'searched_id' => $id,
-                ], 200);
+                ];
+                $this->logAPICalls('getReviews', $requestId, [], $response);
+                return response()->json($response, 500);
             }
 
-            // Fetch the office and location details
+            // Fetch the related office and location details
             $office = Office::find($result->office_id);
             $location = Location::find($result->location_id);
 
-            // Decode the category_id (stored as JSON) to get an array of category IDs
+            // Decode category IDs and fetch category names
             $categoryIds = json_decode($result->category_id, true);
+            $categoryNames = !empty($categoryIds)
+                ? Category::whereIn('id', $categoryIds)->pluck('category_name')
+                : [];
 
-            // Fetch the corresponding category names using the IDs
-            $categoryNames = [];
-            if (!empty($categoryIds)) {
-                $categoryNames = Category::whereIn('id', $categoryIds)->pluck('category_name');
-            }
-
-            // Prepare the response data to match the new logic in updateReview
+            // Prepare the response data
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request retrieved successfully.',
@@ -111,16 +87,17 @@ class ReviewController extends Controller
                     'overtime' => $result->overtime,
                     'area' => $result->area,
                     'fiscal_year' => $result->fiscal_year,
-                    'status' => 'For Inspection',  // Assuming status for inspection since it's similar to updateReview
+                    'status' => 'For Inspection',
                     'office_id' => $office->id,
-                    'office_name' => $office ? $office->office_name : null,
+                    'office_name' => $office->office_name,
                     'location_id' => $location->id,
-                    'location_name' => $location ? $location->location_name : null,
-                    'file_url' => asset('storage/' . $result->file_path),  // Return the public URL of the uploaded file
-                    'category_names' => $categoryNames,  // Return category names
+                    'location_name' => $location->location_name,
+                    'file_url' => asset('storage/' . $result->file_path),
+                    'category_names' => $categoryNames,
                 ]
             ];
 
+            $this->logAPICalls('getReviews', $requestId, [], $response);
             return response()->json($response, 200);
 
         } catch (Throwable $e) {
@@ -129,12 +106,12 @@ class ReviewController extends Controller
                 'message' => 'Failed to retrieve the request.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('getReviews', '', ['id' => $id], $response);
-
+            $this->logAPICalls('getReviews', $requestId, [], $response);
             return response()->json($response, 500);
         }
     }
 
+    // Method to update the Review report.
     public function updateReview(Request $request, $id = null)
     {
         // Validate the incoming request data
@@ -150,7 +127,7 @@ class ReviewController extends Controller
             'overtime' => 'sometimes|string|in:Yes,No',
             'remarks' => 'sometimes|string',
         ]);
-        
+
 
         if ($validator->fails()) {
             $response = [
@@ -158,7 +135,10 @@ class ReviewController extends Controller
                 'message' => 'Validation error',
                 'errors' => $validator->errors(),
             ];
-            return response()->json($response, 422);
+
+            $this->logAPICalls('updateReview', "", [], $response);
+
+            return response()->json($response, 500);
         }
 
         try {
@@ -170,7 +150,10 @@ class ReviewController extends Controller
                     'isSuccess' => false,
                     'message' => "No request found with ID {$id}.",
                 ];
-                return response()->json($response, 404);
+
+                $this->logAPICalls('updateReview', "", [], $response);
+
+                return response()->json($response, 500);
             }
 
             // Fetch location and office based on the IDs from the request
@@ -184,20 +167,20 @@ class ReviewController extends Controller
             if ($request->hasFile('file_path')) {
                 // Get the uploaded file
                 $file = $request->file('file_path');
-    
+
                 // Convert the uploaded file to base64
                 $fileContents = file_get_contents($file->getRealPath());
                 $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
-    
+
                 // Call your saveImage method to handle the base64 image
                 $path = $this->getSetting("ASSET_IMAGE_PATH");
                 $fdateNow = now()->format('Y-m-d');
                 $ftimeNow = now()->format('His');
                 $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $existingRequest->control_no, $fdateNow . '_' . $ftimeNow);
-    
+
                 $fileUrl = asset('storage/' . $filePath);
             }
-            
+
             // Handle categories (multiple checkboxes)
             $categories = $request->input('categories', []); // Fetch selected categories or default to empty
 
@@ -249,6 +232,8 @@ class ReviewController extends Controller
                 ]
             ];
 
+            $this->logAPICalls('updateReview', "", [], $response);
+
             return response()->json($response, 200);
 
         } catch (Throwable $e) {
@@ -258,6 +243,8 @@ class ReviewController extends Controller
                 'message' => 'Failed to save the review change.',
                 'error' => $e->getMessage(),
             ];
+
+            $this->logAPICalls('updateReview', "", [], $response);
 
             return response()->json($response, 500);
         }
@@ -279,7 +266,7 @@ class ReviewController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsReviewlocation', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsReviewlocation', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -291,7 +278,7 @@ class ReviewController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsReviewlocation', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsReviewlocation', "", [], $response);
 
             return response()->json($response, 500);
         }
@@ -313,7 +300,7 @@ class ReviewController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsReviewoffice', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsReviewoffice', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -325,7 +312,7 @@ class ReviewController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsReviewoffice', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsReviewoffice', "", [], $response);
 
             return response()->json($response, 500);
         }
@@ -349,7 +336,7 @@ class ReviewController extends Controller
             ];
 
             // Log the API call (assuming this method works properly)
-            $this->logAPICalls('updateWorkStatus', $work->id, $request->all(), $response);
+            $this->logAPICalls('updateWorkStatus', $work->id, [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -361,7 +348,7 @@ class ReviewController extends Controller
             ];
 
             // Log the API call with failure response
-            $this->logAPICalls('updateWorkStatus', $request->id ?? '', $request->all(), $response);
+            $this->logAPICalls('updateWorkStatus', $request->id ?? '', [], $response);
 
             return response()->json($response, 500);
         }
