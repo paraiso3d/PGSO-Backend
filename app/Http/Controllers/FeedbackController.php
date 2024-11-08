@@ -115,18 +115,8 @@ class FeedbackController extends Controller
                 'api_response' => json_encode($resp),
             ]);
         } catch (Throwable $e) {
-            // Log any exceptions that occur during database logging
-            Log::error("Failed to log API call to database: {$e->getMessage()}");
             return false;  // Return false to indicate logging failure
         }
-
-        // Also log to the Laravel log file
-        Log::info("API Call: {$methodName}", [
-            'user_id' => $userId,
-            'request_data' => $param,
-            'response' => $resp,
-        ]);
-
         return true;  // Return true to indicate successful logging
     }
 

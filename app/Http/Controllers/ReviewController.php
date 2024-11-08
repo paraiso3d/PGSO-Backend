@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+use DB;
 use App\Models\Accomplishment_report;
 use App\Models\Category;
 use App\Models\Division;
@@ -143,12 +144,13 @@ class ReviewController extends Controller
             'location_id' => 'required|exists:locations,id',
             'area' => 'sometimes|string',
             'fiscal_year' => 'sometimes|string',
-            'file_path' => 'sometimes|file',
+            'file_path' => 'sometimes|file|mimes:pdf,jpg,png,docx|max:5120',
             'categories' => 'sometimes|array',
             'categories.*' => 'exists:categories,id',
             'overtime' => 'sometimes|string|in:Yes,No',
             'remarks' => 'sometimes|string',
         ]);
+        
 
         if ($validator->fails()) {
             $response = [
@@ -179,11 +181,23 @@ class ReviewController extends Controller
             $office = Office::findOrFail($officeId);
 
             // Handle file upload
-            $filePath = $existingRequest->file_path;
             if ($request->hasFile('file_path')) {
-                $filePath = $request->file('file_path')->store('uploads');
+                // Get the uploaded file
+                $file = $request->file('file_path');
+    
+                // Convert the uploaded file to base64
+                $fileContents = file_get_contents($file->getRealPath());
+                $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
+    
+                // Call your saveImage method to handle the base64 image
+                $path = $this->getSetting("ASSET_IMAGE_PATH");
+                $fdateNow = now()->format('Y-m-d');
+                $ftimeNow = now()->format('His');
+                $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $existingRequest->control_no, $fdateNow . '_' . $ftimeNow);
+    
+                $fileUrl = asset('storage/' . $filePath);
             }
-
+            
             // Handle categories (multiple checkboxes)
             $categories = $request->input('categories', []); // Fetch selected categories or default to empty
 
@@ -351,6 +365,18 @@ class ReviewController extends Controller
 
             return response()->json($response, 500);
         }
+    }
+
+    public function getSetting(string $code)
+    {
+        try {
+            $value = DB::table('settings')
+                ->where('setting_code', $code)
+                ->value('setting_value');
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+        return $value;
     }
 
     // Log API calls for requests

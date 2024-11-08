@@ -185,43 +185,6 @@ class OfficeController extends Controller
         }
     }
 
-    // public function getDropdownOptionsOffices(Request $request)
-    // {
-
-    // try {
-    //     // Fetch distinct office types that are either 'Academic' or 'Non-Academic'
-    //     $offices = Office::selectRaw('MIN(id) as id, office_type')
-    //     ->whereIn('office_type', ['Academic', 'Non-Academic'])
-    //     ->where('is_archived', 'A')
-    //     ->groupBy('office_type')
-    //     ->get();
-
-    //         // Build the response
-    //         $response = [
-    //             'isSuccess' => true,
-    //             'message' => 'Dropdown data retrieved successfully.',
-    //             'offices' => $offices,
-    //         ];
-
-    //         // Log the API call
-    //         $this->logAPICalls('getDropdownOptionsOffice', "", $request->all(), $response);
-
-    //         return response()->json($response, 200);
-    //     } catch (Throwable $e) {
-    //         // Handle the error response
-    //         $response = [
-    //             'isSuccess' => false,
-    //             'message' => 'Failed to retrieve dropdown data.',
-    //             'error' => $e->getMessage()
-    //         ];
-
-    //         // Log the error
-    //         $this->logAPICalls('getDropdownOptionsOffice', "", $request->all(), $response);
-
-    //         return response()->json($response, 500);
-    //     }
-    // }
-
     /**
      * Log all API calls.
      */

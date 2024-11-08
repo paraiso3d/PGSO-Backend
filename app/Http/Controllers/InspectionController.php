@@ -128,11 +128,12 @@ class InspectionController extends Controller
             // Fetch inspection reports related to the `request_id`
             $inspectionReports = Inspection_report::where('is_archived', 'A')
                 ->where('request_id', $Request_id)
-                ->get(['control_no', 'id', 'description', 'recommendation']);
+                ->get(['request_id','control_no', 'id', 'description', 'recommendation']);
 
             // Map each inspection to the required structure
             $inspections = $inspectionReports->map(function ($inspection) {
                 return [
+                    'request_id' =>$inspection->request_id,
                     'id' => $inspection->id,
                     'control_no' => $inspection->control_no,
                     'description' => $inspection->description,
