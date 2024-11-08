@@ -36,7 +36,8 @@ class RequestController extends Controller
                 'message' => 'Validation error',
                 'errors' => $validator->errors(),
             ];
-            $this->logAPICalls('createRequest', '', $request->all(), $response);
+            $this->logAPICalls('createRequest', '', [], $response);
+
             return response()->json($response, 500);
         }
 
@@ -116,8 +117,7 @@ class RequestController extends Controller
                 ]
             ];
 
-            $this->logAPICalls('createRequest', $newRequest->id, $request->all(), $response);
-
+            $this->logAPICalls('createRequest', $newRequest->id, [], $response);
 
             return response()->json($response, 200);
 
@@ -129,7 +129,7 @@ class RequestController extends Controller
                 'error' => $e->getMessage(),
             ];
 
-            $this->logAPICalls('createRequest', '', $request->all(), $response);
+            $this->logAPICalls('createRequest', '', [], $response);
 
             return response()->json($response, 500);
         }
@@ -145,7 +145,7 @@ class RequestController extends Controller
                 'isSuccess' => false,
                 'message' => 'Only requests with the status "Returned" can be updated.',
             ];
-            $this->logAPICalls('updateRequest', '', $request->all(), $response);
+            $this->logAPICalls('updateRequest', '', [], $response);
             return response()->json($response, 403);
         }
 
@@ -157,7 +157,7 @@ class RequestController extends Controller
                 'message' => 'Validation error',
                 'errors' => $validator->errors(),
             ];
-            $this->logAPICalls('updateRequest', '', $request->all(), $response);
+            $this->logAPICalls('updateRequest', '', [], $response);
             return response()->json($response, 500);
         }
 
@@ -225,7 +225,7 @@ class RequestController extends Controller
                 ]
             ];
 
-            $this->logAPICalls('updateRequest', $existingRequest->id, $request->all(), $response);
+            $this->logAPICalls('updateRequest', $existingRequest->id, [], $response);
 
             return response()->json($response, 200);
 
@@ -237,7 +237,7 @@ class RequestController extends Controller
                 'error' => $e->getMessage(),
             ];
 
-            $this->logAPICalls('updateRequest', '', $request->all(), $response);
+            $this->logAPICalls('updateRequest', '', [], $response);
 
             return response()->json($response, 500);
         }
@@ -252,8 +252,6 @@ class RequestController extends Controller
             $role = DB::table('user_types')
                 ->where('id', $userTypeId)
                 ->value('name');
-
-            Log::info("User Role: " . $role);
 
             // Pagination settings
             $perPage = $request->input('per_page', 10);
@@ -344,7 +342,8 @@ class RequestController extends Controller
                     'isSuccess' => false,
                     'message' => 'No requests found matching the criteria.',
                 ];
-                $this->logAPICalls('getRequests', "", $request->all(), $response);
+                $this->logAPICalls('getRequests', "", [], $response);
+
                 return response()->json($response, 500);
             }
 
@@ -379,7 +378,8 @@ class RequestController extends Controller
                 ],
             ];
 
-            $this->logAPICalls('getRequests', "", $request->all(), $response);
+            $this->logAPICalls('getRequests', "", [], $response);
+
             return response()->json($response, 200);
 
         } catch (Throwable $e) {
@@ -389,7 +389,8 @@ class RequestController extends Controller
                 'error' => $e->getMessage(),
             ];
 
-            $this->logAPICalls('getRequests', "", $request->all(), $response);
+            $this->logAPICalls('getRequests', "", [], $response);
+
             return response()->json($response, 500);
         }
     }
@@ -419,44 +420,6 @@ class RequestController extends Controller
         }
     }
 
-    // Method to click on control number by status
-    public function handleRequestClick($id)
-    {
-        // Fetch the request based on the control number
-        $request = Requests::where('id', $id)->first();
-
-        // Check if the request exists
-        if (!$request) {
-            return response()->json(['error' => 'Request not found'], Response::HTTP_NOT_FOUND);
-        }
-
-        // Conditional logic based on the status of the request
-        switch ($request->status) {
-            case 'Pending':
-                return response()->json([
-                    'redirect_url' => route('requests.pending', ['id' => $id]),
-                ]);
-
-            case 'For Inspection':
-                return response()->json([
-                    'redirect_url' => route('requests.inspection', ['id' => $id]),
-                ]);
-
-            case 'On-Going':
-                return response()->json([
-                    'redirect_url' => route('requests.ongoing', ['id' => $id]),
-                ]);
-
-            case 'Completed':
-                return response()->json([
-                    'redirect_url' => route('requests.completed', ['id' => $id]),
-                ]);
-
-            default:
-                return response()->json(['error' => 'Unknown status'], Response::HTTP_BAD_REQUEST);
-        }
-    }
-
     //Dropdown Request Location
     public function getDropdownOptionsRequestslocation(Request $request)
     {
@@ -473,7 +436,7 @@ class RequestController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsRequestslocation', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestslocation', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -485,12 +448,11 @@ class RequestController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsRequestslocation', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestslocation', "", [], $response);
 
             return response()->json($response, 500);
         }
     }
-
 
     //Dropdown Request Status
     public function getDropdownOptionsRequeststatus(Request $request)
@@ -511,7 +473,7 @@ class RequestController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsRequeststatus', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequeststatus', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -523,7 +485,7 @@ class RequestController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsRequeststatus', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequeststatus', "", [], $response);
 
             return response()->json($response, 500);
         }
@@ -547,7 +509,7 @@ class RequestController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsRequestyear', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestyear', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -559,7 +521,7 @@ class RequestController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsRequestyear', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestyear', "", [], $response);
 
             return response()->json($response, 500);
         }
@@ -583,7 +545,7 @@ class RequestController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsRequestdivision', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestdivision', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -595,7 +557,7 @@ class RequestController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsRequestdivision', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestdivision', "", [], $response);
 
             return response()->json($response, 500);
         }
@@ -620,7 +582,7 @@ class RequestController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionsRequestcategory', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestcategory', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -632,7 +594,7 @@ class RequestController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionsRequestcategory', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionsRequestcategory', "", [], $response);
 
             return response()->json($response, 500);
         }
@@ -655,7 +617,7 @@ class RequestController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionscreateRequestsoffice', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionscreateRequestsoffice', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -667,7 +629,7 @@ class RequestController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionscreateRequestsoffice', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionscreateRequestsoffice', "", [], $response);
 
             return response()->json($response, 500);
         }
@@ -690,7 +652,7 @@ class RequestController extends Controller
             ];
 
             // Log the API call
-            $this->logAPICalls('getDropdownOptionscreateRequestslocation', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionscreateRequestslocation', "", [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -702,7 +664,7 @@ class RequestController extends Controller
             ];
 
             // Log the error
-            $this->logAPICalls('getDropdownOptionscreateRequestslocation', "", $request->all(), $response);
+            $this->logAPICalls('getDropdownOptionscreateRequestslocation', "", [], $response);
 
             return response()->json($response, 500);
         }
