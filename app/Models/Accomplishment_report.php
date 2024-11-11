@@ -16,7 +16,8 @@ class Accomplishment_report extends Model
         'date_completed',
         'remarks',
         'division_id',
-        'status'
+        'status',
+        'user_id'
     ];
 
     protected $casts = [
