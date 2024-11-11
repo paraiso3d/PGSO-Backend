@@ -116,7 +116,7 @@ Route::controller(RequestController::class)->group(function () {
 Route::middleware('auth:sanctum')->get('requestList', [RequestController::class, 'getRequests']);
 Route::middleware('auth:sanctum')->post('createRequest', [RequestController::class, 'createRequest']);
 Route::middleware('auth:sanctum')->post('updateReturn/{id}', [RequestController::class, 'updateReturn']);
-
+//Request
 Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
 Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');
 Route::get('requests/ongoing/{id}', [ActualWorkController::class, 'getWorkreports'])->name('requests.ongoing');
@@ -125,15 +125,15 @@ Route::get('/requests/completed/{id}', [AccomplishmentReportController::class, '
 /*
 |--------------------\Accomplishment Report API-----------------------\
 */
-Route::controller(AccomplishmentReportController::class)->group(function () {
-    Route::post('saveAccomplishment/{id}', 'saveAccomplishmentReport');
 
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('saveAccomplishment/{id?}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
+
+    //Feedback
+    Route::post('saveFeedback/{id?}', [FeedbackController::class, 'saveFeedback']);
 });
 
-Route::controller(FeedbackController::class)->group(function () {
-    Route::post('saveFeedback/{id}', 'saveFeedback');
 
-});
 
 // Route::middleware(['auth:sanctum'])->group(function () {
 //     // Admin can access all CRUD routes
