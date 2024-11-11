@@ -420,6 +420,51 @@ class RequestController extends Controller
         }
     }
 
+    public function assessRequest(Request $request)
+    {
+        try {
+            // Retrieve the currently logged-in user
+            $user = auth()->user();
+
+            // Retrieve the record based on the provided request ID
+            $work = Requests::where('id', $request->id)->firstOrFail();
+
+            // Update the status to "On-going"
+            $work->update(['status' => 'For Review']);
+
+            // Prepare the full name of the currently logged-in user
+            $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
+
+            // Prepare the response
+            $response = [
+                'isSuccess' => true,
+                'messsage' => 'Assesing request.',
+                'request_id' => $work->id,
+                'status' => $work->status,
+                'user_id' => $user->id,
+                'user' => $fullName,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('assessRequest', $work->id, [], $response);
+
+            return response()->json($response, 200);
+
+        } catch (Throwable $e) {
+            // Prepare the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to update the work status.",
+                'error' => $e->getMessage(),
+            ];
+
+            // Log the API call with failure response
+            $this->logAPICalls('assessRequest', $request->id ?? '', [], $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
     //Dropdown Request Location
     public function getDropdownOptionsRequestslocation(Request $request)
     {

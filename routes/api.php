@@ -116,6 +116,8 @@ Route::controller(RequestController::class)->group(function () {
 Route::middleware('auth:sanctum')->get('requestList', [RequestController::class, 'getRequests']);
 Route::middleware('auth:sanctum')->post('createRequest', [RequestController::class, 'createRequest']);
 Route::middleware('auth:sanctum')->post('updateReturn/{id}', [RequestController::class, 'updateReturn']);
+Route::middleware('auth:sanctum')->post('assessRequest/{id}', [RequestController::class, 'assessRequest']);
+
 //Request
 Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
 Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');

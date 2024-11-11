@@ -291,7 +291,7 @@ class InspectionController extends Controller
             $work = Requests::where('id', $request->id)->firstOrFail();
 
             // Update the status to "On-going"
-            $work->update(['status' => 'On-going']);
+            $work->update(['status' => 'On going']);
 
             // Prepare the full name of the currently logged-in user
             $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
