@@ -237,34 +237,50 @@ Route::controller(ReviewController::class)->group(function () {
 
 });
 
-/*
-|--------------------Actual Work API-----------------------\
-*/
+// /*
+// |--------------------Actual Work API-----------------------\
+// */
 
-Route::controller(ActualWorkController::class)->group(function () {
-    Route::post('createWorkreport/{id}', 'createWorkreport');
-    Route::post('updateWorkreport/{id}', 'updateWorkreport');
-    Route::get('workreportList/{id}', 'getWorkreports');
+// Route::controller(ActualWorkController::class)->group(function () {
+//     Route::post('createWorkreport/{id}', 'createWorkreport');
+//     Route::post('updateWorkreport/{id}', 'updateWorkreport');
+//     Route::get('workreportList/{id}', 'getWorkreports');
 
-    //MANPOWER DEPLOYMENT API
+//     //MANPOWER DEPLOYMENT API
 
-    Route::post('addmanpowerdeploy', 'addManpowerDeploy');
-    Route::get('manpowerdeployList', 'getManpowerDeploy');
-    Route::post('deleteManpowerdeploy/{id}', 'deletemanpowerdeployment');
-    Route::get('getdropdownManpowerDeploy', 'getDropdownOptionsActualwork');
+//     Route::post('addmanpowerdeploy', 'addManpowerDeploy');
+//     Route::get('manpowerdeployList', 'getManpowerDeploy');
+//     Route::post('deleteManpowerdeploy/{id}', 'deletemanpowerdeployment');
+//     Route::get('getdropdownManpowerDeploy', 'getDropdownOptionsActualwork');
+// });
+
+// /*
+// |--------------------Inspection API-----------------------\
+// */
+
+Route::middleware(['auth:sanctum'])->group(function () {
+
+    //INSPECTION REPORT API
+    Route::post('createInspection/{id}', [InspectionController::class,'createInspection']);
+    Route::post('updateInspection/{id}', [InspectionController::class, 'updateInspection']);
+    Route::post('deleteInspection/{id}', [InspectionController::class, 'deleteInspection']);
+    Route::post('submitInspection/{id}', [InspectionController::class, 'submitInspection']);
+
+    //ACTUAL WORK & MANPOWER DEPLOYMENT API
+    Route::post('createWorkreport/{id}', [ActualWorkController::class, 'createWorkreport']);
+    Route::post('updateWorkreport/{id}', [ActualWorkController::class, 'updateWorkreport']);
+    Route::post('submitWorkreport/{id}', [ActualWorkController::class, 'submitWorkreport']);
+
+    Route::post('addmanpowerdeploy', [ActualWorkController::class, 'addManpowerDeploy']);
+    Route::post('deleteManpowerdeploy/{id}', [ActualWorkController::class, 'deletemanpowerdeployment']);
+
 });
 
-/*
-|--------------------Inspection API-----------------------\
-*/
+Route::get('workreportList/{id}', [ActualWorkController::class, 'getWorkreports']);
+Route::get('inspectionList/{id}', [InspectionController::class, 'getInspections']);
 
-Route::controller(InspectionController::class)->group(function () {
-    Route::get('inspectionList/{id}', 'getInspections');
-    Route::post('createInspection/{id}', 'createInspection');
-    Route::post('updateInspection/{id}', 'updateInspection');
-    Route::post('deleteInspection/{id}', 'deleteInspection');
-    Route::post('updatestatus/{id}', 'updateWorkStatus');
-});
+Route::get('manpowerdeployList', [ActualWorkController::class, 'getManpowerDeploy']);
+Route::get('getdropdownManpowerDeploy', [ActualWorkController::class, 'getDropdownOptionsActualwork']);
 
 /*
 |--------------------TEST API-----------------------\

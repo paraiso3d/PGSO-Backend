@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Division;
 use App\Models\Requests;
+use App\Models\User;
 use App\Models\Control_Request;
 use Validator;
 use Illuminate\Support\Facades\Auth;
@@ -20,8 +21,7 @@ class InspectionController extends Controller
     // Method to create new Inspection report.
     public function createInspection(Request $request, $id = null)
     {
-
-        // Validate the incoming request data using the `in` rule with an array
+        // Validate the incoming request data
         $validator = Validator::make($request->all(), [
             'description' => 'required|string|max:255',
             'recommendation' => 'required|string|max:255',
@@ -38,6 +38,9 @@ class InspectionController extends Controller
         }
 
         try {
+
+            $user = auth()->user();
+
             // Fetch the existing request using the provided ID or some identifier
             $existingRequest = Requests::find($id);
 
@@ -51,23 +54,36 @@ class InspectionController extends Controller
                 return response()->json($response, 404);
             }
 
-
             // Prepare the data for creating a new Inspection report
             $inspectionData = [
                 'description' => $request->input('description'),
                 'recommendation' => $request->input('recommendation'),
                 'control_no' => $existingRequest->control_no, // Link to the existing control_no from Requests table
                 'request_id' => $existingRequest->id,
+                'user_id' => $user->id, // Only the ID is needed here
             ];
 
             // Create a new entry in the Inspection_report table
             $newInspection = Inspection_report::create($inspectionData);
 
+            // Add full name of User to the inspection response
+            $newInspection->full_name = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
+
             // Response for successful creation in the Inspection_report table
             $response = [
                 'isSuccess' => true,
                 'message' => 'Inspection report created successfully.',
-                'inspection' => $newInspection,
+                'inspection' => [
+                    'id' => $newInspection->id,
+                    'description' => $newInspection->description,
+                    'recommendation' => $newInspection->recommendation,
+                    'control_no' => $newInspection->control_no,
+                    'request_id' => $newInspection->request_id,
+                    'user_id' => $newInspection->user_id,
+                    'full_name' => $newInspection->full_name,
+                    'created_at' => $newInspection->created_at,
+                    'updated_at' => $newInspection->updated_at,
+                ],
             ];
             $this->logAPICalls('createInspection', $existingRequest->id, [], $response);
 
@@ -99,6 +115,7 @@ class InspectionController extends Controller
                     'inspections' => [],  // Empty inspections array for consistency
                 ];
                 $this->logAPICalls('getInspections', $logRequestId, [], $response);
+
                 return response()->json($response, 500);
             }
 
@@ -125,6 +142,7 @@ class InspectionController extends Controller
 
             // Log API call
             $this->logAPICalls('getInspections', $logRequestId, [], $response);
+
             return response()->json($response, 200);
 
         } catch (Throwable $e) {
@@ -138,6 +156,7 @@ class InspectionController extends Controller
 
             // Log the error
             $this->logAPICalls('getInspections', $logRequestId, [], $response);
+
             return response()->json($response, 500);
         }
     }
@@ -163,6 +182,9 @@ class InspectionController extends Controller
         }
 
         try {
+
+            $user = auth()->user();
+
             // Fetch the existing inspection report using the provided ID
             $existingInspection = Inspection_report::find($id);
 
@@ -181,16 +203,27 @@ class InspectionController extends Controller
             $inspectionData = [
                 'description' => $request->filled('description') ? $request->input('description') : $existingInspection->description,
                 'recommendation' => $request->input('recommendation') ? $request->input('recommendation') : $existingInspection->recommendation,
+                'user_id' => $user->id,
             ];
 
             // Update the existing inspection report with the new data
             $existingInspection->update($inspectionData);
 
+            $full_name = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
+
             // Response for successful update in the Inspection_report table
             $response = [
                 'isSuccess' => true,
                 'message' => 'Inspection report updated successfully.',
-                'inspection' => $existingInspection,
+                'inspection' => [
+                    'id' => $existingInspection->id,
+                    'description' => $existingInspection->description,
+                    'recommendation' => $existingInspection->recommendation,
+                    'user_id' => $existingInspection->user_id,
+                    'full_name' => $full_name,
+                    'updated_at' => $existingInspection->updated_at,
+
+                ],
             ];
             $this->logAPICalls('updateInspection', $existingInspection->id, [], $response);
 
@@ -208,7 +241,8 @@ class InspectionController extends Controller
             return response()->json($response, 500);
         }
     }
-
+    
+    //Method for deleting the Inspection report.
     public function deleteInspection(Request $request)
     {
         try {
@@ -246,28 +280,37 @@ class InspectionController extends Controller
         }
     }
 
-    public function updateWorkStatus(Request $request)
+    //Method for submitting the Inspection report.
+    public function submitInspection(Request $request)
     {
         try {
-            // Retrieve the record based on the provided control_no from the request
-            $work = Requests::where('id', $request->id)
-                ->firstOrFail(); // Throws a 404 error if no matching record is found
+            // Retrieve the currently logged-in user
+            $user = auth()->user();
+
+            // Retrieve the record based on the provided request ID
+            $work = Requests::where('id', $request->id)->firstOrFail();
 
             // Update the status to "On-going"
             $work->update(['status' => 'On-going']);
 
+            // Prepare the full name of the currently logged-in user
+            $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
+
             // Prepare the response
             $response = [
                 'isSuccess' => true,
+                'messsage' => 'Inspection report successfully submitted.',
                 'request_id' => $work->id,
                 'status' => $work->status,
+                'user_id' => $user->id,
+                'user' => $fullName,
             ];
 
-            // Log the API call (assuming this method works properly)
-            $this->logAPICalls('updateWorkStatus', $work->id, [], $response);
+            // Log the API call
+            $this->logAPICalls('submitInspection', $work->id, [], $response);
 
             return response()->json($response, 200);
-            
+
         } catch (Throwable $e) {
             // Prepare the error response
             $response = [
@@ -277,7 +320,7 @@ class InspectionController extends Controller
             ];
 
             // Log the API call with failure response
-            $this->logAPICalls('updateWorkStatus', $request->id ?? '', [], $response);
+            $this->logAPICalls('submitInspection', $request->id ?? '', [], $response);
 
             return response()->json($response, 500);
         }
