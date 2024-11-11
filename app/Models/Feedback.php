@@ -15,7 +15,8 @@ class Feedback extends Model
         'final_remarks',
         'accomplishment_id',
         'rating',
-        'feedback'
+        'feedback',
+        'user_id'
     ];
 
     protected $casts = [

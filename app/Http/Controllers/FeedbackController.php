@@ -20,6 +20,15 @@ class FeedbackController extends Controller
 {
     public function saveFeedback(Request $request, $id = null)
     {
+        // Ensure the user is authenticated
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'User is not authenticated.',
+            ], 401); // Unauthorized
+        }
+    
         // Validate the incoming request data
         $validator = Validator::make($request->all(), [
             'remarks' => 'string',
@@ -38,7 +47,7 @@ class FeedbackController extends Controller
         try {
             // Fetch the existing request and accomplishment report by request ID
             $existingRequest = Requests::findOrFail($id);
-            $existingAccomplishment = Accomplishment_report::where('request_id', $id)->firstOrFail();
+            $existingAccomplishment = Accomplishment_Report::where('request_id', $id)->firstOrFail();
     
             // Calculate the date threshold for automatic rating
             $dateCompleted = $existingAccomplishment->date_completed;
@@ -58,7 +67,8 @@ class FeedbackController extends Controller
                 'final_remarks' => $existingAccomplishment->remarks,
                 'feedback' => $request->feedback,
                 'date_started' => $existingAccomplishment->date_started,
-                'date_completed' => $existingAccomplishment->date_completed
+                'date_completed' => $existingAccomplishment->date_completed,
+                'user_id'=> $user->id
             ];
     
             // Check for existing feedback for the given accomplishment and request
@@ -76,11 +86,22 @@ class FeedbackController extends Controller
                 $message = 'Feedback created successfully.';
             }
     
-            // Prepare the response including date_started and date_completed
+            // Prepare the response with full feedback data, including user and updated_at timestamp
             $response = [
                 'isSuccess' => true,
                 'message' => $message,
-                'feedback' => $feedbackReport,
+                'feedback' => [
+                    'id' => $feedbackReport->id,
+                    'rating' => $feedbackReport->rating,
+                    'final_remarks' => $feedbackReport->final_remarks,
+                    'feedback' => $feedbackReport->feedback,
+                    'date_started' => $feedbackReport->date_started,
+                    'date_completed' => $feedbackReport->date_completed,
+                    'updated_at' => $feedbackReport->updated_at, // Timestamp for last update
+                    'user_id'=> $user->id,
+                    'full_name'=> "{$user->first_name} {$user->middle_initial} {$user->last_name}",
+                    
+                ]
             ];
     
             $this->logAPICalls('saveFeedback', $existingAccomplishment->id, [], $response);
