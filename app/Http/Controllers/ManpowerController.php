@@ -112,35 +112,54 @@ class ManpowerController extends Controller
     public function getManpowers(Request $request)
     {
         try {
-            $search = $request->input('search');
+            
+            $searchTerm = $request->input('search', null);
+            $perPage = $request->input('per_page', 10);
 
             // Initialize query
             $query = Manpower::select('id', 'first_name', 'last_name', 'is_archived')
-                ->where('is_archived', 'A');
-
-            // Optional search filter
-            if (!empty($search)) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('first_name', 'LIKE', '%' . $search . '%')
-                        ->orWhere('last_name', 'LIKE', '%' . $search . '%');
+                ->where('is_archived', 'A')
+                ->when($searchTerm, function ($query, $searchTerm) {
+                    return $query->where(function ($q) use ($searchTerm) {
+                        $q->where('first_name', 'LIKE', '%' . $searchTerm . '%')
+                            ->orWhere('last_name', 'LIKE', '%' . $searchTerm . '%');
+                    });
                 });
+
+            $result = $query->paginate($perPage);
+
+            // Check if result is empty
+            if ($result->isEmpty()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'No active Manpower found matching the criteria',
+                ];
+                return response()->json($response, 500);
             }
 
-
-            $perPage = $request->input('per_page', 10);
-            $manpowers = $query->paginate($perPage);
+            // Format the paginated results
+            $formattedManpowers = $result->getCollection()->transform(function ($manpower) {
+                return [
+                    'id' => $manpower->id,
+                    'first_name' => $manpower->first_name,
+                    'last_name' => $manpower->last_name,
+                    'is_archived' => $manpower->is_archived,
+                ];
+            });
 
             // Prepare response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Manpower list retrieved successfully.',
-                'manpowers' => $manpowers,
+                'manpowers' => $formattedManpowers,
                 'pagination' => [
-                    'total' => $manpowers->total(),
-                    'per_page' => $manpowers->perPage(),
-                    'current_page' => $manpowers->currentPage(),
-                    'last_page' => $manpowers->lastPage(),
-                    'url' => url('api/manpowerList?page=' . $manpowers->currentPage() . '&per_page=' . $manpowers->perPage()),
+                    'total' => $result->total(),
+                    'per_page' => $result->perPage(),
+                    'current_page' => $result->currentPage(),
+                    'last_page' => $result->lastPage(),
+                    'next_page_url' => $result->nextPageUrl(),
+                    'prev_page_url' => $result->previousPageUrl(),
+                    'url' => url('api/manpowerList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
                 ]
             ];
 

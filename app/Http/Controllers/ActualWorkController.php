@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Auth;
 class ActualWorkController extends Controller
 {
 
-    //CREATE WORK REPORT
+    //CREATE WORK REPORT    
     public function createWorkreport(Request $request, $id = null)
     {
 
@@ -40,6 +40,9 @@ class ActualWorkController extends Controller
         }
 
         try {
+
+            $user = auth()->user();
+
             // Fetch the existing request using the provided ID or some identifier
             $existingRequest = Requests::find($id);
 
@@ -52,23 +55,36 @@ class ActualWorkController extends Controller
                 return response()->json($response, 500);
             }
 
-
             // Prepare the data for creating a new Inspection report
             $actualworkData = [
                 'recommended_action' => $request->input('recommended_action'),
                 'remarks' => $request->input('remarks'),
                 'control_no' => $existingRequest->control_no, // Link to the existing control_no from Requests table
                 'request_id' => $existingRequest->id,
+                'user_id' => $user->id,
             ];
 
             // Create a new entry in the Actual_work table
             $newWorkreport = Actual_work::create($actualworkData);
 
+            // Add full name of User to the inspection response
+            $newWorkreport->full_name = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
+
             // Response for successful creation in the Actual_work table
             $response = [
                 'isSuccess' => true,
                 'message' => 'Actual work report created successfully.',
-                'actualwork' => $newWorkreport,
+                'actualwork' => [
+                    'id' => $newWorkreport->id,
+                    'recommended_action' => $newWorkreport->recommended_action,
+                    'remarks' => $newWorkreport->remarks,
+                    'control_no' => $newWorkreport->control_no,
+                    'request_id' => $newWorkreport->request_id,
+                    'user_id' => $newWorkreport->user_id,
+                    'full_name' => $newWorkreport->full_name,
+                    'created_at' => $newWorkreport->created_at,
+                    'updated_at' => $newWorkreport->updated_at,
+                ],
             ];
             $this->logAPICalls('createInspection', $existingRequest->id, [], $response);
 
@@ -105,6 +121,9 @@ class ActualWorkController extends Controller
         }
 
         try {
+
+            $user = auth()->user();
+
             // Fetch the existing inspection report using the provided ID
             $existingWorkreport = Actual_work::find($id);
 
@@ -127,11 +146,20 @@ class ActualWorkController extends Controller
             // Update the existing inspection report with the new data
             $existingWorkreport->update($actualworkData);
 
+            $full_name = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
+
             // Response for successful update in the Inspection_report table
             $response = [
                 'isSuccess' => true,
                 'message' => 'Actual work report updated successfully.',
-                'actualwork' => $existingWorkreport,
+                'actualwork' => [
+                    'id' => $existingWorkreport->id,
+                    'recommended_action' => $existingWorkreport->recommended_action,
+                    'remarks' => $existingWorkreport->remarks,
+                    'user_id' => $existingWorkreport->user_id,
+                    'full_name' => $full_name,
+                    'updated_at' => $existingWorkreport->updated_at,
+                ]
             ];
             $this->logAPICalls('updateWorkreport', $existingWorkreport->id, [], $response);
 
@@ -149,61 +177,61 @@ class ActualWorkController extends Controller
     }
 
     //GET WORK REPORT
-    public function getWorkreports(Request $request, $Request_id)
+    public function getWorkreports(Request $request, $requestId)
     {
+        // Generate a unique identifier for logging
+        $logRequestId = (string) Str::uuid();
+
         try {
-            // Check if the `request_id` exists in the Control_Request table
-            if (!Requests::where('id', $Request_id)->exists()) {
+            // Check if the `request_id` exists in the Requests table
+            if (!Requests::where('id', $requestId)->exists()) {
                 $response = [
                     'isSuccess' => false,
-                    'message' => "No request found for this ID: {$Request_id}.",
-                    'inspections' => [],  // Empty inspections array for consistency
+                    'message' => "No request found for this ID: {$requestId}.",
+                    'actualwork' => [],  // Empty actual work array for consistency
                 ];
-                $this->logAPICalls('getWorkreports', $Request_id, [], $response);
+                $this->logAPICalls('getWorkreports', $logRequestId, [], $response);
 
                 return response()->json($response, 500);
             }
 
-            // Fetch and group inspection reports by 'control_no' using the provided `request_id`
-            $actualworkReports = Actual_work::select('control_no', 'id', 'recommended_action', 'remarks')
-                ->where('is_archived', 'A')
-                ->where('request_id', $Request_id) // Filter by the provided request_id
-                ->get()
-                ->groupBy('control_no'); // Group records by 'control_no'
-
-            // Prepare the grouped data structure
-            $groupedworkReports = $actualworkReports->map(function ($group) {
-                return $group->map(function ($actualwork) {
+            // Fetch Actual work reports related to the `request_id`
+                $actualWorkReports = Actual_work::where('is_archived', 'A')
+                ->where('request_id', $requestId)
+                ->get(['request_id', 'control_no', 'id', 'recommended_action', 'remarks'])
+                ->map(function ($actualWork) {
                     return [
-                        'id' => $actualwork->id,
-                        'recommended_action' => $actualwork->recommended_action,
-                        'remarks' => $actualwork->remarks,
+                        'id' => $actualWork->id,
+                        'request_id' => $actualWork->request_id,
+                        'control_no' => $actualWork->control_no,
+                        'recommended_action' => $actualWork->recommended_action,
+                        'remarks' => $actualWork->remarks,
                     ];
-                });
-            });
+                })->all(); // Convert to array for consistent output
 
             // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Actual work report retrieved successfully.',
-                'actualwork' => $groupedworkReports,
+                'actualwork' => $actualWorkReports,
             ];
 
-            // Log API calls
-            $this->logAPICalls('getWorkreports', $Request_id, [], $response);
+            // Log API call
+            $this->logAPICalls('getWorkreports', $logRequestId, [], $response);
 
             return response()->json($response, 200);
 
         } catch (Throwable $e) {
-            // Prepare the error response
+            // Error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve actual work report.',
                 'error' => $e->getMessage(),
+                'actualwork' => [],  // Empty actual work array for consistency
             ];
 
             // Log the error
-            $this->logAPICalls('getWorkreports', $Request_id ?? '', [], $response);
+            $this->logAPICalls('getWorkreports', $logRequestId, [], $response);
 
             return response()->json($response, 500);
         }
@@ -332,6 +360,51 @@ class ActualWorkController extends Controller
         }
     }
 
+    //
+    public function submitWorkreport(Request $request)
+    {
+        try {
+            // Retrieve the currently logged-in user
+            $user = auth()->user();
+
+            // Retrieve the record based on the provided request ID
+            $work = Requests::where('id', $request->id)->firstOrFail();
+
+            // Update the status to "On-going"
+            $work->update(['status' => 'Completed']);
+
+            // Prepare the full name of the currently logged-in user
+            $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
+
+            // Prepare the response
+            $response = [
+                'isSuccess' => true,
+                'messsage' => 'Actual Work report successfully submitted.',
+                'request_id' => $work->id,
+                'status' => $work->status,
+                'user_id' => $user->id,
+                'user' => $fullName,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('submitWorkreport', $work->id, [], $response);
+
+            return response()->json($response, 200);
+
+        } catch (Throwable $e) {
+            // Prepare the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to update the work status.",
+                'error' => $e->getMessage(),
+            ];
+
+            // Log the API call with failure response
+            $this->logAPICalls('submitWorkreport', $request->id ?? '', [], $response);
+
+            return response()->json($response, 500);
+        }
+    }
     public function getDropdownOptionsManpower(Request $request)
     {
         try {

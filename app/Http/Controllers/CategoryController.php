@@ -165,9 +165,6 @@ class CategoryController extends Controller
         }
     }
     
-
-
-
     /**
       Update an existing Category
      */

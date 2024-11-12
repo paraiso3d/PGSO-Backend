@@ -10,7 +10,7 @@ class Inspection_report extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['description', 'recommendation','control_no','request_id','is_archived'];
+    protected $fillable = ['description', 'recommendation','control_no','request_id','user_id', 'is_archived'];
 
     /**
      * Custom validation method for Inspection Report.

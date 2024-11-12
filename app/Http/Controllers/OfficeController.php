@@ -116,32 +116,53 @@ class OfficeController extends Controller
     public function getOffices(Request $request)
     {
         try {
+            
             $search = $request->input('search');
             $perPage = $request->input('per_page', 10);
 
+            // Initialize query
             $query = Office::select('id', 'office_name', 'acronym', 'office_type')
-                ->where('is_archived', 'A');
-
-
-            if (!empty($search)) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('office_name', 'LIKE', '%' . $search . '%')
-                        ->orWhere('abbreviation', 'LIKE', '%' . $search . '%');
+                ->where('is_archived', 'A')
+                ->when($search, function ($query, $search) {
+                    return $query->where(function ($q) use ($search) {
+                        $q->where('office_name', 'LIKE', '%' . $search . '%')
+                            ->orWhere('acronym', 'LIKE', '%' . $search . '%');
+                    });
                 });
-            }
-
 
             $result = $query->paginate($perPage);
 
+            // Check if result is empty
+            if ($result->isEmpty()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'No active Offices found matching the criteria',
+                ];
+                return response()->json($response, 500);
+            }
+
+            // Format the paginated results
+            $formattedOffices = $result->getCollection()->transform(function ($office) {
+                return [
+                    'id' => $office->id,
+                    'office_name' => $office->office_name,
+                    'acronym' => $office->acronym,
+                    'office_type' => $office->office_type,
+                ];
+            });
+
+            // Prepare response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Offices list retrieved successfully.',
-                'offices' => $result,
+                'offices' => $formattedOffices,
                 'pagination' => [
                     'total' => $result->total(),
                     'per_page' => $result->perPage(),
                     'current_page' => $result->currentPage(),
                     'last_page' => $result->lastPage(),
+                    'next_page_url' => $result->nextPageUrl(),
+                    'prev_page_url' => $result->previousPageUrl(),
                     'url' => url('api/officeList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
                 ],
             ];
