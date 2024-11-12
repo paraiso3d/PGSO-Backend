@@ -105,34 +105,51 @@ class LocationController extends Controller
     {
         try {
             $search = $request->input('search');
+            $perPage = $request->input('per_page', 10); // Default 10 per page
 
             // Initialize query
             $query = Location::select('id', 'location_name', 'note')
-                ->where('is_archived', 'A');
-
-            // Optional search filter
-            if (!empty($search)) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('location_name', 'LIKE', '%' . $search . '%')
-                        ->orWhere('note', 'LIKE', '%' . $search . '%');
+                ->where('is_archived', 'A')
+                ->when($search, function ($query, $search) {
+                    return $query->where(function ($q) use ($search) {
+                        $q->where('location_name', 'LIKE', '%' . $search . '%')
+                            ->orWhere('note', 'LIKE', '%' . $search . '%');
+                    });
                 });
+
+            $result = $query->paginate($perPage);
+
+            // Check if result is empty
+            if ($result->isEmpty()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'No active Locations found matching the criteria',
+                ];
+                return response()->json($response, 500);
             }
 
-            // Reapply pagination
-            $perPage = $request->input('per_page', 10); // Default 10 per page
-            $locations = $query->paginate($perPage);
+            // Format the paginated results
+            $formattedLocations = $result->getCollection()->transform(function ($location) {
+                return [
+                    'id' => $location->id,
+                    'location_name' => $location->location_name,
+                    'note' => $location->note,
+                ];
+            });
 
             // Prepare response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Locations list retrieved successfully.',
-                'locations' => $locations,
+                'locations' => $formattedLocations,
                 'pagination' => [
-                    'total' => $locations->total(),
-                    'per_page' => $locations->perPage(),
-                    'current_page' => $locations->currentPage(),
-                    'last_page' => $locations->lastPage(),
-                    'url' => url('api/locationList?page=' . $locations->currentPage() . '&per_page=' . $locations->perPage()),
+                    'total' => $result->total(),
+                    'per_page' => $result->perPage(),
+                    'current_page' => $result->currentPage(),
+                    'last_page' => $result->lastPage(),
+                    'next_page_url' => $result->nextPageUrl(),
+                    'prev_page_url' => $result->previousPageUrl(),
+                    'url' => url('api/locationList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
                 ],
             ];
 
