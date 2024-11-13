@@ -283,6 +283,7 @@ class DivisionController extends Controller
                     'categories' => $division->categories,
                     'note'=> $division->note,
                     'full_name' => $division->full_name,
+                    'user_id'=> $division->user_id
                 ];
             });
 
