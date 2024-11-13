@@ -103,7 +103,7 @@ class UserController extends Controller
 
             $query = User::with(['user_types:id,name', 'office:id,acronym'])
                 ->select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'designation', 'is_archived', 'office_id', 'user_type_id')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where(function ($activeQuery) use ($searchTerm) {
                         $activeQuery->where('first_name', 'like', '%' . $searchTerm . '%')
@@ -288,7 +288,7 @@ class UserController extends Controller
 
             $userAccount = User::findOrFail($id);
 
-            $userAccount->update(['is_archived' => 'I']);
+            $userAccount->update(['is_archived' => '1']);
 
             $response = [
                 'isSuccess' => true,
@@ -316,7 +316,7 @@ class UserController extends Controller
         try {
 
             $offices = user_type::select('id', 'name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
 
@@ -352,7 +352,7 @@ class UserController extends Controller
         try {
 
             $offices = Office::select('id', 'acronym')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             // Build the response

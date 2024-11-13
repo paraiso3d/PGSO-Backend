@@ -118,7 +118,7 @@ class ManpowerController extends Controller
 
             // Initialize query
             $query = Manpower::select('id', 'first_name', 'last_name', 'is_archived')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where(function ($q) use ($searchTerm) {
                         $q->where('first_name', 'LIKE', '%' . $searchTerm . '%')
@@ -183,7 +183,7 @@ class ManpowerController extends Controller
         try {
 
             $manpower = Manpower::findOrFail($request->id);
-            $manpower->update(['is_archived' => "I"]);
+            $manpower->update(['is_archived' => "1"]);
             $response = [
                 'isSuccess' => true,
                 'message' => "Manpower successfully deleted."

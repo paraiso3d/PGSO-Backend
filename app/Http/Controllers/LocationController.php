@@ -109,7 +109,7 @@ class LocationController extends Controller
 
             // Initialize query
             $query = Location::select('id', 'location_name', 'note')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->when($search, function ($query, $search) {
                     return $query->where(function ($q) use ($search) {
                         $q->where('location_name', 'LIKE', '%' . $search . '%')
@@ -173,7 +173,7 @@ class LocationController extends Controller
         try {
             $location = Location::find($request->id); // Find or throw 404
 
-            $location->update(['is_archived' => "I"]);
+            $location->update(['is_archived' => "1"]);
 
             $response = [
                 'isSuccess' => true,

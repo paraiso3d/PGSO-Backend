@@ -94,7 +94,7 @@ class CategoryController extends Controller
     
             // Start building the query
             $query = Category::with(['divisions:id,div_name', 'user:id,first_name,last_name,middle_initial']) // Include user for team leader
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->select('id as category_id', 'category_name', 'division_id', 'user_id', 'is_archived'); // Rename id to category_id
     
             // Add search functionality if a search term is provided
@@ -245,7 +245,7 @@ class CategoryController extends Controller
     {
         try {
             $category = Category::findOrFail($id);
-            $category->update(['is_archived' => "I"]);
+            $category->update(['is_archived' => "1"]);
 
             $response = [
                 'isSuccess' => true,
@@ -268,7 +268,7 @@ class CategoryController extends Controller
     {
         try {
             $divisions = Division::select('id', 'div_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             $response = [
@@ -311,7 +311,7 @@ class CategoryController extends Controller
 
             // Fetch active team leaders
             $teamLeaders = User::where('user_type_id', $teamleaderTypeId)
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get()
                 ->map(function ($leader) {
                     // Concatenate full name and return it only

@@ -196,7 +196,7 @@ class ActualWorkController extends Controller
             }
 
             // Fetch Actual work reports related to the `request_id`
-                $actualWorkReports = Actual_work::where('is_archived', 'A')
+                $actualWorkReports = Actual_work::where('is_archived', '1')
                 ->where('request_id', $requestId)
                 ->get(['request_id', 'control_no', 'id', 'recommended_action', 'remarks'])
                 ->map(function ($actualWork) {
@@ -298,7 +298,7 @@ class ActualWorkController extends Controller
         try {
             // Fetch all manpower deployment records
             $manpowerDeployments = ManpowerDeployment::select('id', 'first_name', 'last_name', 'rating')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '1')
                 ->get();
 
 
@@ -336,7 +336,7 @@ class ActualWorkController extends Controller
         try {
 
             $manpowerdeployment = ManpowerDeployment::findOrFail($request->id);
-            $manpowerdeployment->update(['is_archived' => "I"]);
+            $manpowerdeployment->update(['is_archived' => "1"]);
             $response = [
                 'isSuccess' => true,
                 'message' => "ManpowerDeployment successfully deleted."
@@ -411,7 +411,7 @@ class ActualWorkController extends Controller
 
 
             $Manpowerdeploy = ManpowerDeployment::select('id', 'first_name', 'last_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             // Build the response

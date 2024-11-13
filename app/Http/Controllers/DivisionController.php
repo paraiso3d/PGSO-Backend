@@ -156,7 +156,7 @@ class DivisionController extends Controller
         try {
 
             $categories = Category::select('id', 'category_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             $response = [
@@ -195,7 +195,7 @@ class DivisionController extends Controller
 
             // Fetch active team leaders
             $supervisors = User::where('user_type_id', $supervisorTypeId)
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get()
                 ->map(function ($leader) {
                     // Concatenate full name and return it only
@@ -239,7 +239,7 @@ class DivisionController extends Controller
 
             // Retrieve divisions with optional search and pagination
             $query = Division::select()
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where('div_name', 'like', '%' . $searchTerm . '%');
                 });
@@ -265,7 +265,7 @@ class DivisionController extends Controller
                     // Fetch the assigned categories for the current division
                     $division->categories = Category::whereIn('id', json_decode($division->category_id))
                         ->select('id', 'category_name')
-                        ->where('is_archived', 'A')
+                        ->where('is_archived', '0')
                         ->get();
                 }
 
@@ -326,7 +326,7 @@ class DivisionController extends Controller
         try {
             $divname = Division::find($request->id);
 
-            $divname->update(['is_archived' => "I"]);
+            $divname->update(['is_archived' => "1"]);
 
             $response = [
                 'isSuccess' => true,

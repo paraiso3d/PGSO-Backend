@@ -73,6 +73,7 @@ class RequestController extends Controller
         try {
 
             $user = auth()->user();
+        
 
             $locationId = $request->input('location_id');
             $officeId = $request->input('office_id');
@@ -277,7 +278,7 @@ class RequestController extends Controller
             )
                 ->leftJoin('offices', 'requests.office_id', '=', 'offices.id')
                 ->leftJoin('locations', 'requests.location_id', '=', 'locations.id')
-                ->where('requests.is_archived', '=', 'A') // Filter active requests
+                ->where('requests.is_archived', '=', '0') // Filter active requests
                 ->when($searchTerm, function ($query, $searchTerm) {
                     // Apply search filter if a search term is provided
                     return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
@@ -400,7 +401,7 @@ class RequestController extends Controller
     {
         try {
             $requestRecord = Requests::findOrFail($id);
-            $requestRecord->update(['is_archived' => 'I']);
+            $requestRecord->update(['is_archived' => '1']);
 
             $response = [
                 'isSuccess' => true,
@@ -471,7 +472,7 @@ class RequestController extends Controller
         try {
 
             $location = Location::select('id', 'location_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             $response = [
@@ -506,7 +507,7 @@ class RequestController extends Controller
 
             $status = Requests::select(DB::raw('MIN(id) as id'), 'status')
                 ->whereIn('status', ['Pending', 'For Inspection', 'On-Going', 'Completed', 'Returned'])
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->groupBy('status')
                 ->get();
 
@@ -543,7 +544,7 @@ class RequestController extends Controller
         try {
 
             $year = Requests::select('id', 'fiscal_year')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             // Build the response
@@ -579,7 +580,7 @@ class RequestController extends Controller
         try {
 
             $div_name = Division::select('id', 'div_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             // Build the response
@@ -615,7 +616,7 @@ class RequestController extends Controller
         try {
 
             $category = Category::select('id', 'category_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
 
@@ -651,7 +652,7 @@ class RequestController extends Controller
     {
         try {
             $office = Office::select('id', 'office_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             // Build the response
@@ -686,7 +687,7 @@ class RequestController extends Controller
         try {
 
             $location = Location::select('id', 'location_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             // Build the response

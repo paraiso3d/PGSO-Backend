@@ -16,6 +16,6 @@ class Manpower extends Model
     ];
 
     protected $attributes = [
-        'is_archived' => 'A',  // Default value
+        'is_archived' => '0',  // Default value
     ];
 }

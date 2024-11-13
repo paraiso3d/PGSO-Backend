@@ -22,7 +22,7 @@ class Category extends Model
     $validator = Validator::make($data, [
         'category_name' => ['required', 'string', 'unique:categories,category_name'],
         'division_id' => ['required','integer', 'exists:divisions,id'], 
-        'is_archived' => ['nullable', 'in:A,I'],
+        'is_archived' => ['nullable', 'in:0,1'],
         'team_leader' => ['required','integer', 'exists:users,id'], 
     ]);
 
@@ -34,7 +34,7 @@ class Category extends Model
         $validator = Validator::make($data, [
             'category_name' => ['sometimes', 'required', 'string'],
             'division_id' => ['sometimes', 'exists:divisions,id'], // Validate based on division_id
-            'is_archived' => ['nullable', 'in:A,I'],
+            'is_archived' => ['nullable', 'in:0,1'],
             'team_leader' => ['required','integer', 'exists:users,id'], 
         ]);
 

@@ -68,7 +68,7 @@ class Requests extends Model
                 'max:5120',
             ],
             'status' => ['string', 'in:Pending,Ongoing,For Inspection,Completed'],
-            'is_archived' => ['nullable', 'in:A,I'],
+            'is_archived' => ['nullable', 'in:0,1'],
 
         ]);
 

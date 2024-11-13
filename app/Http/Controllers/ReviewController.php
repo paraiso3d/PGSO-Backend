@@ -51,7 +51,7 @@ class ReviewController extends Controller
                 'requests.category_id'
             )
                 ->where('requests.id', $id)
-                ->where('requests.is_archived', 'A')
+                ->where('requests.is_archived', '0')
                 ->first();
 
             // Check if the request data is found
@@ -256,7 +256,7 @@ class ReviewController extends Controller
         try {
 
             $location = Location::select('id', 'location_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             $response = [
@@ -289,7 +289,7 @@ class ReviewController extends Controller
     {
         try {
             $office = Office::select('id', 'office_name')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->get();
 
             // Build the response

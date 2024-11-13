@@ -118,7 +118,7 @@ class UsertypeController extends Controller
 
             // Initialize the query
             $query = user_type::select('id', 'name')
-                ->whereIn('is_archived', ['A']);
+                ->whereIn('is_archived', ['0']);
 
             // Apply search if provided
             if (!empty($validated['search'])) {
@@ -165,7 +165,7 @@ class UsertypeController extends Controller
         try {
             $usertype = user_type::findOrFail($id); // Find or throw 404
 
-            $usertype->update(['is_archived' => "I"]);
+            $usertype->update(['is_archived' => "1"]);
 
             $response = [
                 'isSuccess' => true,
