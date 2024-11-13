@@ -187,7 +187,7 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::controller(ReviewController::class)->group(function () {
     Route::post('review/update/{id}', 'updateReview');
     Route::get('review/get/{id}', 'getReviews');
-    Route::post('returnReview/{id}', 'returnReview');
+    Route::post('review/return/{id}', 'returnReview');
     Route::get('dropdown/office/get', 'getDropdownOptionsReviewoffice');
     Route::get('dropdown/location/get', 'getDropdownOptionsReviewlocation');
 
