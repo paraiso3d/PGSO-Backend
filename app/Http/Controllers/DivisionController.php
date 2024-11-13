@@ -281,6 +281,7 @@ class DivisionController extends Controller
                     'id' => $division->id,
                     'div_name' => $division->div_name,
                     'categories' => $division->categories,
+                    'note'=> $division->note,
                     'full_name' => $division->full_name,
                 ];
             });
