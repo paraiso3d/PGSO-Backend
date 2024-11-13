@@ -32,7 +32,7 @@ class User extends Authenticatable
     ];
 
     protected $attributes = [
-        'is_archived' => 'A',  // Default value
+        'is_archived' => '0',  // Default value
     ];
     /**
      * The attributes that should be hidden for serialization.

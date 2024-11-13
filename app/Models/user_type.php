@@ -14,6 +14,6 @@ class user_type extends Model
         'is_archived'
     ] ;
     protected $attributes = [
-        'is_archived' => 'A',  // Default value
+        'is_archived' => '0',  // Default value
     ];
 }

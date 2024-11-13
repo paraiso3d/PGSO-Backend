@@ -122,7 +122,7 @@ class OfficeController extends Controller
 
             // Initialize query
             $query = Office::select('id', 'office_name', 'acronym', 'office_type')
-                ->where('is_archived', 'A')
+                ->where('is_archived', '0')
                 ->when($search, function ($query, $search) {
                     return $query->where(function ($q) use ($search) {
                         $q->where('office_name', 'LIKE', '%' . $search . '%')
@@ -187,7 +187,7 @@ class OfficeController extends Controller
         try {
             $collegeOffice = Office::find($request->id);
 
-            $collegeOffice->update(['is_archived' => "I"]);
+            $collegeOffice->update(['is_archived' => "1"]);
 
             $response = [
                 'isSuccess' => true,

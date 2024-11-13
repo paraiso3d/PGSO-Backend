@@ -120,7 +120,7 @@ class InspectionController extends Controller
             }
 
             // Fetch inspection reports related to the `request_id`
-            $inspections = Inspection_report::where('is_archived', 'A')
+            $inspections = Inspection_report::where('is_archived', '0')
                 ->where('request_id', $requestId)
                 ->get(['request_id', 'control_no', 'id', 'description', 'recommendation'])
                 ->map(function ($inspection) {
@@ -248,11 +248,11 @@ class InspectionController extends Controller
         try {
             // Retrieve the inspection report based on the request_id provided in the request
             $inspection = Inspection_report::where('id', $request->id)
-                ->where('is_archived', 'A') // Ensure the report is not already archived
+                ->where('is_archived', '0') // Ensure the report is not already archived
                 ->firstOrFail();
 
             // Update the `is_archived` status to "I" (assuming "I" means inactive/archived)
-            $inspection->update(['is_archived' => 'I']);
+            $inspection->update(['is_archived' => '1']);
 
             // Prepare the response
             $response = [

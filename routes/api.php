@@ -39,7 +39,7 @@ use App\Http\Controllers\ActualWorkController;
 
 
 /*
-|--------------------LOGIN API-----------------------\
+|--------------------LOGIN/LOGOUT API-----------------------\
 */
 
 Route::controller(AuthController::class)->group(function () {
@@ -47,242 +47,177 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('session', 'insertSession');
 });
 
-
-/*
-|--------------------USERS API-----------------------\
-*/
-
-Route::controller(UserController::class)->group(function () {
-    Route::post('createUser', 'createUserAccount');
-    Route::post('updateUser/{id}', 'updateUserAccount');
-    Route::get('userList', 'getUserAccounts');
-    Route::post('deleteUser/{id}', 'deleteUserAccount');
-    Route::get('getdropdownUsertype', 'getDropdownOptionsUsertype');
-    Route::get('getdropdownUseroffice', 'getDropdownOptionsUseroffice');
-
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('logout', [AuthController::class, 'logout']);
 });
-
-/*
-|--------------------Division API-----------------------\
-*/
-
-Route::controller(DivisionController::class)->group(function () {
-    Route::post('createDivision', 'createDivision');
-    Route::post('updateDivision/{id}', 'updateDivision');
-    Route::get('divisionList', 'getDivisions');
-    Route::post('deleteDivision/{id}', 'deleteDivision');
-    Route::get('dropdownCategories', 'getdropdownCategories');
-    Route::get('dropdownSupervisor', 'dropdownSupervisor');
-
-
-});
-
 
 
 /*
 |--------------------Profile Api-----------------------\
 */
 
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::get('profile', [AuthController::class, 'viewProfile']);
+Route::prefix('users')->middleware(['auth:sanctum'])->group(function () {
+    Route::get('profile/get', [AuthController::class, 'viewProfile']);
     Route::post('profile/edit', [AuthController::class, 'editProfile']);
-    Route::post('editpassword', [AuthController::class, 'changePassword']);
-});
-
-/*
-|--------------------LOGOUT API-----------------------\
-*/
-
-Route::middleware('auth:sanctum')->group(function () {
+    Route::post('password/change', [AuthController::class, 'changePassword']);
     Route::post('logout', [AuthController::class, 'logout']);
 });
-/*
-|--------------------Request API-----------------------\
-*/
-
-Route::controller(RequestController::class)->group(function () {
-    //Route::post('createRequest', 'createRequest');
-    //Route::get('requestList', 'getRequests');
-
-    //REQUEST DROPDOWN API
-    Route::get('dropdownLocation', 'getDropdownOptionsRequestslocation');
-    Route::get('dropdownStatus', 'getDropdownOptionsRequeststatus');
-    Route::get('dropdownYear', 'getDropdownOptionsRequestyear');
-    Route::get('dropdownDivision', 'getDropdownOptionsRequestdivision');
-    Route::get('dropdownCategory', 'getDropdownOptionsRequestcategory');
-    Route::get('dropdownOffice', 'getDropdownOptionscreateRequestsoffice');
-});
-
-Route::middleware('auth:sanctum')->get('requestList', [RequestController::class, 'getRequests']);
-Route::middleware('auth:sanctum')->post('createRequest', [RequestController::class, 'createRequest']);
-Route::middleware('auth:sanctum')->post('updateReturn/{id}', [RequestController::class, 'updateReturn']);
-Route::middleware('auth:sanctum')->post('assessRequest/{id}', [RequestController::class, 'assessRequest']);
-
-//Request
-Route::get('requests/pending/{id}', [ReviewController::class, 'getReviews'])->name('requests.pending');
-Route::get('requests/inspection/{id}', [InspectionController::class, 'getInspections'])->name('requests.inspection');
-Route::get('requests/ongoing/{id}', [ActualWorkController::class, 'getWorkreports'])->name('requests.ongoing');
-Route::get('/requests/completed/{id}', [AccomplishmentReportController::class, 'saveAccomplishmentReport'])->name('requests.completed');
 
 /*
-|--------------------\Accomplishment Report API-----------------------\
+|--------------------USERS API-----------------------\
 */
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('saveAccomplishment/{id?}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
-
-    //Feedback
-    Route::post('saveFeedback/{id?}', [FeedbackController::class, 'saveFeedback']);
+Route::prefix('admin')->controller(UserController::class)->group(function () {
+    Route::post('user/create', 'createUserAccount');
+    Route::post('user/update/{id}', 'updateUserAccount');
+    Route::get('users/get', 'getUserAccounts');
+    Route::post('user/delete/{id}', 'deleteUserAccount');
+    Route::get('dropdown/user/get', 'getDropdownOptionsUsertype');
+    Route::get('dropdown/office/get', 'getDropdownOptionsUseroffice');
 });
 
 
+/*
+|--------------------Division API-----------------------\
+*/
 
-// Route::middleware(['auth:sanctum'])->group(function () {
-//     // Admin can access all CRUD routes
-//     Route::middleware('UserTypeAuth:Administrator')->group(function () {
-//         Route::post('admin-createrequest', [RequestController::class, 'createRequest']);
-//         Route::post('admin-updaterequest/{id}', [RequestController::class, 'updateRequest']);
-//         Route::get('admin-getrequest', [RequestController::class, 'getRequests']);
-//     });
-//     Route::middleware('UserTypeAuth:Controller,Supervisor,TeamLeader')->group(function () {
-//         Route::get('user-getrequest', [RequestController::class, 'getRequests']);
+Route::controller(DivisionController::class)->group(function () {
+    Route::post('division/create', 'createDivision');
+    Route::post('division/update/{id}', 'updateDivision');
+    Route::get('divisions/get', 'getDivisions');
+    Route::post('division/delete/{id}', 'deleteDivision');
+    Route::get('dropdown/category/get', 'getdropdownCategories');
+    Route::get('dropdown/supervisor/get', 'dropdownSupervisor');
 
-//     });
-//     Route::middleware('UserTypeAuth:DeanHead')->group(function () {
-//         Route::post('dean-createrequest', [RequestController::class, 'createRequest']);
-//         Route::get('dean-getrequest', [RequestController::class, 'getRequests']);
-//     });
-// });
+
+});
+
 
 /*
 |--------------------Category API-----------------------\
 */
 
 Route::controller(CategoryController::class)->group(function () {
-    Route::post('createCategory', 'createCategory');
-    Route::post('updateCategory/{id}', 'updateCategory');
-    Route::get('categoryList', 'getCategory');
-    Route::post('deleteCategory/{id}', 'deleteCategory');
-    Route::get('getdropdownCategories', 'getDropdownOptionsCategory');
-    Route::get('dropdownTeamleader', 'getdropdownteamleader');
+    Route::post('category/create', 'createCategory');
+    Route::post('category/update/{id}', 'updateCategory');
+    Route::get('categories/get', 'getCategory');
+    Route::post('delete/category/{id}', 'deleteCategory');
+    Route::get('dropdown/categories/get', 'getDropdownOptionsCategory');
+    Route::get('dropdown/teamleaders/get', 'getdropdownteamleader');
 
 });
-
 
 /*
 |--------------------Location API-----------------------\
 */
 
-Route::controller(LocationController::class)->group(function () {
-    Route::post('createLocation', 'createlocation');
-    Route::post('updateLocation/{id}', 'updatelocation');
-    Route::get('locationList', 'getlocations');
-    Route::post('deleteLocation/{id}', 'deletelocation');
+Route::prefix('admin')->controller(LocationController::class)->group(function () {
+    Route::post('location/create', 'createlocation');
+    Route::post('location/update/{id}', 'updatelocation');
+    Route::get('locations/get', 'getlocations');
+    Route::post('location/delete/{id}', 'deletelocation');
 
 });
-
-
 
 /*
 |--------------------ManPower API-----------------------\
 */
 
-Route::controller(ManpowerController::class)->group(function () {
-    Route::post('createManpower', 'createmanpower');
-    Route::post('updateManpower/{id}', 'updatemanpower');
-    Route::get('manpowerList', 'getmanpowers');
-    Route::post('deleteManpower/{id}', 'deletemanpower');
+Route::prefix('admin')->controller(ManpowerController::class)->group(function () {
+    Route::post('manpower/create', 'createmanpower');
+    Route::post('manpower/update/{id}', 'updatemanpower');
+    Route::get('manpowers/get', 'getmanpowers');
+    Route::post('manpower/delete/{id}', 'deletemanpower');
 
 });
-
-
-
 
 /*
 |--------------------Offices API-----------------------\
 */
 
-Route::controller(OfficeController::class)->group(function () {
-    Route::post('createOffice', 'createOffice');
-    Route::post('updateOffice/{id}', 'updateOffice');
-    Route::get('officeList', 'getOffices');
-    Route::post('deleteOffice/{id}', 'deleteOffice');
+Route::prefix('admin')->controller(OfficeController::class)->group(function () {
+    Route::post('office/create', 'createOffice');
+    Route::post('office/update/{id}', 'updateOffice');
+    Route::get('offices/get', 'getOffices');
+    Route::post('office/delete/{id}', 'deleteOffice');
 });
-
-
-
 
 /*
 |--------------------USERTYPE API-----------------------\
 */
 
-Route::controller(UserTypeController::class)->group(function () {
-    Route::post('createUsertype', 'createUserType');
-    Route::post('updateUsertype/{id}', 'updateUserType');
-    Route::get('usertypeList', 'getUserTypes');
-    Route::post('toggleUser/{id}', 'toggleUsertype');
-    Route::post('deleteUsertype/{id}', 'deleteUserType');
+Route::prefix('admin')->controller(UserTypeController::class)->group(function () {
+    Route::post('user-type/create', 'createUserType');
+    Route::post('user-type/update/{id}', 'updateUserType');
+    Route::get('user-types/get', 'getUserTypes');
+    Route::post('user-type/toggle/{id}', 'toggleUsertype');
+    Route::post('user-type/delete/{id}', 'deleteUserType');
 
 });
+
 
 /*
-|--------------------REVIEW API-----------------------\
+|--------------------Request API-----------------------\
 */
 
-Route::controller(ReviewController::class)->group(function () {
-    Route::post('updatereview/{id}', 'updateReview');
-    Route::get('reviewList/{id}', 'getReviews');
-    Route::post('returnReview/{id}', 'returnReview');
+Route::controller(RequestController::class)->group(function () {
+    //REQUEST DROPDOWN API
+    Route::get('dropdown/location/get', 'getDropdownOptionsRequestslocation');
+    Route::get('dropdown/status/get', 'getDropdownOptionsRequeststatus');
+    Route::get('dropdown/year/get', 'getDropdownOptionsRequestyear');
+    Route::get('dropdown/division/get', 'getDropdownOptionsRequestdivision');
+    Route::get('dropdown/category/get', 'getDropdownOptionsRequestcategory');
+    Route::get('dropdown/office/get', 'getDropdownOptionscreateRequestsoffice');
+});
 
-    Route::get('getdropdownReviewOffice', 'getDropdownOptionsReviewoffice');
-    Route::get('getdropdownReviewLocation', 'getDropdownOptionsReviewlocation');
+Route::middleware('auth:sanctum')->get('requests/get', [RequestController::class, 'getRequests']);
+Route::middleware('auth:sanctum')->post('request/create', [RequestController::class, 'createRequest']);
+Route::middleware('auth:sanctum')->post('request/return/{id}', [RequestController::class, 'updateReturn']);
+Route::middleware('auth:sanctum')->post('request/assess/{id}', [RequestController::class, 'assessRequest']);
+
+//ACCOMPLISHMENT
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('accomplishment/save/{id?}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
+
+    //Feedback
+    Route::post('feedback/save/{id?}', [FeedbackController::class, 'saveFeedback']);
+});
+
+//REVIEW
+Route::controller(ReviewController::class)->group(function () {
+    Route::post('review/update/{id}', 'updateReview');
+    Route::get('review/get/{id}', 'getReviews');
+    Route::post('returnReview/{id}', 'returnReview');
+    Route::get('dropdown/office/get', 'getDropdownOptionsReviewoffice');
+    Route::get('dropdown/location/get', 'getDropdownOptionsReviewlocation');
 
 });
 
-// /*
-// |--------------------Actual Work API-----------------------\
-// */
 
-// Route::controller(ActualWorkController::class)->group(function () {
-//     Route::post('createWorkreport/{id}', 'createWorkreport');
-//     Route::post('updateWorkreport/{id}', 'updateWorkreport');
-//     Route::get('workreportList/{id}', 'getWorkreports');
-
-//     //MANPOWER DEPLOYMENT API
-
-//     Route::post('addmanpowerdeploy', 'addManpowerDeploy');
-//     Route::get('manpowerdeployList', 'getManpowerDeploy');
-//     Route::post('deleteManpowerdeploy/{id}', 'deletemanpowerdeployment');
-//     Route::get('getdropdownManpowerDeploy', 'getDropdownOptionsActualwork');
-// });
-
-// /*
-// |--------------------Inspection API-----------------------\
-// */
-
+//INSPECTION
 Route::middleware(['auth:sanctum'])->group(function () {
 
     //INSPECTION REPORT API
-    Route::post('createInspection/{id}', [InspectionController::class,'createInspection']);
-    Route::post('updateInspection/{id}', [InspectionController::class, 'updateInspection']);
-    Route::post('deleteInspection/{id}', [InspectionController::class, 'deleteInspection']);
-    Route::post('submitInspection/{id}', [InspectionController::class, 'submitInspection']);
+    Route::post('inspection/create/{id}', [InspectionController::class, 'createInspection']);
+    Route::post('inspection/update/{id}', [InspectionController::class, 'updateInspection']);
+    Route::post('inspection/delete/{id}', [InspectionController::class, 'deleteInspection']);
+    Route::post('inspection/submit/{id}', [InspectionController::class, 'submitInspection']);
 
     //ACTUAL WORK & MANPOWER DEPLOYMENT API
-    Route::post('createWorkreport/{id}', [ActualWorkController::class, 'createWorkreport']);
-    Route::post('updateWorkreport/{id}', [ActualWorkController::class, 'updateWorkreport']);
-    Route::post('submitWorkreport/{id}', [ActualWorkController::class, 'submitWorkreport']);
+    Route::post('work-report/create/{id}', [ActualWorkController::class, 'createWorkreport']);
+    Route::post('work-report/update/{id}', [ActualWorkController::class, 'updateWorkreport']);
+    Route::post('work-report/submit/{id}', [ActualWorkController::class, 'submitWorkreport']);
 
-    Route::post('addmanpowerdeploy', [ActualWorkController::class, 'addManpowerDeploy']);
-    Route::post('deleteManpowerdeploy/{id}', [ActualWorkController::class, 'deletemanpowerdeployment']);
+    Route::post('manpower/deploy', [ActualWorkController::class, 'addManpowerDeploy']);
+    Route::post('manpower/deploy/delete/{id}', [ActualWorkController::class, 'deletemanpowerdeployment']);
 
 });
 
-Route::get('workreportList/{id}', [ActualWorkController::class, 'getWorkreports']);
-Route::get('inspectionList/{id}', [InspectionController::class, 'getInspections']);
+Route::get('work-reports/get/{id}', [ActualWorkController::class, 'getWorkreports']);
+Route::get('inspections/get/{id}', [InspectionController::class, 'getInspections']);
 
-Route::get('manpowerdeployList', [ActualWorkController::class, 'getManpowerDeploy']);
-Route::get('getdropdownManpowerDeploy', [ActualWorkController::class, 'getDropdownOptionsActualwork']);
+Route::get('manpower/deploy/get', [ActualWorkController::class, 'getManpowerDeploy']);
+Route::get('dropdown/manpower/deploy/get', [ActualWorkController::class, 'getDropdownOptionsActualwork']);
 
 /*
 |--------------------TEST API-----------------------\
