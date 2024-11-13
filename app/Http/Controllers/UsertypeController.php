@@ -118,7 +118,7 @@ class UsertypeController extends Controller
 
             // Initialize the query
             $query = user_type::select('id', 'name')
-                ->whereIn('is_archived', ['A', 'I']);
+                ->whereIn('is_archived', ['A']);
 
             // Apply search if provided
             if (!empty($validated['search'])) {
