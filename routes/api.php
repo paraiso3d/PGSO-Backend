@@ -144,9 +144,9 @@ Route::controller(RequestController::class)->group(function () {
 */
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('accomplishment/save/{id?}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
-    Route::post('feedback/save/{id?}', [FeedbackController::class, 'saveFeedback']);
-    Route::post('feedback/submit/{id?}', [FeedbackController::class, 'submitFeedback']);
+    Route::post('accomplishment/save/{id}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
+    Route::post('feedback/save/{id}', [FeedbackController::class, 'saveFeedback']);
+    Route::post('feedback/submit/{id}', [FeedbackController::class, 'submitFeedback']);
 });
 
 /*
