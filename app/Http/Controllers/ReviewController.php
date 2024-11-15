@@ -410,22 +410,30 @@ class ReviewController extends Controller
     public function returnReview(Request $request)
     {
         try {
-            // Retrieve the record based on the provided control_no from the request
-            $work = Requests::where('id', $request->id)
-                ->firstOrFail(); // Throws a 404 error if no matching record is found
+            // Retrieve the currently logged-in user
+            $user = auth()->user();
 
-            // Update the status to "On-going"
-            $work->update(['status' => 'Returned']);
+            // Retrieve the record based on the provided control_no from the request
+            $requests = Requests::where('id', $request->id)->firstOrFail();
+
+            // Update the status to "Returned"
+            $requests->update(['status' => 'Returned']);
+
+             // Prepare the full name of the currently logged-in user
+             $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
 
             // Prepare the response
             $response = [
                 'isSuccess' => true,
-                'request_id' => $work->id,
-                'status' => $work->status,
+                'messsage' => 'Assesing request.',
+                'request_id' => $requests->id,
+                'status' => $requests->status,
+                'user_id' => $user->id,
+                'user' => $fullName,
             ];
 
             // Log the API call (assuming this method works properly)
-            $this->logAPICalls('updateWorkStatus', $work->id, [], $response);
+            $this->logAPICalls('updateWorkStatus', $requests->id, [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {

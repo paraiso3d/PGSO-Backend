@@ -288,10 +288,10 @@ class InspectionController extends Controller
             $user = auth()->user();
 
             // Retrieve the record based on the provided request ID
-            $work = Requests::where('id', $request->id)->firstOrFail();
+            $requests = Requests::where('id', $request->id)->firstOrFail();
 
             // Update the status to "On-going"
-            $work->update(['status' => 'On going']);
+            $requests->update(['status' => 'On going']);
 
             // Prepare the full name of the currently logged-in user
             $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
@@ -300,14 +300,14 @@ class InspectionController extends Controller
             $response = [
                 'isSuccess' => true,
                 'messsage' => 'Inspection report successfully submitted.',
-                'request_id' => $work->id,
-                'status' => $work->status,
+                'request_id' => $requests->id,
+                'status' => $requests->status,
                 'user_id' => $user->id,
                 'user' => $fullName,
             ];
 
             // Log the API call
-            $this->logAPICalls('submitInspection', $work->id, [], $response);
+            $this->logAPICalls('submitInspection', $requests->id, [], $response);
 
             return response()->json($response, 200);
 

@@ -436,10 +436,10 @@ class RequestController extends Controller
             $user = auth()->user();
 
             // Retrieve the record based on the provided request ID
-            $work = Requests::where('id', $request->id)->firstOrFail();
+            $requests = Requests::where('id', $request->id)->firstOrFail();
 
-            // Update the status to "On-going"
-            $work->update(['status' => 'For Review']);
+            // Update the status to "For Review"
+            $requests->update(['status' => 'For Review']);
 
             // Prepare the full name of the currently logged-in user
             $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
@@ -448,14 +448,14 @@ class RequestController extends Controller
             $response = [
                 'isSuccess' => true,
                 'messsage' => 'Assesing request.',
-                'request_id' => $work->id,
-                'status' => $work->status,
+                'request_id' => $requests->id,
+                'status' => $requests->status,
                 'user_id' => $user->id,
                 'user' => $fullName,
             ];
 
             // Log the API call
-            $this->logAPICalls('assessRequest', $work->id, [], $response);
+            $this->logAPICalls('assessRequest', $requests->id, [], $response);
 
             return response()->json($response, 200);
 
