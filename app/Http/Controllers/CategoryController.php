@@ -143,8 +143,6 @@ class CategoryController extends Controller
                     'per_page' => $categories->perPage(),
                     'current_page' => $categories->currentPage(),
                     'last_page' => $categories->lastPage(),
-                    'next_page_url' => $categories->nextPageUrl(),
-                    'prev_page_url' => $categories->previousPageUrl(),
                 ]
             ];
     

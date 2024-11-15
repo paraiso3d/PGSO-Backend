@@ -319,7 +319,7 @@ class RequestController extends Controller
                     // Admin gets all requests, no extra filter needed
                     break;
                 case 'Controller':
-                    $query->where('requests.status', 'Pending');
+                    $query->whereIn('requests.status', ['Pending', 'For Review']);
                     break;
                 case 'DeanHead':
                     $query->where('requests.user_id', $userId);
