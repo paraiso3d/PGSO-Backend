@@ -134,7 +134,7 @@ class AccomplishmentReportController extends Controller
             // Retrieve the record based on the provided request ID
             $work = Requests::where('id', $request->id)->firstOrFail();
 
-            // Update the status to "On-going"
+            // Update the status to "For Feedback"
             $work->update(['status' => 'For Feedback']);
 
             // Prepare the full name of the currently logged-in user
