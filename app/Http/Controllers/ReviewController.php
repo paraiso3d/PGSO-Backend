@@ -250,6 +250,95 @@ class ReviewController extends Controller
         }
     }
 
+    public function editReview(Request $request, $id)
+    {
+        // Validate the incoming request data
+        $validator = Validator::make($request->all(), [
+            'categories' => 'sometimes|array',
+            'categories.*' => 'exists:categories,id',
+            'overtime' => 'sometimes|string|in:Yes,No',
+            'remarks' => 'sometimes|string',
+        ]);
+
+        if ($validator->fails()) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors(),
+            ];
+
+            $this->logAPICalls('updateBasicFields', "", [], $response);
+
+            return response()->json($response, 500);
+        }
+
+        try {
+            // Fetch the existing request using the provided ID
+            $existingRequest = Requests::find($id);
+
+            if (!$existingRequest) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => "No request found with ID {$id}.",
+                ];
+
+                $this->logAPICalls('updateBasicFields', "", [], $response);
+
+                return response()->json($response, 500);
+            }
+
+            // Update only the fields specified in the request
+            if ($request->filled('overtime')) {
+                $existingRequest->overtime = $request->input('overtime');
+            }
+
+            if ($request->filled('remarks')) {
+                $existingRequest->remarks = $request->input('remarks');
+            }
+
+            // Handle categories (multiple checkboxes)
+            if ($request->has('categories')) {
+                $categories = $request->input('categories', []);
+                $existingRequest->category_id = json_encode($categories);
+            }
+
+            // Save the changes to the database
+            $existingRequest->save();
+
+            // Fetch the category names based on the stored IDs
+            $categoryIds = json_decode($existingRequest->category_id, true);
+            $categoryNames = Category::whereIn('id', $categoryIds)->pluck('category_name');
+
+            // Prepare the success response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Request fields updated successfully.',
+                'request' => [
+                    'id' => $existingRequest->id,
+                    'overtime' => $existingRequest->overtime,
+                    'remarks' => $existingRequest->remarks,
+                    'category_names' => $categoryNames, // Return category names
+                ],
+            ];
+
+            $this->logAPICalls('updateBasicFields', "", [], $response);
+
+            return response()->json($response, 200);
+
+        } catch (Throwable $e) {
+            // Handle any exceptions
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to update request fields.',
+                'error' => $e->getMessage(),
+            ];
+
+            $this->logAPICalls('updateBasicFields', "", [], $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
     //DROPDOWN FOR EDITING LOCATION IN REVIEW
     public function getDropdownOptionsReviewlocation(Request $request)
     {

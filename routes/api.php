@@ -146,6 +146,7 @@ Route::controller(RequestController::class)->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('accomplishment/save/{id?}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
     Route::post('feedback/save/{id?}', [FeedbackController::class, 'saveFeedback']);
+    Route::post('feedback/submit/{id?}', [FeedbackController::class, 'submitFeedback']);
 });
 
 /*
@@ -154,6 +155,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::controller(ReviewController::class)->group(function () {
     Route::post('review/update/{id}', 'updateReview');
+    Route::post('review/edit/{id}', 'editReview');
     Route::get('review/get/{id}', 'getReviews');
     Route::post('review/return/{id}', 'returnReview');
 });

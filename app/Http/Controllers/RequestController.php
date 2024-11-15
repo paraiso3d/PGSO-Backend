@@ -73,7 +73,7 @@ class RequestController extends Controller
         try {
 
             $user = auth()->user();
-        
+
 
             $locationId = $request->input('location_id');
             $officeId = $request->input('office_id');
@@ -88,7 +88,7 @@ class RequestController extends Controller
                 'overtime' => $request->input('overtime'),
                 'area' => $request->input('area'),
                 'fiscal_year' => $request->input('fiscal_year'),
-                'file_path' =>$filePath,
+                'file_path' => $filePath,
                 'status' => $status,
                 'office_id' => $office->id,
                 'location_id' => $location->id,
@@ -257,8 +257,6 @@ class RequestController extends Controller
             // Pagination settings
             $perPage = $request->input('per_page', 10);
             $searchTerm = $request->input('search', null);
-            $perPage = $request->input('per_page', 10);
-            $searchTerm = $request->input('search', null);
 
             // Initialize query
             $query = Requests::select(
@@ -270,6 +268,7 @@ class RequestController extends Controller
                 'requests.overtime',
                 'requests.file_path',
                 'requests.area',
+                'requests.category_id',
                 'requests.fiscal_year',
                 'requests.status',
                 'requests.office_id',
@@ -280,7 +279,6 @@ class RequestController extends Controller
                 ->leftJoin('locations', 'requests.location_id', '=', 'locations.id')
                 ->where('requests.is_archived', '=', '0') // Filter active requests
                 ->when($searchTerm, function ($query, $searchTerm) {
-                    // Apply search filter if a search term is provided
                     return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
                 });
 
@@ -316,7 +314,6 @@ class RequestController extends Controller
             // Role-based filtering
             switch ($role) {
                 case 'Administrator':
-                    // Admin gets all requests, no extra filter needed
                     break;
                 case 'Controller':
                     $query->whereIn('requests.status', ['Pending', 'For Review']);
@@ -348,8 +345,17 @@ class RequestController extends Controller
                 return response()->json($response, 500);
             }
 
-            // Format the response
+            // Format the response and fetch category names
             $formattedRequests = $result->getCollection()->transform(function ($request) {
+                $categoryIds = json_decode($request->category_id);
+
+                $categoryNames = !empty($categoryIds)
+                    ? DB::table('categories')
+                        ->whereIn('id', $categoryIds)
+                        ->pluck('category_name')
+                        ->toArray()
+                    : [];
+
                 return [
                     'id' => $request->id,
                     'control_no' => $request->control_no,
@@ -358,6 +364,8 @@ class RequestController extends Controller
                     'location_name' => $request->location_name,
                     'overtime' => $request->overtime,
                     'area' => $request->area,
+                    'category_id' => $request->category_id,
+                    'category_name' => $categoryNames, // Include category names array
                     'fiscal_year' => $request->fiscal_year,
                     'status' => $request->status,
                     'file_path' => $request->file_path,
