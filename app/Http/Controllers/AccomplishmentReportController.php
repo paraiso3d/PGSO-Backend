@@ -124,6 +124,51 @@ class AccomplishmentReportController extends Controller
             return response()->json($response, 500); // Internal Server Error
         }
     }
+
+    public function submitFeedback(Request $request)
+    {
+        try {
+            // Retrieve the currently logged-in user
+            $user = auth()->user();
+
+            // Retrieve the record based on the provided request ID
+            $requests = Requests::where('id', $request->id)->firstOrFail();
+
+            // Update the status to "For Feedback"
+            $requests->update(['status' => 'For Feedback']);
+
+            // Prepare the full name of the currently logged-in user
+            $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
+
+            // Prepare the response
+            $response = [
+                'isSuccess' => true,
+                'messsage' => 'Feedback successfully submitted.',
+                'request_id' => $requests->id,
+                'status' => $requests->status,
+                'user_id' => $user->id,
+                'user' => $fullName,
+            ];
+
+            // Log the API call
+            $this->logAPICalls('submitFeedback', $requests->id, [], $response);
+
+            return response()->json($response, 200);
+
+        } catch (Throwable $e) {
+            // Prepare the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to update the work status.",
+                'error' => $e->getMessage(),
+            ];
+
+            // Log the API call with failure response
+            $this->logAPICalls('submitFeedback', $request->id ?? '', [], $response);
+
+            return response()->json($response, 500);
+        }
+    }
     
     
     
