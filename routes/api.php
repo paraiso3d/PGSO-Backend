@@ -153,11 +153,11 @@ Route::middleware('auth:sanctum')->group(function () {
 |--------------------REVIEW API-----------------------
 */
 
-Route::controller(ReviewController::class)->group(function () {
-    Route::post('review/update/{id}', 'updateReview');
-    Route::post('review/edit/{id}', 'editReview');
-    Route::get('review/get/{id}', 'getReviews');
-    Route::post('review/return/{id}', 'returnReview');
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('review/update/{id}', [ReviewController::class, 'updateReview']);
+    Route::post('review/edit/{id}', [ReviewController::class, 'editReview']);
+    Route::get('review/get/{id}', [ReviewController::class, 'getReviews']);
+    Route::post('review/return/{id}',[ReviewController::class, 'returnReview']);
 });
 
 /*
