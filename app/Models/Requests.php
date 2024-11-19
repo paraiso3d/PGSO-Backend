@@ -67,7 +67,7 @@ class Requests extends Model
                 'mimes:pdf,jpg,png,docx',
                 'max:5120',
             ],
-            'status' => ['string', 'in:Pending,Ongoing,For Inspection,Completed'],
+            'status' => ['string', 'in:Pending,For Review,Returned,For Inspection,On-going,Completed,For Feedback'],
             'is_archived' => ['nullable', 'in:0,1'],
 
         ]);
