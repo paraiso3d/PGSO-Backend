@@ -96,7 +96,6 @@ class RequestController extends Controller
             ]);
 
             $response = [
-                $response = [
                     'isSuccess' => true,
                     'message' => 'Request successfully created.',
                     'request' => [
@@ -114,7 +113,6 @@ class RequestController extends Controller
                         'user_id' => $user->id,
                         'file_path' => $filePath,
                         'file_url' => $fileUrl,
-                    ]
                 ]
             ];
 
@@ -269,6 +267,7 @@ class RequestController extends Controller
                 'requests.file_path',
                 'requests.area',
                 'requests.category_id',
+                'requests.remarks',
                 'requests.fiscal_year',
                 'requests.status',
                 'requests.office_id',
@@ -366,6 +365,7 @@ class RequestController extends Controller
                     'area' => $request->area,
                     'category_id' => $request->category_id,
                     'category_name' => $categoryNames, // Include category names array
+                    'remarks' => $request->remarks,
                     'fiscal_year' => $request->fiscal_year,
                     'status' => $request->status,
                     'file_path' => $request->file_path,

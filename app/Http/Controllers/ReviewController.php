@@ -48,7 +48,8 @@ class ReviewController extends Controller
                 'requests.file_path',
                 'requests.area',
                 'requests.fiscal_year',
-                'requests.category_id'
+                'requests.category_id',
+                'requests.remarks'
             )
                 ->where('requests.id', $id)
                 ->where('requests.is_archived', '0')
@@ -94,6 +95,7 @@ class ReviewController extends Controller
                     'location_name' => $location->location_name,
                     'file_url' => asset('storage/' . $result->file_path),
                     'category_names' => $categoryNames,
+                    'remarks' => $result->remarks
                 ]
             ];
 
@@ -116,18 +118,11 @@ class ReviewController extends Controller
     {
         // Validate the incoming request data
         $validator = Validator::make($request->all(), [
-            'description' => 'sometimes|string',
-            'office_id' => 'required|exists:offices,id',
-            'location_id' => 'required|exists:locations,id',
-            'area' => 'sometimes|string',
-            'fiscal_year' => 'sometimes|string',
-            'file_path' => 'sometimes|file|mimes:pdf,jpg,png,docx|max:5120',
-            'categories' => 'sometimes|array',
-            'categories.*' => 'exists:categories,id',
+            'category_names' => 'sometimes|array',
+            'category_names.*' => 'exists:categories,id',
             'overtime' => 'sometimes|string|in:Yes,No',
             'remarks' => 'sometimes|string',
         ]);
-
 
         if ($validator->fails()) {
             $response = [
@@ -138,7 +133,7 @@ class ReviewController extends Controller
 
             $this->logAPICalls('updateReview', "", [], $response);
 
-            return response()->json($response, 500);
+            return response()->json($response, 422);
         }
 
         try {
@@ -153,82 +148,65 @@ class ReviewController extends Controller
 
                 $this->logAPICalls('updateReview', "", [], $response);
 
-                return response()->json($response, 500);
+                return response()->json($response, 404);
             }
 
-            // Fetch location and office based on the IDs from the request
-            $locationId = $request->input('location_id');
-            $officeId = $request->input('office_id');
+            // // Ensure the status is "For Review"
+            // if ($existingRequest->status !== "For Review") {
+            //     $response = [
+            //         'isSuccess' => false,
+            //         'message' => 'The request cannot be updated because its status is not "For Review".',
+            //     ];
 
-            $location = Location::findOrFail($locationId);
-            $office = Office::findOrFail($officeId);
+            //     $this->logAPICalls('updateReview', "", [], $response);
 
-            // Handle file upload
-            if ($request->hasFile('file_path')) {
-                // Get the uploaded file
-                $file = $request->file('file_path');
-
-                // Convert the uploaded file to base64
-                $fileContents = file_get_contents($file->getRealPath());
-                $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
-
-                // Call your saveImage method to handle the base64 image
-                $path = $this->getSetting("ASSET_IMAGE_PATH");
-                $fdateNow = now()->format('Y-m-d');
-                $ftimeNow = now()->format('His');
-                $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $existingRequest->control_no, $fdateNow . '_' . $ftimeNow);
-
-                $fileUrl = asset('storage/' . $filePath);
-            }
-
-            // Handle categories (multiple checkboxes)
-            $categories = $request->input('categories', []); // Fetch selected categories or default to empty
+            //     return response()->json($response, 403);
+            // }
 
             // Update fields that are present in the request
-            $reviewChangeData = [
-                'description' => $request->filled('description') ? $request->input('description') : $existingRequest->description,
-                'control_no' => $existingRequest->control_no,
-                'overtime' => $request->filled('overtime') ? $request->input('overtime') : $existingRequest->overtime,
-                'area' => $request->filled('area') ? $request->input('area') : $existingRequest->area,
-                'fiscal_year' => $request->filled('fiscal_year') ? $request->input('fiscal_year') : $existingRequest->fiscal_year,
-                'file_path' => $filePath,
-                'remarks' => $request->filled('remarks') ? $request->input('remarks') : $existingRequest->remarks,
-                'office_id' => $office->id,
-                'location_id' => $location->id,
-                'status' => 'For Inspection',
-            ];
-
-            // Update or create the review change record in the Requests table
-            $reviewChange = Requests::updateOrCreate(['id' => $existingRequest->id], $reviewChangeData);
-
-            // Store category IDs as JSON
-            if (!empty($categories)) {
-                $reviewChange->category_id = json_encode($categories);  // Store category IDs as JSON
-                $reviewChange->save();
+            if ($request->filled('overtime')) {
+                $existingRequest->overtime = $request->input('overtime');
             }
 
+            if ($request->filled('remarks')) {
+                $existingRequest->remarks = $request->input('remarks');
+            }
+
+            // Process category_names
+            $categoryNames = $request->input('category_names', []); // Default to an empty array if not provided
+
+            if (!empty($categoryNames)) {
+                // Store category IDs as JSON
+                $existingRequest->category_id = json_encode($categoryNames);
+            }
+
+            // Auto-update status to "For Inspection"
+            $existingRequest->status = "For Inspection";
+
+            // Save the updated request
+            $existingRequest->save();
+
             // Fetch the category names based on the stored IDs
-            $categoryIds = json_decode($reviewChange->category_id, true);
-            $categoryNames = Category::whereIn('id', $categoryIds)->pluck('category_name');
+            $categoryIds = json_decode($existingRequest->category_id, true) ?? [];
+            $fetchedCategoryNames = Category::whereIn('id', $categoryIds)->pluck('category_name');
 
             // Prepare the success response
             $response = [
                 'isSuccess' => true,
-                'message' => $reviewChange->wasRecentlyCreated ? 'Review change created successfully.' : 'Review change updated successfully.',
+                'message' => 'Request updated successfully.',
                 'request' => [
-                    'id' => $reviewChange->id,
-                    'control_no' => $reviewChange->control_no,
-                    'description' => $reviewChange->description,
-                    'overtime' => $reviewChange->overtime,
-                    'area' => $reviewChange->area,
-                    'fiscal_year' => $reviewChange->fiscal_year,
-                    'status' => $reviewChange->status,
-                    'office_id' => $office->id,
-                    'office_name' => $office->office_name,
-                    'location_id' => $location->id,
-                    'location_name' => $location->location_name,
-                    'file_url' => asset('storage/' . $reviewChange->file_path), // Return the public URL of the uploaded file
-                    'category_names' => $categoryNames, // Return category names
+                    'id' => $existingRequest->id,
+                    'control_no' => $existingRequest->control_no,
+                    'description' => $existingRequest->description,
+                    'overtime' => $existingRequest->overtime,
+                    'area' => $existingRequest->area,
+                    'fiscal_year' => $existingRequest->fiscal_year,
+                    'status' => $existingRequest->status, // Updated status
+                    'office_id' => $existingRequest->office_id,
+                    'location_id' => $existingRequest->location_id,
+                    'file_path' => $existingRequest->file_path,
+                    'category_names' => $fetchedCategoryNames, // Return category names
+                    'remarks' => $existingRequest->remarks,
                 ]
             ];
 
@@ -240,7 +218,7 @@ class ReviewController extends Controller
             // Handle any exceptions
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to save the review change.',
+                'message' => 'Failed to update the request.',
                 'error' => $e->getMessage(),
             ];
 
@@ -419,8 +397,8 @@ class ReviewController extends Controller
             // Update the status to "Returned"
             $requests->update(['status' => 'Returned']);
 
-             // Prepare the full name of the currently logged-in user
-             $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
+            // Prepare the full name of the currently logged-in user
+            $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
 
             // Prepare the response
             $response = [
