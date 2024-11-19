@@ -128,20 +128,6 @@ Route::prefix('admin')->controller(UserTypeController::class)->group(function ()
     Route::post('user-type/delete/{id}', 'deleteUserType');
 });
 
-/*
-|--------------------Request API-----------------------
-*/
-
-Route::controller(RequestController::class)->group(function () {
-    Route::get('requests/get', 'getRequests')->middleware('auth:sanctum');
-    Route::post('request/create', 'createRequest')->middleware('auth:sanctum');
-    Route::post('request/return/{id}', 'updateReturn')->middleware('auth:sanctum');
-    Route::post('request/assess/{id}', 'assessRequest')->middleware('auth:sanctum');
-});
-
-/*
-|--------------------ACCOMPLISHMENT API-----------------------
-*/
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('accomplishment/save/{id}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
@@ -150,35 +136,52 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 /*
-|--------------------REVIEW API-----------------------
+|--------------------REQUESTS API-----------------------
 */
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('review/update/{id}', [ReviewController::class, 'updateReview']);
-    Route::post('review/edit/{id}', [ReviewController::class, 'editReview']);
+
+    // Review Routes
+    Route::prefix('request')->group(function () {
+
+        // Request Routes
+        Route::post('create', [RequestController::class, 'createRequest']);
+        Route::post('return/{id}', [RequestController::class, 'updateReturn']);
+        Route::post('assess/{id}', [RequestController::class, 'assessRequest']);
+
+        // Review Routes
+        Route::post('review/update/{id}', [ReviewController::class, 'updateReview']);
+        Route::post('review/edit/{id}', [ReviewController::class, 'editReview']);
+        Route::post('review/return/{id}', [ReviewController::class, 'returnReview']);
+
+        // Inspection Report Routes
+        Route::post('inspection/create/{id}', [InspectionController::class, 'createInspection']);
+        Route::post('inspection/update/{id}', [InspectionController::class, 'updateInspection']);
+        Route::post('inspection/delete/{id}', [InspectionController::class, 'deleteInspection']);
+        Route::post('inspection/submit/{id}', [InspectionController::class, 'submitInspection']);
+
+        // Work Report Routes
+        Route::post('work-report/create/{id}', [ActualWorkController::class, 'createWorkreport']);
+        Route::post('work-report/update/{id}', [ActualWorkController::class, 'updateWorkreport']);
+        Route::post('work-report/submit/{id}', [ActualWorkController::class, 'submitWorkreport']);
+        Route::post('manpower/deploy', [ActualWorkController::class, 'addManpowerDeploy']);
+        Route::post('manpower/deploy/delete/{id}', [ActualWorkController::class, 'deletemanpowerdeployment']);
+
+        // Accomplishment Report Routes
+        Route::post('accomplishment/save/{id}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
+
+        // Feedback Report Routes
+        Route::post('feedback/save/{id}', [FeedbackController::class, 'saveFeedback']);
+        Route::post('feedback/submit/{id}', [FeedbackController::class, 'submitFeedback']);
+    });
+
+});
+
+    Route::get('requests/get', [RequestController::class, 'getRequests']);
     Route::get('review/get/{id}', [ReviewController::class, 'getReviews']);
-    Route::post('review/return/{id}',[ReviewController::class, 'returnReview']);
-});
-
-/*
-|--------------------INSPECTION & WORK REPORT API-----------------------
-*/
-
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::post('inspection/create/{id}', [InspectionController::class, 'createInspection']);
-    Route::post('inspection/update/{id}', [InspectionController::class, 'updateInspection']);
-    Route::post('inspection/delete/{id}', [InspectionController::class, 'deleteInspection']);
-    Route::post('inspection/submit/{id}', [InspectionController::class, 'submitInspection']);
-    Route::post('work-report/create/{id}', [ActualWorkController::class, 'createWorkreport']);
-    Route::post('work-report/update/{id}', [ActualWorkController::class, 'updateWorkreport']);
-    Route::post('work-report/submit/{id}', [ActualWorkController::class, 'submitWorkreport']);
-    Route::post('manpower/deploy', [ActualWorkController::class, 'addManpowerDeploy']);
-    Route::post('manpower/deploy/delete/{id}', [ActualWorkController::class, 'deletemanpowerdeployment']);
-});
-
-Route::get('work-reports/get/{id}', [ActualWorkController::class, 'getWorkreports']);
-Route::get('inspections/get/{id}', [InspectionController::class, 'getInspections']);
-Route::get('manpower/deploy/get', [ActualWorkController::class, 'getManpowerDeploy']);
+    Route::get('work-reports/get/{id}', [ActualWorkController::class, 'getWorkreports']);
+    Route::get('inspections/get/{id}', [InspectionController::class, 'getInspections']);
+    Route::get('manpower/deploy/get', [ActualWorkController::class, 'getManpowerDeploy']);
 
 /*
 |--------------------Dropdown API-----------------------
@@ -201,3 +204,4 @@ Route::prefix('dropdown')->group(function () {
     Route::get('review-location/get', [ReviewController::class, 'getDropdownOptionsReviewlocation']);
     Route::get('manpower/get', [ActualWorkController::class, 'getDropdownOptionsActualwork']);
 });
+
