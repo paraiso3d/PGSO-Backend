@@ -63,11 +63,11 @@ class Requests extends Model
             'user_id' => ['nullable', 'integer', 'exists:users,id'], // Changed rule for user_id
             'file_path' => [
                 'required',
-                'file',
-                'mimes:pdf,jpg,png,docx',
+                // 'file',
+                // 'mimes:pdf,jpg,png,docx',
                 'max:5120',
             ],
-            'status' => ['string', 'in:Pending,Ongoing,For Inspection,Completed'],
+            'status' => ['string', 'in:Pending,For Review,Returned,For Inspection,On-going,Completed,For Feedback'],
             'is_archived' => ['nullable', 'in:0,1'],
 
         ]);

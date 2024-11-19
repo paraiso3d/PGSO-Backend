@@ -403,7 +403,7 @@ class ReviewController extends Controller
             // Prepare the response
             $response = [
                 'isSuccess' => true,
-                'messsage' => 'Assesing request.',
+                'messsage' => 'Request returned.',
                 'request_id' => $requests->id,
                 'status' => $requests->status,
                 'user_id' => $user->id,
@@ -411,7 +411,7 @@ class ReviewController extends Controller
             ];
 
             // Log the API call (assuming this method works properly)
-            $this->logAPICalls('updateWorkStatus', $requests->id, [], $response);
+            $this->logAPICalls('returnReview', $requests->id, [], $response);
 
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -423,7 +423,7 @@ class ReviewController extends Controller
             ];
 
             // Log the API call with failure response
-            $this->logAPICalls('updateWorkStatus', $request->id ?? '', [], $response);
+            $this->logAPICalls('returnReview', $request->id ?? '', [], $response);
 
             return response()->json($response, 500);
         }
