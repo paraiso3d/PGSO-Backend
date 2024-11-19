@@ -148,6 +148,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('create', [RequestController::class, 'createRequest']);
         Route::post('return/{id}', [RequestController::class, 'updateReturn']);
         Route::post('assess/{id}', [RequestController::class, 'assessRequest']);
+        Route::get('list', [RequestController::class, 'getRequests']);
 
         // Review Routes
         Route::post('review/update/{id}', [ReviewController::class, 'updateReview']);
@@ -177,11 +178,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
 });
 
-    Route::get('requests/get', [RequestController::class, 'getRequests']);
-    Route::get('review/get/{id}', [ReviewController::class, 'getReviews']);
-    Route::get('work-reports/get/{id}', [ActualWorkController::class, 'getWorkreports']);
-    Route::get('inspections/get/{id}', [InspectionController::class, 'getInspections']);
-    Route::get('manpower/deploy/get', [ActualWorkController::class, 'getManpowerDeploy']);
+Route::get('review/{id}', [ReviewController::class, 'getReviews']);
+Route::get('work-reports/{id}', [ActualWorkController::class, 'getWorkreports']);
+Route::get('inspections/{id}', [InspectionController::class, 'getInspections']);
+Route::get('manpower/deploy', [ActualWorkController::class, 'getManpowerDeploy']);
 
 /*
 |--------------------Dropdown API-----------------------
