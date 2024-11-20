@@ -64,7 +64,7 @@ class RequestController extends Controller
             $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $controlNo, $fdateNow . '_' . $ftimeNow);
 
 
-            $fileUrl = asset('storage/' . $filePath);
+            $fileUrl = asset( $filePath);
         }
 
 
@@ -161,7 +161,7 @@ class RequestController extends Controller
         }
 
         $filePath = $existingRequest->file_path;
-        $fileUrl = $filePath ? asset('storage/' . $filePath) : null;
+        $fileUrl = $filePath ? asset( $filePath) : null;
 
         if ($request->hasFile('file_path')) {
             // Get the uploaded file
@@ -177,7 +177,7 @@ class RequestController extends Controller
             $ftimeNow = now()->format('His');
             $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $existingRequest->control_no, $fdateNow . '_' . $ftimeNow);
 
-            $fileUrl = asset('storage/' . $filePath);
+            $fileUrl = asset($filePath);
         }
 
         try {

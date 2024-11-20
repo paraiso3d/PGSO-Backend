@@ -294,37 +294,37 @@ class AuthController extends Controller
     public function saveImage($image, string $path, string $empno, string $ln)
     {
         \Log::info('Base64 Image Data: ', ['image' => $image]); // Log the image data
-        if (preg_match('/^data:image\/(\w+);base64,/', $image, $type)) {
+        if (preg_match('/^data:(image|application)\/(\w+);base64,/', $image, $type)) {
             $image = substr($image, strpos($image, ',') + 1);
-            $type = strtolower($type[1]);
-
-            if (!in_array($type, ['pdf','jpg', 'jpeg', 'gif', 'png', 'svg'])) {
-                throw new Exception('The provided image is invalid.');
+            $type = strtolower($type[2]);
+    
+            if (!in_array($type, ['pdf', 'jpg', 'jpeg', 'gif', 'png', 'svg'])) {
+                throw new Exception('The provided file or image is invalid.');
             }
-
+    
             $image = str_replace(' ', '+', $image);
             $image = base64_decode($image);
-
+    
             if ($image === false) {
                 throw new Exception('Unable to process the image.');
             }
         } else {
-            throw new Exception('Please make sure the type you are uploading is an image file.');
+            throw new Exception('Please make sure the type you are uploading is an image or PDF file.');
         }
-
+    
         $dir = 'img/' . $path . '/';
         $file = $empno . '-' . $ln . '.' . $type;
         $absolutePath = public_path($dir);
-        $relativePath = $dir . $file;
-
+    
         if (!File::exists($absolutePath)) {
             File::makeDirectory($absolutePath, 0755, true);
         }
-
-        file_put_contents($relativePath, $image);
-
-        return $relativePath;
+    
+        file_put_contents($absolutePath . $file, $image);
+    
+        return $dir . $file; // Return the relative path for URL generation
     }
+    
 
     public function getSetting(string $code)
     {
