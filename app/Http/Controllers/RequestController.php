@@ -369,6 +369,7 @@ class RequestController extends Controller
                     'fiscal_year' => $request->fiscal_year,
                     'status' => $request->status,
                     'file_path' => $request->file_path,
+                    'file_url' => $request->file_path ? asset($request->file_path) : null,
                     'updated_at' => $request->updated_at,
                 ];
             });
