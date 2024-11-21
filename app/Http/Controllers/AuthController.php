@@ -338,6 +338,14 @@ class AuthController extends Controller
         return $value;
     }
 
+    public function test()
+    {
+        return response()->json([
+            'isSuccess' => true,
+            'message' => 'Test successful'
+        ], 200);
+    }
+
     public function sendError($error, $errorMessages = [], $code = 404)
     {
         $response = [

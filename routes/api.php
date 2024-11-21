@@ -35,6 +35,7 @@ use App\Http\Controllers\ActualWorkController;
 
 Route::controller(AuthController::class)->group(function () {
     Route::post('login', 'login');
+    Route::post('test', 'test');
     Route::post('session', 'insertSession');
     Route::post('logout', 'logout')->middleware('auth:sanctum');
 });
