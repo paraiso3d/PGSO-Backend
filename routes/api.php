@@ -58,7 +58,7 @@ Route::prefix('users')->middleware(['auth:sanctum'])->group(function () {
 Route::prefix('admin')->controller(UserController::class)->group(function () {
     Route::post('user/create', 'createUserAccount');
     Route::post('user/update/{id}', 'updateUserAccount');
-    Route::get('users', 'getUserAccounts');
+    Route::post('users', 'getUserAccounts');
     Route::post('user/delete/{id}', 'deleteUserAccount');
 });
 
@@ -69,7 +69,7 @@ Route::prefix('admin')->controller(UserController::class)->group(function () {
 Route::controller(DivisionController::class)->group(function () {
     Route::post('division/create', 'createDivision');
     Route::post('division/update/{id}', 'updateDivision');
-    Route::get('divisions', 'getDivisions');
+    Route::post('divisions', 'getDivisions');
     Route::post('division/delete/{id}', 'deleteDivision');
 });
 
@@ -80,7 +80,7 @@ Route::controller(DivisionController::class)->group(function () {
 Route::controller(CategoryController::class)->group(function () {
     Route::post('category/create', 'createCategory');
     Route::post('category/update/{id}', 'updateCategory');
-    Route::get('categories', 'getCategory');
+    Route::post('categories', 'getCategory');
     Route::post('delete/category/{id}', 'deleteCategory');
 });
 
@@ -91,7 +91,7 @@ Route::controller(CategoryController::class)->group(function () {
 Route::prefix('admin')->controller(LocationController::class)->group(function () {
     Route::post('location/create', 'createlocation');
     Route::post('location/update/{id}', 'updatelocation');
-    Route::get('locations', 'getlocations');
+    Route::post('locations', 'getlocations');
     Route::post('location/delete/{id}', 'deletelocation');
 });
 
@@ -102,7 +102,7 @@ Route::prefix('admin')->controller(LocationController::class)->group(function ()
 Route::prefix('admin')->controller(ManpowerController::class)->group(function () {
     Route::post('manpower/create', 'createmanpower');
     Route::post('manpower/update/{id}', 'updatemanpower');
-    Route::get('manpowers', 'getmanpowers');
+    Route::post('manpowers', 'getmanpowers');
     Route::post('manpower/delete/{id}', 'deletemanpower');
 });
 
@@ -113,7 +113,7 @@ Route::prefix('admin')->controller(ManpowerController::class)->group(function ()
 Route::prefix('admin')->controller(OfficeController::class)->group(function () {
     Route::post('office/create', 'createOffice');
     Route::post('office/update/{id}', 'updateOffice');
-    Route::get('offices', 'getOffices');
+    Route::post('offices', 'getOffices');
     Route::post('office/delete/{id}', 'deleteOffice');
 });
 
@@ -124,7 +124,7 @@ Route::prefix('admin')->controller(OfficeController::class)->group(function () {
 Route::prefix('admin')->controller(UserTypeController::class)->group(function () {
     Route::post('user-type/create', 'createUserType');
     Route::post('user-type/update/{id}', 'updateUserType');
-    Route::get('user-types', 'getUserTypes');
+    Route::post('user-types', 'getUserTypes');
     Route::post('user-type/toggle/{id}', 'toggleUsertype');
     Route::post('user-type/delete/{id}', 'deleteUserType');
 });
@@ -149,7 +149,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('create', [RequestController::class, 'createRequest']);
         Route::post('return/{id}', [RequestController::class, 'updateReturn']);
         Route::post('assess/{id}', [RequestController::class, 'assessRequest']);
-        Route::get('list', [RequestController::class, 'getRequests']);
+        Route::post('list', [RequestController::class, 'getRequests']);
 
         // Review Routes
         Route::post('review/update/{id}', [ReviewController::class, 'updateReview']);
