@@ -5,13 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Office extends Model
+class Department extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'office_name',
-        'acronym',
-        'office_type',
+        'department_name',
+        'description',
         'is_archived'
     ];
 }

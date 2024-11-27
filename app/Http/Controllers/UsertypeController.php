@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Models\role;
 use App\Models\user_type;
 use Illuminate\Http\Request;
 use App\Models\ApiLog;
@@ -19,11 +19,13 @@ class UsertypeController extends Controller
     {
         try {
             $request->validate([
-                'name' => ['required', 'string'],
+                'role_name' => ['required', 'string'],
+                'description' => ['required', 'string'],
             ]);
 
-            $usertype = user_type::create([
-                'name' => $request->name,
+            $usertype = role::create([
+                'role_name' => $request->role_name,
+                'description' =>$request->description
             ]);
 
             $response = [

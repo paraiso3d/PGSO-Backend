@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Department;
+use App\Models\Division;
+use App\Models\role;
 use App\Models\User;
-use App\Models\user_type;
-use App\Models\Office;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Throwable;
+use App\Models\ApiLog;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 class UserController extends Controller
@@ -29,23 +31,24 @@ class UserController extends Controller
                 $this->logAPICalls('createUserAccount', "", $request->all(), $response);
                 return response()->json($response, 500);
             }
+            $divisionId = $request->input('division_id');
+            $division = Division::findOrFail($divisionId);
+
+            $roleId = $request->input('role_id');
+            $role = role::findOrFail($roleId);
 
 
-            $userTypeId = $request->input('user_type_id');
-            $usertype = user_type::findOrFail($userTypeId);
-
-
-            $gsoRoles = user_type::whereIn('name', ['TeamLeader', 'Supervisor', 'Controller', 'Administrator'])
+            $pgsoRoles = role::whereIn('role_name', ['Staff', 'Head', 'Personnel', 'Admin'])
                 ->pluck('id')->toArray();
 
-            if (in_array($usertype->id, $gsoRoles)) {
-                $officeId = 1; // Default to GSO
+            if (in_array($role->id, $pgsoRoles)) {
+                $departmentId = 1; // Default to PGSO
             } else {
-                $officeId = $request->input('office_id');
+                $departmentId = $request->input('department_id');
             }
 
 
-            $office = Office::findOrFail($officeId);
+            $department = Department::findOrFail($departmentId);
 
 
             $userAccount = User::create([
@@ -55,8 +58,9 @@ class UserController extends Controller
                 'email' => $request->email,
                 'designation' => $request->designation,
                 'password' => Hash::make($request->password),
-                'user_type_id' => $usertype->id,
-                'office_id' => $office->id,
+                'role_id' => $role->id,
+                'division_id'=> $division->id,
+                'department_id' => $department->id,
             ]);
 
 
@@ -67,18 +71,16 @@ class UserController extends Controller
                     'id' => $userAccount->id,
                     'is_archived' => $userAccount->is_archived,
                     'first_name' => $userAccount->first_name,
-                    'middle_initial' => $userAccount->middle_initial,
                     'last_name' => $userAccount->last_name,
                     'email' => $userAccount->email,
-                    'designation' => $userAccount->designation,
-                    'user_type_id' => $userAccount->user_type_id,
-                    'user_type_name' => $usertype->name,
-                    'office_id' => $userAccount->office_id,
-                    'office_name' => $office->acronym,
+                    'role_id' => $userAccount->role_id,
+                    'role_name' => $role->role_name,
+                    'department_id' => $userAccount->department_id,
+                    'department_name' => $department->department_name,
                 ]
             ];
 
-            $this->logAPICalls('createUserAccount', "", $request->except(['password', 'user_type_id', 'office_id']), $response);
+            $this->logAPICalls('createUserAccount', "", $request->except(['password', 'role_id', 'department_id']), $response);
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -101,8 +103,8 @@ class UserController extends Controller
             $perPage = $request->input('per_page', 10);
 
 
-            $query = User::with(['user_types:id,name', 'office:id,acronym'])
-                ->select('id', 'first_name', 'middle_initial', 'last_name', 'email', 'designation', 'is_archived', 'office_id', 'user_type_id')
+            $query = User::with(['roles:id,role_name', 'departments:id,department_name'])
+                ->select('id', 'first_name', 'last_name', 'email','is_archived', 'department_id', 'role_id','division_id')
                 ->where('is_archived', '0')
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where(function ($activeQuery) use ($searchTerm) {
@@ -129,14 +131,12 @@ class UserController extends Controller
                 return [
                     'id' => $user->id,
                     'first_name' => $user->first_name,
-                    'middle_initial' => $user->middle_initial,
                     'last_name' => $user->last_name,
                     'email' => $user->email,
-                    'designation' => $user->designation,
-                    'user_type_id' => $user->user_type_id,
-                    'user_type_name' => optional($user->user_types)->name,
-                    'office_id' => $user->office_id,
-                    'office_name' => optional($user->office)->acronym,
+                    'role_id' => $user->role_id,
+                    'role_name' => optional($user->roles)->role_name,
+                    'department_id' => $user->department_id,
+                    'department_name' => optional($user->departments)->department_name,
                     'is_archived' => $user->is_archived,
                 ];
             });
@@ -384,7 +384,7 @@ class UserController extends Controller
     public function logAPICalls(string $methodName, string $userId, array $param, array $resp)
     {
         try {
-            \App\Models\ApiLog::create([
+            ApiLog::create([
                 'method_name' => $methodName,
                 'user_id' => $userId,
                 'api_request' => json_encode($param),

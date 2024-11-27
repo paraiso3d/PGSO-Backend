@@ -3,14 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\Office;
+use App\Models\Department;
 use App\Models\ApiLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
-class OfficeController extends Controller
+class DepartmentController extends Controller
 {
     /**
      * Create a new college office.
@@ -19,20 +19,19 @@ class OfficeController extends Controller
     {
         try {
             $request->validate([
-                'office_name' => ['required', 'string'],
-                'acronym' => ['required', 'string'],
-                'office_type' => ['required', 'string', 'in:Academic,Non Academic'],
+                'department_name' => ['required', 'string'],
+                'description' => ['required', 'string'],
+                
             ]);
 
-            $collegeOffice = Office::create([
-                'office_name' => $request->office_name,
-                'acronym' => $request->acronym,
-                'office_type' => $request->office_type,
+            $collegeOffice = Department::create([
+                'department_name' => $request->department_name,
+                'description' => $request->description,
             ]);
 
             $response = [
                 'isSuccess' => true,
-                'message' => "Office successfully created.",
+                'message' => "Department successfully created.",
                 'office' => $collegeOffice
             ];
             $this->logAPICalls('createOffice', $collegeOffice->id, $request->all(), [$response]);

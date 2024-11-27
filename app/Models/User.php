@@ -19,15 +19,15 @@ class User extends Authenticatable
      *
      * @var array<int, string>
      */
+
     protected $fillable = [
         'first_name',
-        'middle_initial',
         'last_name',
         'email',
-        'designation',
         'password',
-        'office_id',
-        'user_type_id',
+        'division_id',
+        'department_id',
+        'role_id',
         'is_archived'
     ];
 
@@ -51,25 +51,25 @@ class User extends Authenticatable
         // Validate user data
         $validator = Validator::make($data, [
             'first_name' => ['required', 'string', 'alpha_spaces'],
-            'middle_initial' => ['required', 'string', 'alpha_spaces', 'max:5'],
             'last_name' => ['required', 'string', 'alpha_spaces'],
             'email' => ['required', 'email', 'unique:users,email'],
-            'user_type_id' => ['required', 'exists:user_types,id'],
-            'office_id' => ['required', 'exists:offices,id'],
+            'role_id' => ['required', 'exists:roles,id'],
+            'department_id' => ['required', 'exists:departments,id'],
+            'division_id' => ['required', 'exists:divisions,id'],
             'password' => ['required', 'string', 'min:8'],
             'is_archived' => ['nullable', 'in:A,I']
         ]);
 
         return $validator;
     }
-    public function user_types()
+    public function roles()
     {
-        return $this->belongsTo(user_type::class, 'user_type_id');
+        return $this->belongsTo(Role::class, 'role_id', 'id');
     }
 
     // Define the relationship with Office
-    public function office()
+    public function departments()
     {
-        return $this->belongsTo(Office::class, 'office_id');
+        return $this->belongsTo(Department::class, 'department_id', 'id');
     }
 }

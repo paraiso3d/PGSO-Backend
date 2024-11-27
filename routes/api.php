@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccomplishmentReportController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DivisionController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\LocationController;
@@ -110,11 +111,11 @@ Route::prefix('admin')->controller(ManpowerController::class)->group(function ()
 |--------------------Offices API-----------------------
 */
 
-Route::prefix('admin')->controller(OfficeController::class)->group(function () {
-    Route::post('office/create', 'createOffice');
-    Route::post('office/update/{id}', 'updateOffice');
-    Route::post('offices', 'getOffices');
-    Route::post('office/delete/{id}', 'deleteOffice');
+Route::prefix('admin')->controller(DepartmentController::class)->group(function () {
+    Route::post('department/create', 'createOffice');
+    Route::post('department/update/{id}', 'updateOffice');
+    Route::post('department', 'getOffices');
+    Route::post('department/delete/{id}', 'deleteOffice');
 });
 
 /*

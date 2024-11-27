@@ -33,7 +33,7 @@ class AuthController extends Controller
                     // Generate token
                     $token = $user->createToken('auth-token')->plainTextToken;
 
-                    // Attempt to create session
+                    // Attempt to create session    
                     $session = $this->insertSession($user->id);
                     if (!$session) {
                         // Return error if session creation fails
@@ -41,7 +41,7 @@ class AuthController extends Controller
                     }
 
                     // Get user type name
-                    $userTypeName = optional($user->user_types)->name;
+                    $userTypeName = optional($user->roles)->role_name;
 
                     // Prepare response
                     $response = [
@@ -49,7 +49,7 @@ class AuthController extends Controller
                         'user' => $user->only(['id', 'email']),
                         'token' => $token,
                         'sessionCode' => $session,
-                        'user_type' => $userTypeName,
+                        'role' => $userTypeName,
                         'message' => 'Logged in successfully'
                     ];
 

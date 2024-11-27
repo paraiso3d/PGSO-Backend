@@ -5,11 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class user_type extends Model
+class role extends Model
 {
     use HasFactory;
+
+    protected $table = 'roles';
+
     protected $fillable = [
-        'name',
+        'role_name',
         'description',
         'is_archived'
     ] ;
