@@ -189,36 +189,33 @@ class UserController extends Controller
 
             $request->validate([
                 'first_name' => ['sometimes', 'required', 'string', 'max:255'],
-                'middle_initial' => ['sometimes', 'string', 'max:5'],
                 'last_name' => ['sometimes', 'required', 'string', 'max:255'],
                 'email' => $emailRule,
-                'designation' => ['sometimes', 'string', 'max:255'],
                 'password' => ['sometimes', 'nullable', 'string', 'min:8'],
-                'user_type_id' => ['sometimes', 'exists:user_types,id'],
-                'office_id' => ['sometimes', 'exists:offices,id']
+                'role_id' => ['sometimes', 'exists:roles,id'],
+                'department_id' => ['sometimes', 'exists:departments,id']
             ]);
 
 
-            $officeId = $request->input('office_id');
-            if ($request->has('user_type_id')) {
-                $usertype = user_type::findOrFail($request->input('user_type_id'));
+            $departmentId = $request->input('department_id');
+            if ($request->has('role_id')) {
+                $role = role::findOrFail($request->input('role_id'));
 
-                if (in_array($usertype->name, ['TeamLeader', 'Supervisor', 'Controller', 'Administrator'])) {
-                    $officeId = 1;
+                if (in_array($role->role_name, ['Staff', 'Head', 'Personnel', 'Personnel'])) {
+                    $departmentId = 1;
                 }
             } else {
-                $usertype = user_type::findOrFail($userAccount->user_type_id);
+                $usertype = role::findOrFail($userAccount->role_id);
             }
-            if ($officeId) {
-                $office = Office::findOrFail($officeId);
+            if ($departmentId) {
+                $office = Department::findOrFail($departmentId);
             } else {
-                $office = Office::findOrFail($userAccount->office_id);
+                $office = Department::findOrFail($userAccount->department_id);
             }
 
 
             $dataToUpdate = [
                 'first_name' => $request->input('first_name', $userAccount->first_name),
-                'middle_initial' => $request->input('middle_initial', $userAccount->middle_initial),
                 'last_name' => $request->input('last_name', $userAccount->last_name),
                 'email' => $request->input('email', $userAccount->email),
                 'designation' => $request->input('designation', $userAccount->designation),
@@ -246,18 +243,17 @@ class UserController extends Controller
                 'user' => [
                     'id' => $userAccount->id,
                     'first_name' => $userAccount->first_name,
-                    'middle_initial' => $userAccount->middle_initial,
                     'last_name' => $userAccount->last_name,
                     'email' => $userAccount->email,
                     'designation' => $userAccount->designation,
-                    'user_type_id' => $userAccount->user_type_id,
-                    'user_type_name' => $usertype->name,
-                    'office_id' => $userAccount->office_id,
-                    'office_name' => $office->acronym,
+                    'role_id' => $userAccount->role_id,
+                    'role_name' => $usertype->role_name,
+                    'department_id' => $userAccount->department_id,
+                    'department_name' => $office->department_name,
                 ]
             ];
 
-            $this->logAPICalls('updateUserAccount', $id, $request->except(['user_type_id', 'office_id']), $response);
+            $this->logAPICalls('updateUserAccount', $id, $request->except(['role_id', 'department_id']), $response);
             return response()->json($response, 200);
         } catch (ValidationException $v) {
             $response = [
@@ -265,7 +261,7 @@ class UserController extends Controller
                 'message' => 'Validation failed.',
                 'errors' => $v->errors()
             ];
-            $this->logAPICalls('updateUserAccount', $id, $request->except('user_type_id', 'office_id'), $response);
+            $this->logAPICalls('updateUserAccount', $id, $request->except('role_id', 'department_id'), $response);
             return response()->json($response, 422); // Use 422 for validation errors
         } catch (Throwable $e) {
             $response = [
@@ -273,7 +269,7 @@ class UserController extends Controller
                 'message' => 'Failed to update the UserAccount.',
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('updateUserAccount', $id, $request->except('user_type_id', 'office_id'), $response);
+            $this->logAPICalls('updateUserAccount', $id, $request->except('role_id', 'department_id'), $response);
             return response()->json($response, 500);
         }
     }
@@ -312,7 +308,7 @@ class UserController extends Controller
     {
         try {
 
-            $offices = user_type::select('id', 'name')
+            $offices = role::select('id', 'role_name')
                 ->where('is_archived', '0')
                 ->get();
 
@@ -348,7 +344,7 @@ class UserController extends Controller
     {
         try {
 
-            $offices = Office::select('id', 'acronym')
+            $offices = Department::select('id', 'department_name')
                 ->where('is_archived', '0')
                 ->get();
 

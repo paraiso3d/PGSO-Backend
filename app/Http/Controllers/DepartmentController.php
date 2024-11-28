@@ -63,13 +63,12 @@ class DepartmentController extends Controller
     {
         try {
             // Find the office
-            $collegeOffice = Office::findOrFail($id);
+            $collegeOffice = Department::findOrFail($id);
 
-            // Validate the request data
+            // Validate the request datas
             $request->validate([
-                'office_name' => ['required', 'sometimes', 'string'],
-                'acronym' => ['required', 'sometimes', 'string'],
-                'office_type' => ['sometimes', 'string'],
+                'department_name' => ['sometimes', 'string'],
+                'description' => ['sometimes', 'string'],
             ]);
 
             // Get the old acronym for cascade update (if needed)
@@ -77,16 +76,15 @@ class DepartmentController extends Controller
 
             // Update the office
             $collegeOffice->update(array_filter([
-                'office_name' => $request->office_name,
-                'acronym' => $request->acronym,
-                'office_type' => $request->office_type,
+                'department_name' => $request->department_name,
+                'description' => $request->description,
             ]));
 
             // Prepare the response
             $response = [
                 'isSuccess' => true,
                 'message' => "Office successfully updated.",
-                'office' => $collegeOffice
+                'department' => $collegeOffice
             ];
             $this->logAPICalls('updateOffice', $id, $request->all(), [$response]);
             return response()->json($response, 200);
@@ -120,12 +118,11 @@ class DepartmentController extends Controller
             $perPage = $request->input('per_page', 10);
 
             // Initialize query
-            $query = Office::select('id', 'office_name', 'acronym', 'office_type')
+            $query = Department::select('id', 'department_name', 'description')
                 ->where('is_archived', '0')
                 ->when($search, function ($query, $search) {
                     return $query->where(function ($q) use ($search) {
-                        $q->where('office_name', 'LIKE', '%' . $search . '%')
-                            ->orWhere('acronym', 'LIKE', '%' . $search . '%');
+                        $q->where('department_name', 'LIKE', '%' . $search . '%');
                     });
                 });
 
@@ -144,9 +141,8 @@ class DepartmentController extends Controller
             $formattedOffices = $result->getCollection()->transform(function ($office) {
                 return [
                     'id' => $office->id,
-                    'office_name' => $office->office_name,
-                    'acronym' => $office->acronym,
-                    'office_type' => $office->office_type,
+                    'department_name' => $office->department_name,
+                    'description' => $office->description,
                 ];
             });
 
@@ -181,7 +177,7 @@ class DepartmentController extends Controller
     public function deleteOffice(Request $request)
     {
         try {
-            $collegeOffice = Office::find($request->id);
+            $collegeOffice = Department::find($request->id);
 
             $collegeOffice->update(['is_archived' => "1"]);
 
