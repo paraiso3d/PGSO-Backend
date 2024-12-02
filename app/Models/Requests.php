@@ -77,7 +77,7 @@ class Requests extends Model
 
     public function office()
     {
-        return $this->belongsTo(Office::class);
+        return $this->belongsTo(Department::class);
     }
 
     public function location()

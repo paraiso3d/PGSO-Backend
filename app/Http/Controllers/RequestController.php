@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Department;
 use App\Models\Location;
 use App\Models\User;
 use Exception;
@@ -187,7 +188,7 @@ class RequestController extends Controller
             $officeId = $request->input('office_id', $existingRequest->office_id);
 
             $location = Location::findOrFail($locationId);
-            $office = Office::findOrFail($officeId);
+            $office = Department::findOrFail($officeId);
 
             // Update the existing request record with status set to "Pending"
             $existingRequest->update([
@@ -290,25 +291,27 @@ class RequestController extends Controller
                 }
             }
 
-            if ($request->has('status') && $request->status !== 'All Status') {
-                $query->where('requests.status', $request->status);
-            }
-
-            if ($request->has('location') && $request->location !== 'All Location') {
+            $query = Requests::query()
+            ->when($request->filled('location'), function ($query) use ($request) {
                 $query->where('requests.location_id', $request->location);
-            }
-
-            if ($request->has('division') && $request->division !== 'All Division') {
-                $query->where('requests.office_id', $request->division);
-            }
-
-            if ($request->has('category') && $request->category !== 'All Category') {
-                $query->whereJsonContains('requests.category_id', $request->category);
-            }
-
-            if ($request->has('year') && $request->year !== 'All Year') {
-                $query->whereYear('requests.fiscal_year', $request->year);
-            }
+            })
+            ->when($request->filled('status'), function ($query) use ($request) {
+                $query->where('requests.status', $request->status);
+            })
+            ->when(!empty($request->category), function ($query) use ($request) {
+                foreach ($request->category as $categoryId) {
+                    $query->orWhereJsonContains('requests.category_id', $categoryId);
+                }
+            })
+            ->when(!empty($request->division), function ($query) use ($request) {
+                foreach ($request->division as $divisionId) {
+                    $query->orWhereJsonContains('requests.division_id', $divisionId);
+                }
+            })
+            ->when($request->filled('year'), function ($query) use ($request) {
+                $query->where('requests.fiscal_year', $request->year);
+            });
+        
 
             // Role-based filtering
             switch ($role) {
