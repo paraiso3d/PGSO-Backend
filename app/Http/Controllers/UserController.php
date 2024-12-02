@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Department;
 use App\Models\Division;
-use App\Models\Role;
+use App\Models\Roles;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -35,10 +35,10 @@ class UserController extends Controller
             $division = Division::findOrFail($divisionId);
 
             $roleId = $request->input('role_id');
-            $role = role::findOrFail($roleId);
+            $role = Roles::findOrFail($roleId);
 
 
-            $pgsoRoles = role::whereIn('role_name', ['Staff', 'Head', 'Personnel', 'Admin'])
+            $pgsoRoles = Roles::whereIn('role_name', ['Staff', 'Head', 'Personnel', 'Admin'])
                 ->pluck('id')->toArray();
 
             if (in_array($role->id, $pgsoRoles)) {
@@ -199,13 +199,13 @@ class UserController extends Controller
 
             $departmentId = $request->input('department_id');
             if ($request->has('role_id')) {
-                $role = role::findOrFail($request->input('role_id'));
+                $role = Roles::findOrFail($request->input('role_id'));
 
                 if (in_array($role->role_name, ['Staff', 'Head', 'Personnel', 'Personnel'])) {
                     $departmentId = 1;
                 }
             } else {
-                $usertype = role::findOrFail($userAccount->role_id);
+                $usertype = Roles::findOrFail($userAccount->role_id);
             }
             if ($departmentId) {
                 $office = Department::findOrFail($departmentId);
@@ -308,7 +308,7 @@ class UserController extends Controller
     {
         try {
 
-            $offices = role::select('id', 'role_name')
+            $offices = Roles::select('id', 'role_name')
                 ->where('is_archived', '0')
                 ->get();
 
