@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Roles;
+use App\Models\role;
 use App\Models\user_type;
 use Illuminate\Http\Request;
 use App\Models\ApiLog;
@@ -23,7 +23,7 @@ class UsertypeController extends Controller
                 'description' => ['required', 'string'],
             ]);
 
-            $usertype = Roles::create([
+            $usertype = role::create([
                 'role_name' => $request->role_name,
                 'description' =>$request->description
             ]);
@@ -61,7 +61,7 @@ class UsertypeController extends Controller
     {
         try {
             // Find the user type or throw 404
-            $usertype = Roles::findOrFail($id);
+            $usertype = role::findOrFail($id);
 
             // Validate the incoming request
             $request->validate([
@@ -119,7 +119,7 @@ class UsertypeController extends Controller
             ]);
 
             // Initialize the query
-            $query = Roles::select('id', 'name')
+            $query = role::select('id', 'name')
                 ->whereIn('is_archived', ['0']);
 
             // Apply search if provided
@@ -165,7 +165,7 @@ class UsertypeController extends Controller
     public function deleteUserType($id)
     {
         try {
-            $usertype = Roles::findOrFail($id); // Find or throw 404
+            $usertype = role::findOrFail($id); // Find or throw 404
 
             $usertype->update(['is_archived' => "1"]);
 

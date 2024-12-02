@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Department;
 use App\Models\Division;
-use App\Models\Roles;
+use App\Models\role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -35,10 +35,10 @@ class UserController extends Controller
             $division = Division::findOrFail($divisionId);
 
             $roleId = $request->input('role_id');
-            $role = Roles::findOrFail($roleId);
+            $role = role::findOrFail($roleId);
 
 
-            $pgsoRoles = Roles::whereIn('role_name', ['Staff', 'Head', 'Personnel', 'Admin'])
+            $pgsoRoles = role::whereIn('role_name', ['Staff', 'Head', 'Personnel', 'Admin'])
                 ->pluck('id')->toArray();
 
             if (in_array($role->id, $pgsoRoles)) {
