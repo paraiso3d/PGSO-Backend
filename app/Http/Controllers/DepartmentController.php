@@ -20,12 +20,14 @@ class DepartmentController extends Controller
         try {
             $request->validate([
                 'department_name' => ['required', 'string'],
+                'acronym'  => ['required', 'string'],
                 'description' => ['required', 'string'],
                 
             ]);
 
             $collegeOffice = Department::create([
                 'department_name' => $request->department_name,
+                'acronym' =>  $request->acronym,
                 'description' => $request->description,
             ]);
 
