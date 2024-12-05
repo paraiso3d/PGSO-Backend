@@ -19,7 +19,6 @@ class Division extends Model
         'staff_id',
         'is_archived',
         'category_id',
-        'user_id'
     ];
 
     public function category()

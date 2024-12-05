@@ -24,8 +24,8 @@ class DivisionController extends Controller
         $request->validate([
             'division_name' => 'required|string|unique:divisions,division_name',
             'office_location' => 'required|string',
-            'staff_ids' => 'nullable|array', // Expecting an array of staff IDs
-            'staff_ids.*' => 'exists:users,id', // Validate each ID exists in the users table
+            'staff_id' => 'nullable|array', // Expecting an array of staff IDs
+            'staff_id.*' => 'exists:users,id', // Validate each ID exists in the users table
             'category_id' => 'required|exists:categories,id', // Single category ID
         ]);
 
@@ -33,14 +33,29 @@ class DivisionController extends Controller
         $assignedCategory = Category::select('id', 'category_name')
             ->findOrFail($request->category_id);
 
-        // Fetch users with the staff role
-        $staffIds = $request->staff_ids ? json_encode($request->staff_ids) : null;
+        // Validate and fetch staff details
+        $staffDetails = [];
+        if (!empty($request->staff_id)) {
+            $staffDetails = User::whereIn('id', $request->staff_id)
+                ->where('role_name', 'staff') // Ensure role is 'staff'
+                ->get(['id', 'first_name', 'last_name'])
+                ->toArray();
+
+            // Check if all provided staff_ids are valid staff
+            $validStaffIds = array_column($staffDetails, 'id');
+            if (count($validStaffIds) !== count($request->staff_id)) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'One or more user IDs do not have the staff role.',
+                ], 400);
+            }
+        }
 
         // Create the division
         $division = Division::create([
             'division_name' => $request->division_name,
             'office_location' => $request->office_location,
-            'staff_id' => $staffIds, // Save as JSON-encoded string
+            'staff_id' => json_encode(array_column($staffDetails, 'id')), // Save as JSON-encoded string
             'category_id' => $request->category_id, // Single category ID
         ]);
 
@@ -52,13 +67,13 @@ class DivisionController extends Controller
                 'id' => $division->id,
                 'division_name' => $division->division_name,
                 'office_location' => $division->office_location,
-                'staff_ids' => $request->staff_ids, // Return array of staff IDs
+                'staff' => $staffDetails, // Include staff details (id, first_name, last_name)
                 'category' => $assignedCategory, // Include category details
             ],
         ];
 
         // Log API call
-        $this->logAPICalls('createDivision', $division->id, $request->all(), [$response]);
+        $this->logAPICalls('createDivision', "", $request->all(), [$response]);
 
         return response()->json($response, 200);
     } catch (ValidationException $v) {
@@ -82,6 +97,7 @@ class DivisionController extends Controller
     }
 }
 
+    
     
 
     /**
@@ -236,50 +252,62 @@ class DivisionController extends Controller
      * Get all college offices.
      */
     public function getDivisions()
-    {
-        try {
-            // Fetch all divisions with their related category and staff details
-            $divisions = Division::with(['category:id,category_name', 'staff:id,first_name,last_name'])->get()->map(function ($division) {
-                return [
-                    'id' => $division->id,
-                    'division_name' => $division->division_name,
-                    'office_location' => $division->office_location,
-                    'staff' => $division->staff ? [
-                        'id' => $division->staff->id,
-                        'name' => $division->staff->first_name . ' ' . $division->staff->last_name,
-                    ] : null, // Handle null staff gracefully
-                    'category' => $division->category ? [
-                        'id' => $division->category->id,
-                        'category_name' => $division->category->category_name,
-                    ] : null, // Handle null category gracefully
-                ];
-            });
-    
-            // Build success response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Divisions retrieved successfully.',
-                'divisions' => $divisions,
+{
+    try {
+        // Fetch all divisions with their related category details
+        $divisions = Division::with('category:id,category_name')->get()->map(function ($division) {
+            // Decode the JSON-encoded staff IDs
+            $staffIds = json_decode($division->staff_id, true);
+
+            // Fetch staff details for the decoded IDs
+            $staffDetails = !empty($staffIds)
+                ? User::whereIn('id', $staffIds)->get(['id', 'first_name', 'last_name'])->map(function ($staff) {
+                    return [
+                        'id' => $staff->id,
+                        'name' => $staff->first_name . ' ' . $staff->last_name,
+                    ];
+                })->toArray()
+                : [];
+
+            // Return the structured division data
+            return [
+                'id' => $division->id,
+                'division_name' => $division->division_name,
+                'office_location' => $division->office_location,
+                'staff' => $staffDetails, // Include decoded staff details
+                'category' => $division->category ? [
+                    'id' => $division->category->id,
+                    'category_name' => $division->category->category_name,
+                ] : null, // Handle null category gracefully
             ];
-    
-            // Log API call
-            $this->logAPICalls('getDivisions', "", [], [$response]);
-    
-            return response()->json($response, 200);
-    
-        } catch (Throwable $e) {
-            // Handle errors
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve divisions.',
-                'error' => $e->getMessage(),
-            ];
-    
-            $this->logAPICalls('getDivisions', "", [], [$response]);
-    
-            return response()->json($response, 500);
-        }
+        });
+
+        // Build success response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Divisions retrieved successfully.',
+            'divisions' => $divisions,
+        ];
+
+        // Log API call
+        $this->logAPICalls('getDivisions', "", [], [$response]);
+
+        return response()->json($response, 200);
+
+    } catch (Throwable $e) {
+        // Handle errors
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve divisions.',
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('getDivisions', "", [], [$response]);
+
+        return response()->json($response, 500);
     }
+}
+
     
     
 
