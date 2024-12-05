@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\role;
+use App\Models\Role;
 use App\Models\user_type;
 use Illuminate\Http\Request;
 use App\Models\ApiLog;
@@ -23,7 +23,7 @@ class UsertypeController extends Controller
                 'description' => ['required', 'string'],
             ]);
 
-            $usertype = role::create([
+            $usertype = Role::create([
                 'role_name' => $request->role_name,
                 'description' =>$request->description
             ]);
@@ -119,7 +119,7 @@ class UsertypeController extends Controller
             ]);
 
             // Initialize the query
-            $query = role::select('id', 'name')
+            $query = Role::select('id', 'name')
                 ->whereIn('is_archived', ['0']);
 
             // Apply search if provided
@@ -200,7 +200,7 @@ class UsertypeController extends Controller
             $is_archived = strtoupper($request->is_archived);
 
             // Use the provided $id directly
-            $usertype = Roles::findOrFail($id);
+            $usertype = Role::findOrFail($id);
             $usertype->update(['is_archived' => $is_archived]);
 
             // Set the success message based on the value of is_archived

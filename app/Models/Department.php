@@ -10,7 +10,8 @@ class Department extends Model
     use HasFactory;
     protected $fillable = [
         'department_name',
-        'description',
+       'acronym',
+       'division_id',
         'is_archived'
     ];
 }

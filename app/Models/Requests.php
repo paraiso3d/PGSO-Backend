@@ -20,17 +20,14 @@ class Requests extends Model
     protected $fillable = [
         'control_no',
         'description',
-        'office_name',
         'location_name',
-        'overtime',
-        'area',
         'fiscal_year',
-        'remarks',
+        'category',
         'file_path',
         'status',
-        'user_id',
-        'office_id',
-        'location_id',
+        'requested_by',
+        'date_requested',
+        'date_completed',
         'is_archived',
     ];
 
@@ -57,17 +54,17 @@ class Requests extends Model
         $validator = Validator::make($data, [
             'control_no' => ['nullable', 'string'],
             'description' => ['required', 'string'],
-            'overtime' => ['nullable', 'in:Yes,No'],
-            'area' => ['required', 'string'],
+            'category' => ['required', 'string'],
+            'location' => ['required', 'string'],
             'fiscal_year' => ['required', 'string', 'in:' . now()->year],
-            'user_id' => ['nullable', 'integer', 'exists:users,id'], // Changed rule for user_id
+            'requested_by' => ['nullable', 'integer', 'exists:users,id'], // Changed rule for user_id
             'file_path' => [
                 'required',
                 // 'file',
                 // 'mimes:pdf,jpg,png,docx',
                 'max:5120',
             ],
-            'status' => ['string', 'in:Pending,For Review,Returned,For Inspection,On-going,Completed,For Feedback'],
+            'status' => ['string'],
             'is_archived' => ['nullable', 'in:0,1'],
 
         ]);

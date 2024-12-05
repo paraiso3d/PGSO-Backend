@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Models\Department;
 use DB;
 use App\Models\Accomplishment_report;
 use App\Models\Category;
@@ -68,7 +69,7 @@ class ReviewController extends Controller
             }
 
             // Fetch the related office and location details
-            $office = Office::find($result->office_id);
+            $office = Department::find($result->office_id);
             $location = Location::find($result->location_id);
 
             // Decode category IDs and fetch category names

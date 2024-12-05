@@ -21,7 +21,7 @@ class DepartmentController extends Controller
             $request->validate([
                 'department_name' => ['required', 'string'],
                 'acronym'  => ['required', 'string'],
-                'description' => ['required', 'string'],
+                'division_id' =>['required', 'string']
                 
             ]);
 
@@ -120,7 +120,7 @@ class DepartmentController extends Controller
             $perPage = $request->input('per_page', 10);
 
             // Initialize query
-            $query = Department::select('id', 'department_name', 'description')
+            $query = Department::select('id', 'department_name', 'acronym','division_id')
                 ->where('is_archived', '0')
                 ->when($search, function ($query, $search) {
                     return $query->where(function ($q) use ($search) {
@@ -144,7 +144,8 @@ class DepartmentController extends Controller
                 return [
                     'id' => $office->id,
                     'department_name' => $office->department_name,
-                    'description' => $office->description,
+                    'acronym'=> $office->acronym,
+                    'division_id' => $office->division_id,  
                 ];
             });
 

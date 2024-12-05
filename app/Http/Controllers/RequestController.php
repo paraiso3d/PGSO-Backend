@@ -80,7 +80,7 @@ class RequestController extends Controller
             $officeId = $request->input('office_id');
 
             $location = Location::findOrFail($locationId);
-            $office = Office::findOrFail($officeId);
+            $office = Department::findOrFail($officeId);
 
             // Create the new request record
             $newRequest = Requests::create([
@@ -315,19 +315,16 @@ class RequestController extends Controller
 
             // Role-based filtering
             switch ($role) {
-                case 'Administrator':
+                case 'admin':
                     break;
-                case 'Controller':
+                case 'head':
                     $query->whereIn('requests.status', ['Pending', 'For Review']);
                     break;
-                case 'DeanHead':
+                case 'staff':
                     $query->where('requests.user_id', $userId);
                     break;
-                case 'TeamLeader':
+                case 'personnel':
                     $query->where('requests.status', 'On-going');
-                    break;
-                case 'Supervisor':
-                    $query->where('requests.status', 'For Inspection');
                     break;
                 default:
                     $query->whereRaw('1 = 0');
@@ -663,7 +660,7 @@ class RequestController extends Controller
     public function getDropdownOptionscreateRequestsoffice(Request $request)
     {
         try {
-            $office = Office::select('id', 'office_name')
+            $office = Department::select('id', 'department_name')
                 ->where('is_archived', '0')
                 ->get();
 
