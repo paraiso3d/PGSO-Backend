@@ -15,7 +15,8 @@ class Division extends Model
 
     protected $fillable = [
         'division_name',
-        'description',
+        'office_location',
+        'staff_id',
         'is_archived',
         'category_id',
         'user_id'

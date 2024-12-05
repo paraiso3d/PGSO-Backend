@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Category;
 use App\Models\ApiLog;
-use App\Models\Division;
 use App\Models\Requests;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -23,20 +22,13 @@ class CategoryController extends Controller
             // Validate the request using division_id and supervisor
             $request->validate([
                 'category_name' => 'required|string|unique:categories,category_name',
-                'division_id' => 'required|integer|exists:divisions,id', // Ensures division exists
-                'user_id' => 'required|integer|exists:users,id' // Ensures supervisor exists
+                'description' => 'required|string', 
             ]);
-
-            // Retrieve division and supervisor details
-            $division = Division::findOrFail($request->division_id);
-            $teamleader = User::select('id', 'first_name', 'last_name', 'middle_initial')
-                ->findOrFail($request->user_id);
 
             // Create the category
             $category = Category::create([
                 'category_name' => $request->category_name,
-                'division_id' => $division->id,
-                'user_id' => $teamleader->id
+                'description' => $request->description,
             ]);
 
             // Prepare the success response with division and supervisor details
@@ -46,14 +38,7 @@ class CategoryController extends Controller
                 'category' => [
                     'id' => $category->id,
                     'category_name' => $category->category_name,
-                    'division_name' => $division->div_name,
-                    'division_id' => $division->id,
-                    'teamleader' => [
-                        'id' => $teamleader->id,
-                        'first_name' => $teamleader->first_name,
-                        'last_name' => $teamleader->last_name,
-                        'middle_initial' => $teamleader->middle_initial,
-                    ]
+                    'description' => $category->description,
                 ]
             ];
 
@@ -87,78 +72,69 @@ class CategoryController extends Controller
     public function getCategory(Request $request)
     {
         try {
+            // Validate the request
             $validated = $request->validate([
-                'per_page' => 'nullable|integer',
+                'per_page' => 'nullable|integer|min:1',
                 'search' => 'nullable|string',
             ]);
     
-            // Start building the query
-            $query = Category::with(['divisions:id,div_name', 'user:id,first_name,last_name,middle_initial']) // Include user for team leader
-                ->where('is_archived', '0')
-                ->select('id as category_id', 'category_name', 'division_id', 'user_id', 'is_archived'); // Rename id to category_id
+            // Build the query to fetch category data
+            $query = Category::select('id', 'category_name', 'description')
+                ->where('is_archived', '0'); // Only include active (non-archived) categories
     
-            // Add search functionality if a search term is provided
+            // Add search functionality
             if (!empty($validated['search'])) {
-                $query->where(function ($q) use ($validated) {
-                    $q->where('category_name', 'like', '%' . $validated['search'] . '%')
-                        ->orWhereHas('divisions', function ($q) use ($validated) {
-                            $q->where('div_name', 'like', '%' . $validated['search'] . '%');
-                        });
-                });
+                $query->where('category_name', 'like', '%' . $validated['search'] . '%');
             }
     
-            // Paginate the results
+            // Paginate results
             $perPage = $validated['per_page'] ?? 10;
             $categories = $query->paginate($perPage);
     
-            // Check if categories are found
+            // Check if any categories were found
             if ($categories->isEmpty()) {
                 return response()->json([
                     'isSuccess' => false,
-                    'message' => 'No active categories found matching the criteria.',
+                    'message' => 'No categories found matching the criteria.',
                 ], 404);
             }
     
-            // Prepare the response
-            $formattedResponse = $categories->map(function ($category) {
-                // Safely get the associated user (team leader) information
-                $teamLeader = $category->user;
-    
-                return [
-                    'id' => $category->category_id, // Include category_id
-                    'category_name' => $category->category_name,
-                    'division_name' => optional($category->divisions)->div_name,
-                    'division_id' => $category->division_id,
-                    'user_id' => optional($teamLeader)->id,
-                    'full_name' => optional($teamLeader)->first_name . ' ' . optional($teamLeader)->last_name . ' ' . optional($teamLeader)->middle_initial,
-                ];
-            });
-    
+            // Format the response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Categories retrieved successfully.',
-                'categories' => $formattedResponse,
+                'categories' => $categories->items(), // Return only the relevant category fields
                 'pagination' => [
                     'total' => $categories->total(),
                     'per_page' => $categories->perPage(),
                     'current_page' => $categories->currentPage(),
                     'last_page' => $categories->lastPage(),
-                ]
+                ],
             ];
     
-            // Log API call
+            // Log the API call
             $this->logAPICalls('getCategory', "", $request->all(), $response);
     
             return response()->json($response, 200);
     
-        } catch (Throwable $e) {
+        } catch (ValidationException $v) {
+            // Handle validation errors
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to retrieve the categories.',
+                'message' => 'Validation failed.',
+                'errors' => $v->errors(),
+            ];
+            $this->logAPICalls('getCategory', "", $request->all(), $response);
+            return response()->json($response, 422);
+    
+        } catch (Throwable $e) {
+            // Handle other exceptions
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve categories.',
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('getCategory', "", $request->all(), $response);
-    
             return response()->json($response, 500);
         }
     }

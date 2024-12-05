@@ -21,8 +21,8 @@ class DivisionController extends Controller
     {
         try {
             $request->validate([
-                'div_name' => 'required|string|unique:divisions,div_name',
-                'note' => 'required|string',
+                'division_name' => 'required|string|unique:divisions,div_name',
+                'office_location' => 'required|string',
                 'categories' => 'required|array',
                 'categories.*' => 'exists:categories,id',
                 'user_id' => 'required|integer|exists:users,id'
