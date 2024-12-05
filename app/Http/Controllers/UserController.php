@@ -93,10 +93,10 @@ class UserController extends Controller
         try {
             $searchTerm = $request->input('search', null);
             $perPage = $request->input('per_page', 10);
-
-
-            $query = User::with(['roles:id,role_name', 'departments:id,department_name'])
-                ->select('id', 'first_name', 'last_name', 'email','is_archived', 'department_id', 'role_id','division_id')
+    
+            // Query the users table with necessary filters
+            $query = User::with(['departments:id,department_name','divisions:id,division_name'])
+                ->select('id', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id')
                 ->where('is_archived', '0')
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where(function ($activeQuery) use ($searchTerm) {
@@ -105,10 +105,9 @@ class UserController extends Controller
                             ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
                     });
                 });
-
-
+    
             $result = $query->paginate($perPage);
-
+    
             if ($result->isEmpty()) {
                 $response = [
                     'isSuccess' => false,
@@ -117,23 +116,23 @@ class UserController extends Controller
                 $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
                 return response()->json($response, 500);
             }
-
-
+    
+            // Format the user data
             $formattedUsers = $result->getCollection()->transform(function ($user) {
                 return [
                     'id' => $user->id,
                     'first_name' => $user->first_name,
                     'last_name' => $user->last_name,
                     'email' => $user->email,
-                    'role_id' => $user->role_id,
-                    'role_name' => optional($user->roles)->role_name,
+                    'role_name' => $user->role_name, // Directly use the role_name column
                     'department_id' => $user->department_id,
                     'department_name' => optional($user->departments)->department_name,
+                    'division_id'=>$user->division_id,
+                    'division_name'=> optional($user->divisions)->division_name,
                     'is_archived' => $user->is_archived,
                 ];
             });
-
-
+    
             $response = [
                 'isSuccess' => true,
                 'message' => 'User accounts retrieved successfully.',
@@ -145,23 +144,22 @@ class UserController extends Controller
                     'last_page' => $result->lastPage(),
                 ],
             ];
-
+    
             $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
-            // Handle error cases
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve user accounts.',
                 'error' => $e->getMessage()
             ];
-
+    
             $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
             return response()->json($response, 500);
         }
     }
-
+    
     /**
      * Update an existing user account.
      */

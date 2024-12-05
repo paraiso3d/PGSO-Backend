@@ -67,4 +67,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Department::class, 'department_id', 'id');
     }
+
+    public function divisions()
+    {
+        return $this->belongsTo(Division::class, 'division_id', 'id');
+    }
 }

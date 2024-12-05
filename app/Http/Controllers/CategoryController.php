@@ -241,7 +241,7 @@ class CategoryController extends Controller
     public function getDropdownOptionsCategory(Request $request)
     {
         try {
-            $divisions = Division::select('id', 'div_name')
+            $divisions = Department::select('id', 'div_name')
                 ->where('is_archived', '0')
                 ->get();
 
