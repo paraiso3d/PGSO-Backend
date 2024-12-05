@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Division;
 use App\Models\Department;
 use App\Models\ApiLog;
 use Illuminate\Http\Request;
@@ -19,24 +20,29 @@ class DepartmentController extends Controller
     {
         try {
             $request->validate([
-                'department_name' => ['required', 'string'],
-                'acronym'  => ['required', 'string'],
-                'division_id' =>['required', 'string']
-                
+                'department_name' => ['required', 'string', 'unique:departments,department_name'],
+                'acronym' => ['required', 'string'],
+                'division_id' => ['required', 'array'], // Expect an array of division IDs
+                'division_id.*' => ['integer'] // Each element in the array should be an integer
             ]);
-
+    
             $collegeOffice = Department::create([
                 'department_name' => $request->department_name,
-                'acronym' =>  $request->acronym,
-                'description' => $request->description,
+                'acronym' => $request->acronym,
+                'division_id' => json_encode($request->division_id), // Store as JSON
             ]);
-
+    
+            $divisions = Division::whereIn('id', $request->division_id)->get(['id', 'division_name']);
+    
             $response = [
                 'isSuccess' => true,
                 'message' => "Department successfully created.",
-                'office' => $collegeOffice
+                'department' => $collegeOffice,
+                'divisions' => $divisions
             ];
+    
             $this->logAPICalls('createOffice', $collegeOffice->id, $request->all(), [$response]);
+    
             return response()->json($response, 200);
         } catch (ValidationException $v) {
             $response = [
@@ -45,7 +51,7 @@ class DepartmentController extends Controller
                 'error' => $v->errors()
             ];
             $this->logAPICalls('createOffice', "", $request->all(), [$response]);
-            return response()->json($response, 500);
+            return response()->json($response, 400);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
@@ -56,7 +62,9 @@ class DepartmentController extends Controller
             return response()->json($response, 500);
         }
     }
-
+    
+    
+    
     /**
      * Update an existing college office.
      */
@@ -112,67 +120,53 @@ class DepartmentController extends Controller
     /**
      * Get all college offices.
      */
-    public function getOffices(Request $request)
+    public function getOffices()
     {
         try {
-            
-            $search = $request->input('search');
-            $perPage = $request->input('per_page', 10);
-
-            // Initialize query
-            $query = Department::select('id', 'department_name', 'acronym','division_id')
-                ->where('is_archived', '0')
-                ->when($search, function ($query, $search) {
-                    return $query->where(function ($q) use ($search) {
-                        $q->where('department_name', 'LIKE', '%' . $search . '%');
-                    });
-                });
-
-            $result = $query->paginate($perPage);
-
-            // Check if result is empty
-            if ($result->isEmpty()) {
-                $response = [
-                    'isSuccess' => false,
-                    'message' => 'No active Offices found matching the criteria',
-                ];
-                return response()->json($response, 500);
-            }
-
-            // Format the paginated results
-            $formattedOffices = $result->getCollection()->transform(function ($office) {
+            // Retrieve all departments
+            $departments = Department::all()->map(function ($department) {
+                // Decode division_id JSON, default to an empty array if null or invalid
+                $divisionIds = json_decode($department->division_id, true) ?? [];
+    
+                // Fetch related division names only if $divisionIds is not empty
+                $divisions = !empty($divisionIds)
+                    ? Division::whereIn('id', $divisionIds)->get(['id', 'division_name'])
+                    : collect();
+    
+                // Format the response for each department
                 return [
-                    'id' => $office->id,
-                    'department_name' => $office->department_name,
-                    'acronym'=> $office->acronym,
-                    'division_id' => $office->division_id,  
+                    'id' => $department->id,
+                    'department_name' => $department->department_name,
+                    'acronym' => $department->acronym,
+                    'divisions' => $divisions
                 ];
             });
-
-            // Prepare response
+    
             $response = [
                 'isSuccess' => true,
-                'message' => 'Offices list retrieved successfully.',
-                'offices' => $formattedOffices,
-                'pagination' => [
-                    'total' => $result->total(),
-                    'per_page' => $result->perPage(),
-                    'current_page' => $result->currentPage(),
-                    'last_page' => $result->lastPage(),
-                ],
+                'message' => "Departments retrieved successfully.",
+                'departments' => $departments
             ];
-
+    
+            // Log the API call
+            $this->logAPICalls('getOffices',  "", [], [$response]);
+    
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to retrieve offices list.',
-                'error' => $e->getMessage(),
+                'message' => "Failed to retrieve departments.",
+                'error' => $e->getMessage()
             ];
-
+    
+            // Log the API call with the error
+            $this->logAPICalls('getOffices',  "", [], [$response]);
+    
             return response()->json($response, 500);
         }
     }
+    
+
 
     /**
      * Delete a college office.

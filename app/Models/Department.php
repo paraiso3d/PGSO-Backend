@@ -14,4 +14,9 @@ class Department extends Model
        'division_id',
         'is_archived'
     ];
+    public function divisions()
+{
+    return $this->belongsToMany(Division::class, 'department_division');
+}
+
 }

@@ -20,56 +20,56 @@ class DivisionController extends Controller
     public function createDivision(Request $request)
     {
         try {
+            // Validate input data
             $request->validate([
-                'division_name' => 'required|string|unique:divisions,div_name',
+                'division_name' => 'required|string|unique:divisions,division_name',
                 'office_location' => 'required|string',
-                'categories' => 'required|array',
-                'categories.*' => 'exists:categories,id',
-                'user_id' => 'required|integer|exists:users,id'
+                'staff_id' => ['nullable', 'exists:users,id'],
+                'category_id' => ['required', 'exists:categories,id'], // Single category ID
             ]);
-
+    
+            // Fetch the assigned category
+            $assignedCategory = Category::select('id', 'category_name')
+                ->findOrFail($request->category_id);
+    
+            // Create the division
             $division = Division::create([
-                'div_name' => $request->div_name,
-                'note' => $request->note,
-                'category_id' => json_encode($request->categories),
-                'user_id' => $request->user_id
+                'division_name' => $request->division_name,
+                'office_location' => $request->office_location,
+                'staff_id' => $request->staff_id, // Optional staff ID
+                'category_id' => $request->category_id, // Single category ID
             ]);
-
-            // Fetch the assigned categories
-            $assignedCategories = Category::whereIn('id', $request->categories)
-                ->select('id', 'category_name')
-                ->get();
-
-            // Retrieve the supervisor's information
-            $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
-                ->find($request->user_id);
-
+    
+            // Prepare the success response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Division created successfully.',
                 'division' => [
                     'id' => $division->id,
-                    'div_name' => $division->div_name,
-                    'note' => $division->note,
-                    'user_id' => $supervisor,
-                    'categories' => $assignedCategories,
+                    'division_name' => $division->division_name,
+                    'office_location' => $division->office_location,
+                    'staff_id' => $division->staff_id,
+                    'category' => $assignedCategory, // Include category details
                 ],
             ];
-
+    
+            // Log API call
             $this->logAPICalls('createDivision', $division->id, $request->all(), [$response]);
-
+    
             return response()->json($response, 200);
-
+    
         } catch (ValidationException $v) {
+            // Validation error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'Invalid input data.',
                 'error' => $v->errors(),
             ];
             $this->logAPICalls('createDivision', "", $request->all(), [$response]);
-            return response()->json($response, 500);
-
+            return response()->json($response, 400);
+    
         } catch (Throwable $e) {
+            // General error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to create the Division.',
@@ -79,6 +79,7 @@ class DivisionController extends Controller
             return response()->json($response, 500);
         }
     }
+    
 
     /**
      * Update an existing college office.

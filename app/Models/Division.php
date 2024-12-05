@@ -22,5 +22,11 @@ class Division extends Model
         'user_id'
     ];
 
+    public function category()
+{
+    return $this->belongsTo(Category::class);
+}
+
+
 
 }
