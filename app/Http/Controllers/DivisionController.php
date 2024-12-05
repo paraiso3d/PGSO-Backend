@@ -18,67 +18,70 @@ class DivisionController extends Controller
      * Create a new college office.
      */
     public function createDivision(Request $request)
-    {
-        try {
-            // Validate input data
-            $request->validate([
-                'division_name' => 'required|string|unique:divisions,division_name',
-                'office_location' => 'required|string',
-                'staff_id' => ['nullable', 'exists:users,id'],
-                'category_id' => ['required', 'exists:categories,id'], // Single category ID
-            ]);
-    
-            // Fetch the assigned category
-            $assignedCategory = Category::select('id', 'category_name')
-                ->findOrFail($request->category_id);
-    
-            // Create the division
-            $division = Division::create([
-                'division_name' => $request->division_name,
-                'office_location' => $request->office_location,
-                'staff_id' => $request->staff_id, // Optional staff ID
-                'category_id' => $request->category_id, // Single category ID
-            ]);
-    
-            // Prepare the success response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Division created successfully.',
-                'division' => [
-                    'id' => $division->id,
-                    'division_name' => $division->division_name,
-                    'office_location' => $division->office_location,
-                    'staff_id' => $division->staff_id,
-                    'category' => $assignedCategory, // Include category details
-                ],
-            ];
-    
-            // Log API call
-            $this->logAPICalls('createDivision', $division->id, $request->all(), [$response]);
-    
-            return response()->json($response, 200);
-    
-        } catch (ValidationException $v) {
-            // Validation error response
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Invalid input data.',
-                'error' => $v->errors(),
-            ];
-            $this->logAPICalls('createDivision', "", $request->all(), [$response]);
-            return response()->json($response, 400);
-    
-        } catch (Throwable $e) {
-            // General error response
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to create the Division.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('createDivision', "", $request->all(), [$response]);
-            return response()->json($response, 500);
-        }
+{
+    try {
+        // Validate input data
+        $request->validate([
+            'division_name' => 'required|string|unique:divisions,division_name',
+            'office_location' => 'required|string',
+            'staff_ids' => 'nullable|array', // Expecting an array of staff IDs
+            'staff_ids.*' => 'exists:users,id', // Validate each ID exists in the users table
+            'category_id' => 'required|exists:categories,id', // Single category ID
+        ]);
+
+        // Fetch the assigned category
+        $assignedCategory = Category::select('id', 'category_name')
+            ->findOrFail($request->category_id);
+
+        // Fetch users with the staff role
+        $staffIds = $request->staff_ids ? json_encode($request->staff_ids) : null;
+
+        // Create the division
+        $division = Division::create([
+            'division_name' => $request->division_name,
+            'office_location' => $request->office_location,
+            'staff_id' => $staffIds, // Save as JSON-encoded string
+            'category_id' => $request->category_id, // Single category ID
+        ]);
+
+        // Prepare the success response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Division created successfully.',
+            'division' => [
+                'id' => $division->id,
+                'division_name' => $division->division_name,
+                'office_location' => $division->office_location,
+                'staff_ids' => $request->staff_ids, // Return array of staff IDs
+                'category' => $assignedCategory, // Include category details
+            ],
+        ];
+
+        // Log API call
+        $this->logAPICalls('createDivision', $division->id, $request->all(), [$response]);
+
+        return response()->json($response, 200);
+    } catch (ValidationException $v) {
+        // Validation error response
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Invalid input data.',
+            'error' => $v->errors(),
+        ];
+        $this->logAPICalls('createDivision', "", $request->all(), [$response]);
+        return response()->json($response, 400);
+    } catch (Throwable $e) {
+        // General error response
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to create the Division.',
+            'error' => $e->getMessage(),
+        ];
+        $this->logAPICalls('createDivision', "", $request->all(), [$response]);
+        return response()->json($response, 500);
     }
+}
+
     
 
     /**

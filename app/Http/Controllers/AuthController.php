@@ -41,7 +41,7 @@ class AuthController extends Controller
                     }
 
                     // Get user type name
-                    $userTypeName = optional($user->roles)->role_name;
+                    $roleName = $user->role_name;
 
                     // Prepare response
                     $response = [
@@ -49,7 +49,7 @@ class AuthController extends Controller
                         'user' => $user->only(['id', 'email']),
                         'token' => $token,
                         'sessionCode' => $session,
-                        'role' => $userTypeName,
+                        'role' => $roleName,
                         'message' => 'Logged in successfully'
                     ];
 

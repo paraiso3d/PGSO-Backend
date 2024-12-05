@@ -31,26 +31,9 @@ class UserController extends Controller
                 $this->logAPICalls('createUserAccount', "", $request->all(), $response);
                 return response()->json($response, 500);
             }
-            $divisionId = $request->input('division_id');
-            $division = Division::findOrFail($divisionId);
-
-            $roleId = $request->input('role_id');
-            $role = Role::findOrFail($roleId);
-
-
-            $pgsoRoles = Role::whereIn('role_name', ['staff', 'head', 'personnel', 'admin'])
-                ->pluck('id')->toArray();
-
-            if (in_array($role->id, $pgsoRoles)) {
-                $departmentId = 1; // Default to PGSO
-            } else {
-                $departmentId = $request->input('department_id');
-            }
-
-
-            $department = Department::findOrFail($departmentId);
-
-
+            $division = Division::findOrFail($request->division_id);
+            $department = $request->department_id ? Department::findOrFail($request->department_id) : null;
+            
             $userAccount = User::create([
                 'first_name' => $request->first_name,
                 'middle_initial' => $request->middle_initial,
@@ -58,41 +41,50 @@ class UserController extends Controller
                 'email' => $request->email,
                 'designation' => $request->designation,
                 'password' => Hash::make($request->password),
-                'role_id' => $role->id,
-                'division_id'=> $division->id,
-                'department_id' => $department->id,
+                'role_name' => $request->role_name,
+                'division_id' => $division->id,
+                'department_id' => $department ? $department->id : null,
             ]);
-
-
+    
+            // Prepare the response
             $response = [
                 'isSuccess' => true,
-                'message' => 'UserAccount successfully created.',
+                'message' => 'User account successfully created.',
                 'user' => [
                     'id' => $userAccount->id,
-                    'is_archived' => $userAccount->is_archived,
                     'first_name' => $userAccount->first_name,
                     'last_name' => $userAccount->last_name,
                     'email' => $userAccount->email,
-                    'role_id' => $userAccount->role_id,
-                    'role_name' => $role->role_name,
+                    'role_name' => $userAccount->role_name, // Return role name directly
+                    'division_id' => $userAccount->division_id,
                     'department_id' => $userAccount->department_id,
-                    'department_name' => $department->department_name,
-                ]
+                ],
             ];
-
-            $this->logAPICalls('createUserAccount', "", $request->except(['password', 'role_id', 'department_id']), $response);
+    
+            // Log API call
+            $this->logAPICalls('createUserAccount', "", $request->except(['password']), $response);
+    
             return response()->json($response, 200);
-        } catch (Throwable $e) {
+        } catch (ValidationException $v) {
+            // Handle validation errors
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to create the UserAccount.',
-                'error' => $e->getMessage()
+                'message' => 'Validation failed.',
+                'errors' => $v->errors(),
             ];
-            $this->logAPICalls('createUserAccount', "", $request->except(['password']), $response);
+            $this->logAPICalls('createUserAccount', "", $request->all(), $response);
+            return response()->json($response, 400);
+        } catch (Throwable $e) {
+            // Handle other errors
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to create the user account.',
+                'error' => $e->getMessage(),
+            ];
+            $this->logAPICalls('createUserAccount', "", $request->all(), $response);
             return response()->json($response, 500);
         }
     }
-
      /**
      * Create a get user account.
      */

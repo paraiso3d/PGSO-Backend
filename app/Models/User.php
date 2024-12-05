@@ -27,7 +27,7 @@ class User extends Authenticatable
         'password',
         'division_id',
         'department_id',
-        'role_id',
+        'role_name',
         'is_archived'
     ];
 
@@ -53,7 +53,7 @@ class User extends Authenticatable
             'first_name' => ['required', 'string', 'alpha_spaces'],
             'last_name' => ['required', 'string', 'alpha_spaces'],
             'email' => ['required', 'email', 'unique:users,email'],
-            'role_id' => ['required', 'exists:roles,id'],
+            'role_name' => ['required', 'string'],
             'department_id' => ['required', 'exists:departments,id'],
             'division_id' => ['required', 'exists:divisions,id'],
             'password' => ['required', 'string', 'min:8'],
@@ -62,11 +62,6 @@ class User extends Authenticatable
 
         return $validator;
     }
-    public function roles()
-    {
-        return $this->belongsTo(Role::class, 'role_id', 'id');
-    }
-
     // Define the relationship with Office
     public function departments()
     {
