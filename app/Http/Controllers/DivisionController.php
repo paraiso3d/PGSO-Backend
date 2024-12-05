@@ -232,89 +232,54 @@ class DivisionController extends Controller
     /**
      * Get all college offices.
      */
-    public function getDivisions(Request $request)
+    public function getDivisions()
     {
         try {
-            $searchTerm = $request->input('search', null);
-            $perPage = $request->input('per_page', 10); // Default to 10 items per page if not specified
-
-            // Retrieve divisions with optional search and pagination
-            $query = Division::select()
-                ->where('is_archived', '0')
-                ->when($searchTerm, function ($query, $searchTerm) {
-                    return $query->where('div_name', 'like', '%' . $searchTerm . '%');
-                });
-
-            $result = $query->paginate($perPage);
-
-            if ($result->isEmpty()) {
-                $response = [
-                    'isSuccess' => false,
-                    'message' => 'No active divisions found matching the criteria',
-                ];
-                $this->logAPICalls('getDivisions', '', $request->all(), $response);
-                return response()->json($response, 500);
-            }
-
-            // Fetch categories and supervisor full name for each division
-            $formattedDivisions = $result->getCollection()->transform(function ($division) {
-                // Initialize categories as an empty collection if category_id is null
-                $division->categories = [];
-
-                // Check if category_id is not null
-                if ($division->category_id) {
-                    // Fetch the assigned categories for the current division
-                    $division->categories = Category::whereIn('id', json_decode($division->category_id))
-                        ->select('id', 'category_name')
-                        ->where('is_archived', '0')
-                        ->get();
-                }
-
-                // Retrieve the supervisor's information
-                $supervisor = User::select('id', 'first_name', 'last_name', 'middle_initial')
-                    ->find($division->user_id);
-
-                // Add full name for supervisor
-                $division->full_name = $supervisor ?
-                    "{$supervisor->first_name} {$supervisor->middle_initial} {$supervisor->last_name}" : null;
-
+            // Fetch all divisions with their related category and staff details
+            $divisions = Division::with(['category:id,category_name', 'staff:id,first_name,last_name'])->get()->map(function ($division) {
                 return [
                     'id' => $division->id,
-                    'div_name' => $division->div_name,
-                    'categories' => $division->categories,
-                    'note'=> $division->note,
-                    'full_name' => $division->full_name,
-                    'user_id'=> $division->user_id
+                    'division_name' => $division->division_name,
+                    'office_location' => $division->office_location,
+                    'staff' => $division->staff ? [
+                        'id' => $division->staff->id,
+                        'name' => $division->staff->first_name . ' ' . $division->staff->last_name,
+                    ] : null, // Handle null staff gracefully
+                    'category' => $division->category ? [
+                        'id' => $division->category->id,
+                        'category_name' => $division->category->category_name,
+                    ] : null, // Handle null category gracefully
                 ];
             });
-
-            // Create response with pagination info
+    
+            // Build success response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Divisions retrieved successfully.',
-                'divisions' => $formattedDivisions,
-                'pagination' => [
-                    'total' => $result->total(),
-                    'per_page' => $result->perPage(),
-                    'current_page' => $result->currentPage(),
-                    'last_page' => $result->lastPage(),
-                ],
+                'divisions' => $divisions,
             ];
-
-            $this->logAPICalls('getDivisions', '', $request->all(), $response);
-
+    
+            // Log API call
+            $this->logAPICalls('getDivisions', "", [], [$response]);
+    
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
+            // Handle errors
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve divisions.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('getDivisions', '', $request->all(), $response);
+    
+            $this->logAPICalls('getDivisions', "", [], [$response]);
+    
             return response()->json($response, 500);
         }
     }
+    
+    
+
 
     /**
      * Delete a college office.

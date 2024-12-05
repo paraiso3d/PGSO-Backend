@@ -27,6 +27,11 @@ class Division extends Model
     return $this->belongsTo(Category::class);
 }
 
+public function staff()
+{
+    return $this->belongsTo(User::class, 'staff_id');
+}
+
 
 
 }
