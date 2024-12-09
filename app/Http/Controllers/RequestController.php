@@ -227,6 +227,7 @@ class RequestController extends Controller
             $query = Requests::select(
                 'requests.id',
                 'requests.control_no',
+                'requests.request_title',
                 'requests.description',
                 'requests.location_name',
                 'requests.file_path',
@@ -299,6 +300,7 @@ class RequestController extends Controller
                 return [
                     'id' => $request->id,
                     'control_no' => $request->control_no,
+                    'request_title' => $request->request_title,
                     'description' => $request->description,
                     'location_name' => $request->location_name,
                     'category_id' => $request->category_id,
@@ -355,6 +357,7 @@ class RequestController extends Controller
             $requestDetails = Requests::select(
                 'requests.id',
                 'requests.control_no',
+                'requests.request_title',
                 'requests.description',
                 'requests.location_name',
                 'requests.file_path',
@@ -384,6 +387,7 @@ class RequestController extends Controller
             $formattedRequest = [
                 'id' => $requestDetails->id,
                 'control_no' => $requestDetails->control_no,
+                'request_title' => $requestDetails->request_title,
                 'description' => $requestDetails->description,
                 'location_name' => $requestDetails->location_name,
                 'category_id' => $requestDetails->category_id,
