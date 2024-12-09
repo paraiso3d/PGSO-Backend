@@ -148,9 +148,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Request Routes
         Route::post('create', [RequestController::class, 'createRequest']);
-        Route::post('return/{id}', [RequestController::class, 'updateReturn']);
-        Route::post('assess/{id}', [RequestController::class, 'assessRequest']);
+        Route::post('accept/{id}', [RequestController::class, 'acceptRequest']);
+        Route::post('reject/{id}', [RequestController::class, 'rejectRequest']);
         Route::post('list', [RequestController::class, 'getRequests']);
+        Route::post('list/{id}', [RequestController::class, 'getRequestById']);
 
         // Review Routes
         Route::post('review/update/{id}', [ReviewController::class, 'updateReview']);

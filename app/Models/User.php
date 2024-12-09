@@ -62,14 +62,13 @@ class User extends Authenticatable
 
         return $validator;
     }
-    // Define the relationship with Office
-    public function departments()
+    public function division()
     {
-        return $this->belongsTo(Department::class, 'department_id', 'id');
+        return $this->belongsTo(Division::class);
     }
-
-    public function divisions()
+    
+    public function department()
     {
-        return $this->belongsTo(Division::class, 'division_id', 'id');
+        return $this->belongsTo(Department::class);
     }
 }

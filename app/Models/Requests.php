@@ -19,9 +19,9 @@ class Requests extends Model
 
     protected $fillable = [
         'control_no',
+        'request_title',
         'description',
         'location_name',
-        'fiscal_year',
         'category',
         'file_path',
         'status',
@@ -53,10 +53,10 @@ class Requests extends Model
     {
         $validator = Validator::make($data, [
             'control_no' => ['nullable', 'string'],
+            'request_title' => ['required', 'string'],
             'description' => ['required', 'string'],
-            'category' => ['required', 'string'],
-            'location' => ['required', 'string'],
-            'fiscal_year' => ['required', 'string', 'in:' . now()->year],
+            'category' => ['nullable', 'string'],
+            'location_name' => ['required', 'string'],
             'requested_by' => ['nullable', 'integer', 'exists:users,id'], // Changed rule for user_id
             'file_path' => [
                 'required',
@@ -71,6 +71,11 @@ class Requests extends Model
 
         return $validator;
     }
+
+    public function user()
+{
+    return $this->belongsTo(User::class, 'requested_by');
+}
 
     public function office()
     {

@@ -24,12 +24,11 @@ use Illuminate\Support\Facades\Storage;
 
 class RequestController extends Controller
 {
-    // Method to create a new request.    
+    // Method to create a new request
     public function createRequest(Request $request)
     {
-
+        // Validate the incoming data using the Requests model's validateRequest method
         $validator = Requests::validateRequest($request->all());
-
 
         if ($validator->fails()) {
             $response = [
@@ -39,87 +38,73 @@ class RequestController extends Controller
             ];
             $this->logAPICalls('createRequest', '', [], $response);
 
-            return response()->json($response, 500);
+            return response()->json($response, 400);
         }
 
-
         $controlNo = Requests::generateControlNo();
-
-
         $filePath = null;
         $fileUrl = null;
 
-
         if ($request->hasFile('file_path')) {
-            // Get the uploaded file
+            // Get the uploaded file and save it
             $file = $request->file('file_path');
-
-            // Convert the uploaded file to base64
-            $fileContents = file_get_contents($file->getRealPath());
-            $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
-
-            // Call your saveImage method to handle the base64 image
-            $path = $this->getSetting("ASSET_IMAGE_PATH");
-            $fdateNow = now()->format('Y-m-d');
-            $ftimeNow = now()->format('His');
-            $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $controlNo, $fdateNow . '_' . $ftimeNow);
-
-
-            $fileUrl = asset( $filePath);
+            $fileName = 'Request-' . $controlNo . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
+            $filePath = $file->storeAs('requests', $fileName, 'public');
+            $fileUrl = asset('storage/' . $filePath);
         }
 
-
-        $status = $request->input('status', 'Pending');
-
         try {
-
             $user = auth()->user();
 
+            // Extract user details
+            $firstName = $user->first_name ?? 'N/A';
+            $lastName = $user->last_name ?? 'N/A';
+            $division = $user->division->division_name ?? 'N/A'; // Assumes user has a relation to division
+            $department = $user->department->department_name ?? 'N/A'; // Assumes user has a relation to department
+            $officeLocation = $user->division->office_location ?? 'N/A'; // Fetching office location
 
-            $locationId = $request->input('location_id');
-            $officeId = $request->input('office_id');
-
-            $location = Location::findOrFail($locationId);
-            $office = Department::findOrFail($officeId);
 
             // Create the new request record
             $newRequest = Requests::create([
                 'control_no' => $controlNo,
+                'request_title'=>$request->input('request_title'),
                 'description' => $request->input('description'),
-                'overtime' => $request->input('overtime'),
-                'area' => $request->input('area'),
-                'fiscal_year' => $request->input('fiscal_year'),
+                'location_name' => $request->input('location_name'),
+                'category' => $request->input('category'),
                 'file_path' => $filePath,
-                'status' => $status,
-                'office_id' => $office->id,
-                'location_id' => $location->id,
-                'user_id' => $user->id,
+                'status' => $request->input('status', 'Pending'),
+                'requested_by' => $user->id,
+                'date_requested' => now(),
+                'is_archived' => false,
             ]);
 
             $response = [
-                    'isSuccess' => true,
-                    'message' => 'Request successfully created.',
-                    'request' => [
-                        'id' => $newRequest->id,
-                        'control_no' => $controlNo,
-                        'description' => $request->input('description'),
-                        'overtime' => $request->input('overtime'),
-                        'area' => $request->input('area'),
-                        'fiscal_year' => $request->input('fiscal_year'),
-                        'status' => $status,
-                        'office_id' => $office->id,
-                        'office_name' => $office->office_name,
-                        'location_id' => $location->id,
-                        'location_name' => $location->location_name,
-                        'user_id' => $user->id,
-                        'file_path' => $filePath,
-                        'file_url' => $fileUrl,
-                ]
+                'isSuccess' => true,
+                'message' => 'Request successfully created.',
+                'request' => [
+                    'id' => $newRequest->id,
+                    'control_no' => $controlNo,
+                    'request_title'=>$newRequest->request_title,
+                    'description' => $newRequest->description,
+                    'location_name' => $newRequest->location_name,
+                    'category' => $newRequest->category,
+                    'file_url' => $fileUrl,
+                    'status' => $newRequest->status,
+                    'requested_by' => [
+                        'id' => $user->id,
+                        'first_name' => $firstName,
+                        'last_name' => $lastName,
+                        'division' => $division,
+                        'department' => $department,
+                        'office_location' => $officeLocation,
+                    ],
+                    'date_requested' => $newRequest->date_requested,
+                ],
             ];
 
             $this->logAPICalls('createRequest', $newRequest->id, [], $response);
 
-            return response()->json($response, 200);
+            return response()->json($response, 201);
 
         } catch (Throwable $e) {
             // Handle any exceptions
@@ -134,154 +119,128 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     }
-
-    public function updateReturn(Request $request, $id)
+    public function acceptRequest($id)
     {
-        $existingRequest = Requests::findOrFail($id);
-
-        // Check if the request status is "Returned"
-        if ($existingRequest->status !== 'Returned') {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Only requests with the status "Returned" can be updated.',
-            ];
-            $this->logAPICalls('updateRequest', '', [], $response);
-            return response()->json($response, 403);
-        }
-
-        $validator = Requests::validateRequest($request->all());
-
-        if ($validator->fails()) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors(),
-            ];
-            $this->logAPICalls('updateRequest', '', [], $response);
-            return response()->json($response, 500);
-        }
-
-        $filePath = $existingRequest->file_path;
-        $fileUrl = $filePath ? asset( $filePath) : null;
-
-        if ($request->hasFile('file_path')) {
-            // Get the uploaded file
-            $file = $request->file('file_path');
-
-            // Convert the uploaded file to base64
-            $fileContents = file_get_contents($file->getRealPath());
-            $base64Image = 'data:image/' . $file->extension() . ';base64,' . base64_encode($fileContents);
-
-            // Call your saveImage method to handle the base64 image
-            $path = $this->getSetting("ASSET_IMAGE_PATH");
-            $fdateNow = now()->format('Y-m-d');
-            $ftimeNow = now()->format('His');
-            $filePath = (new AuthController)->saveImage($base64Image, 'asset', 'Asset-' . $existingRequest->control_no, $fdateNow . '_' . $ftimeNow);
-
-            $fileUrl = asset($filePath);
-        }
-
         try {
-            $user = auth()->user();
+            // Find the request by its ID
+            $requestRecord = Requests::findOrFail($id);
 
-            $locationId = $request->input('location_id', $existingRequest->location_id);
-            $officeId = $request->input('office_id', $existingRequest->office_id);
+            // Update the status
+            $requestRecord->status = 'For Review';
+            $requestRecord->save();
 
-            $location = Location::findOrFail($locationId);
-            $office = Department::findOrFail($officeId);
+            // Fetch the user who made the request
+            $user = $requestRecord->user;
 
-            // Update the existing request record with status set to "Pending"
-            $existingRequest->update([
-                'description' => $request->input('description', $existingRequest->description),
-                'overtime' => $request->input('overtime', $existingRequest->overtime),
-                'area' => $request->input('area', $existingRequest->area),
-                'fiscal_year' => $request->input('fiscal_year', $existingRequest->fiscal_year),
-                'file_path' => $filePath,
-                'status' => 'Pending', // Automatically update status to "Pending"
-                'office_id' => $office->id,
-                'location_id' => $location->id,
-                'user_id' => $user->id,
-            ]);
-
-            // Prepare the success response
+            // Prepare the response
             $response = [
                 'isSuccess' => true,
-                'message' => 'Request successfully updated.',
-                'returnRequest' => [
-                    'id' => $existingRequest->id,
-                    'control_no' => $existingRequest->control_no,
-                    'description' => $existingRequest->description,
-                    'overtime' => $existingRequest->overtime,
-                    'area' => $existingRequest->area,
-                    'fiscal_year' => $existingRequest->fiscal_year,
-                    'status' => 'Pending',
-                    'office_id' => $office->id,
-                    'office_name' => $office->office_name,
-                    'location_id' => $location->id,
-                    'location_name' => $location->location_name,
-                    'user_id' => $user->id,
-                    'file_path' => $filePath,
-                    'file_url' => $fileUrl,
-                ]
+                'message' => 'Request has been accepted and is now For Review.',
+                'request' => [
+                    'id' => $requestRecord->id,
+                    'control_no' => $requestRecord->control_no,
+                    'status' => $requestRecord->status,
+                    'requested_by' => [
+                        'id' => $user->id,
+                        'first_name' => $user->first_name ?? 'N/A',
+                        'last_name' => $user->last_name ?? 'N/A',
+                    ],
+                    'date_accepted' => now()->toDateTimeString(),
+                ],
             ];
 
-            $this->logAPICalls('updateRequest', $existingRequest->id, [], $response);
+            $this->logAPICalls('acceptRequest', "", [], $response);
 
             return response()->json($response, 200);
-
         } catch (Throwable $e) {
-            // Handle any exceptions
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to update the request.',
+                'message' => 'Failed to accept the request.',
                 'error' => $e->getMessage(),
             ];
 
-            $this->logAPICalls('updateRequest', '', [], $response);
+            $this->logAPICalls('acceptRequest', "", [], $response);
 
             return response()->json($response, 500);
         }
     }
 
+    // Reject a request and change its status to "Returned"
+    public function rejectRequest($id)
+    {
+        try {
+            // Find the request by its ID
+            $requestRecord = Requests::findOrFail($id);
+
+            // Update the status
+            $requestRecord->status = 'Returned';
+            $requestRecord->save();
+
+            // Fetch the user who made the request
+            $user = $requestRecord->user;
+
+            // Prepare the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Request has been rejected and is now Returned.',
+                'request' => [
+                    'id' => $requestRecord->id,
+                    'control_no' => $requestRecord->control_no,
+                    'status' => $requestRecord->status,
+                    'requested_by' => [
+                        'id' => $user->id,
+                        'first_name' => $user->first_name ?? 'N/A',
+                        'last_name' => $user->last_name ?? 'N/A',
+                    ],
+                    'date_rejected' => now()->toDateTimeString(),
+                ],
+            ];
+
+            $this->logAPICalls('rejectRequest', "", [], $response);
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to reject the request.',
+                'error' => $e->getMessage(),
+            ];
+
+            $this->logAPICalls('rejectRequest', "", [], $response);
+
+            return response()->json($response, 500);
+        }
+    }
+
+
     public function getRequests(Request $request)
     {
         try {
             $userId = $request->user()->id;
-            $userTypeId = $request->user()->user_type_id;
-
-            $role = DB::table('user_types')
-                ->where('id', $userTypeId)
-                ->value('name');
-
+            $role = $request->user()->role_name; // Fetch the role directly from the users table
+    
             // Pagination settings
             $perPage = $request->input('per_page', 10);
             $searchTerm = $request->input('search', null);
-
+    
             // Initialize query
             $query = Requests::select(
                 'requests.id',
                 'requests.control_no',
                 'requests.description',
-                'offices.office_name',
-                'locations.location_name',
-                'requests.overtime',
+                'requests.location_name',
                 'requests.file_path',
-                'requests.area',
                 'requests.category_id',
-                'requests.remarks',
-                'requests.fiscal_year',
+                'requests.feedback',
                 'requests.status',
-                'requests.office_id',
-                'requests.location_id',
                 DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
             )
-                ->leftJoin('offices', 'requests.office_id', '=', 'offices.id')
-                ->leftJoin('locations', 'requests.location_id', '=', 'locations.id')
+                ->leftJoin('categories', 'categories.id', '=', 'requests.category_id') // Join with categories table to get category name
                 ->where('requests.is_archived', '=', '0') // Filter active requests
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
                 });
-
+    
             // Apply filters based on input from the request
             if ($request->has('type')) {
                 if ($request->type === 'Returned') {
@@ -290,29 +249,20 @@ class RequestController extends Controller
                     $query->where('requests.overtime', '>', 0);
                 }
             }
-
-            $query = Requests::query()
-            ->when($request->filled('location'), function ($query) use ($request) {
-                $query->where('requests.location_id', $request->location);
+    
+            $query->when($request->filled('location'), function ($query) use ($request) {
+                $query->where('requests.location_name', $request->location);
             })
             ->when($request->filled('status'), function ($query) use ($request) {
                 $query->where('requests.status', $request->status);
             })
-            ->when(!empty($request->category), function ($query) use ($request) {
-                foreach ($request->category as $categoryId) {
-                    $query->orWhereJsonContains('requests.category_id', $categoryId);
-                }
-            })
-            ->when(!empty($request->division), function ($query) use ($request) {
-                foreach ($request->division as $divisionId) {
-                    $query->orWhereJsonContains('requests.division_id', $divisionId);
-                }
+            ->when($request->filled('category'), function ($query) use ($request) {
+                $query->where('requests.category_id', $request->category);
             })
             ->when($request->filled('year'), function ($query) use ($request) {
                 $query->where('requests.fiscal_year', $request->year);
             });
-        
-
+    
             // Role-based filtering
             switch ($role) {
                 case 'admin':
@@ -330,50 +280,39 @@ class RequestController extends Controller
                     $query->whereRaw('1 = 0');
                     break;
             }
-
+    
             // Execute the query with pagination
             $result = $query->paginate($perPage);
-
+    
             if ($result->isEmpty()) {
                 $response = [
                     'isSuccess' => false,
                     'message' => 'No requests found matching the criteria.',
                 ];
                 $this->logAPICalls('getRequests', "", [], $response);
-
-                return response()->json($response, 500);
+    
+                return response()->json($response, 404);
             }
-
-            // Format the response and fetch category names
+    
+            // Format the response
             $formattedRequests = $result->getCollection()->transform(function ($request) {
-                $categoryIds = json_decode($request->category_id);
-
-                $categoryNames = !empty($categoryIds)
-                    ? DB::table('categories')
-                        ->whereIn('id', $categoryIds)
-                        ->pluck('category_name')
-                        ->toArray()
-                    : [];
-
                 return [
                     'id' => $request->id,
                     'control_no' => $request->control_no,
                     'description' => $request->description,
-                    'office_name' => $request->office_name,
                     'location_name' => $request->location_name,
-                    'overtime' => $request->overtime,
-                    'area' => $request->area,
                     'category_id' => $request->category_id,
-                    'category_name' => $categoryNames, // Include category names array
-                    'remarks' => $request->remarks,
-                    'fiscal_year' => $request->fiscal_year,
+                    'category_name' => $request->category_id 
+                        ? DB::table('categories')->where('id', $request->category_id)->value('category_name') 
+                        : null, // Fetch category name directly if category_id exists
+                    'feedback' => $request->feedback,
                     'status' => $request->status,
                     'file_path' => $request->file_path,
                     'file_url' => $request->file_path ? asset($request->file_path) : null,
                     'updated_at' => $request->updated_at,
                 ];
             });
-
+    
             // Prepare the response with pagination
             $response = [
                 'isSuccess' => true,
@@ -387,48 +326,98 @@ class RequestController extends Controller
                     'url' => url('api/requestList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
                 ],
             ];
-
+    
             $this->logAPICalls('getRequests', "", [], $response);
-
+    
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve requests.',
                 'error' => $e->getMessage(),
             ];
-
+    
             $this->logAPICalls('getRequests', "", [], $response);
-
+    
             return response()->json($response, 500);
         }
     }
-
+    
+    
+    
+    
     // Method to delete (archive) a request
-    public function deleteRequest($id)
+    public function getRequestById(Request $request, $id)
     {
         try {
-            $requestRecord = Requests::findOrFail($id);
-            $requestRecord->update(['is_archived' => '1']);
-
+            // Find the request by ID with category join
+            $requestDetails = Requests::select(
+                'requests.id',
+                'requests.control_no',
+                'requests.description',
+                'requests.location_name',
+                'requests.file_path',
+                'requests.category_id',
+                'categories.category_name', // Fetch category name directly
+                'requests.feedback',
+                'requests.status',
+                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
+            )
+            ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
+            ->where('requests.id', $id)
+            ->where('requests.is_archived', '=', '0') // Filter out archived requests
+            ->first();
+    
+            // Check if the request exists
+            if (!$requestDetails) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'Request not found.',
+                ];
+                $this->logAPICalls('getRequestById', $id, [], $response);
+    
+                return response()->json($response, 404);
+            }
+    
+            // Format the response
+            $formattedRequest = [
+                'id' => $requestDetails->id,
+                'control_no' => $requestDetails->control_no,
+                'description' => $requestDetails->description,
+                'location_name' => $requestDetails->location_name,
+                'category_id' => $requestDetails->category_id,
+                'category_name' => $requestDetails->category_name, // Include category name
+                'feedback' => $requestDetails->feedback,
+                'status' => $requestDetails->status,
+                'file_path' => $requestDetails->file_path,
+                'file_url' => $requestDetails->file_path ? asset($requestDetails->file_path) : null,
+                'updated_at' => $requestDetails->updated_at,
+            ];
+    
+            // Successful response
             $response = [
                 'isSuccess' => true,
-                'message' => 'Request successfully archived.',
+                'message' => 'Request retrieved successfully.',
+                'request' => $formattedRequest,
             ];
-            $this->logAPICalls('deleteRequest', $id, [], $response);
-
+            $this->logAPICalls('getRequestById', $id, [], $response);
+    
             return response()->json($response, 200);
+    
         } catch (Throwable $e) {
+            // Error handling
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to archive the request.',
+                'message' => 'Failed to retrieve request.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('deleteRequest', $id, [], $response);
+            $this->logAPICalls('getRequestById', $id, [], $response);
+    
             return response()->json($response, 500);
         }
     }
+    
 
     public function assessRequest(Request $request)
     {
