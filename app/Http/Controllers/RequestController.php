@@ -228,6 +228,9 @@ class RequestController extends Controller
                 'requests.id',
                 'requests.control_no',
                 'requests.request_title',
+                'requests.requested_by',
+                'users.first_name as requested_by_first_name',
+                'users.last_name as requested_by_last_name',
                 'requests.description',
                 'requests.location_name',
                 'requests.file_path',
@@ -236,6 +239,7 @@ class RequestController extends Controller
                 'requests.status',
                 DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
             )
+                ->leftJoin('users', 'users.id', '=', 'requests.requested_by') // Join with users table to get user details
                 ->leftJoin('categories', 'categories.id', '=', 'requests.category_id') // Join with categories table to get category name
                 ->where('requests.is_archived', '=', '0') // Filter active requests
                 ->when($searchTerm, function ($query, $searchTerm) {
@@ -301,6 +305,8 @@ class RequestController extends Controller
                     'id' => $request->id,
                     'control_no' => $request->control_no,
                     'request_title' => $request->request_title,
+                    'requested_by' => $request->requested_by,
+                    'requested_by_name' => $request->requested_by_first_name . ' ' . $request->requested_by_last_name,
                     'description' => $request->description,
                     'location_name' => $request->location_name,
                     'category_id' => $request->category_id,
@@ -349,15 +355,19 @@ class RequestController extends Controller
     
     
     
+    
     // Method to delete (archive) a request
     public function getRequestById(Request $request, $id)
     {
         try {
-            // Find the request by ID with category join
+            // Find the request by ID with category and user join
             $requestDetails = Requests::select(
                 'requests.id',
                 'requests.control_no',
                 'requests.request_title',
+                'requests.requested_by',
+                'users.first_name as requested_by_first_name',
+                'users.last_name as requested_by_last_name',
                 'requests.description',
                 'requests.location_name',
                 'requests.file_path',
@@ -367,6 +377,7 @@ class RequestController extends Controller
                 'requests.status',
                 DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
             )
+            ->leftJoin('users', 'users.id', '=', 'requests.requested_by') // Join with users table to fetch user details
             ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
             ->where('requests.id', $id)
             ->where('requests.is_archived', '=', '0') // Filter out archived requests
@@ -388,6 +399,8 @@ class RequestController extends Controller
                 'id' => $requestDetails->id,
                 'control_no' => $requestDetails->control_no,
                 'request_title' => $requestDetails->request_title,
+                'requested_by' => $requestDetails->requested_by,
+                'requested_by_name' => $requestDetails->requested_by_first_name . ' ' . $requestDetails->requested_by_last_name,
                 'description' => $requestDetails->description,
                 'location_name' => $requestDetails->location_name,
                 'category_id' => $requestDetails->category_id,
