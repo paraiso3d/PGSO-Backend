@@ -298,7 +298,7 @@ class AuthController extends Controller
             $image = substr($image, strpos($image, ',') + 1);
             $type = strtolower($type[2]);
     
-            if (!in_array($type, ['pdf', 'jpg', 'jpeg', 'gif', 'png', 'svg'])) {
+            if (!in_array($type, ['mp4','pdf', 'jpg', 'jpeg', 'gif', 'png', 'svg'])) {
                 throw new Exception('The provided file or image is invalid.');
             }
     

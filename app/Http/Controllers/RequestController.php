@@ -44,15 +44,29 @@ class RequestController extends Controller
         $controlNo = Requests::generateControlNo();
         $filePath = null;
         $fileUrl = null;
-
         if ($request->hasFile('file_path')) {
-            // Get the uploaded file and save it
+            // Get the uploaded file
             $file = $request->file('file_path');
+        
+            // Define the target directory and file name
+            $directory = public_path('img/asset');
             $fileName = 'Request-' . $controlNo . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
-            $filePath = $file->storeAs('requests', $fileName, 'public');
-            $fileUrl = asset('storage/' . $filePath);
+        
+            // Ensure the directory exists
+            if (!file_exists($directory)) {
+                mkdir($directory, 0755, true);
+            }
+        
+            // Move the file to the target directory
+            $file->move($directory, $fileName);
+        
+            // Generate the relative file path
+            $filePath = 'img/asset/' . $fileName;
+        
+            // Generate the file URL
+            $fileUrl = asset($filePath);
         }
-
+        
         try {
             $user = auth()->user();
 
@@ -237,7 +251,7 @@ class RequestController extends Controller
                 'requests.category_id',
                 'requests.feedback',
                 'requests.status',
-                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
+                'requests.date_requested',
             )
                 ->leftJoin('users', 'users.id', '=', 'requests.requested_by') // Join with users table to get user details
                 ->leftJoin('categories', 'categories.id', '=', 'requests.category_id') // Join with categories table to get category name
@@ -301,6 +315,7 @@ class RequestController extends Controller
     
             // Format the response
             $formattedRequests = $result->getCollection()->transform(function ($request) {
+                $filePath = $request->file_path;
                 return [
                     'id' => $request->id,
                     'control_no' => $request->control_no,
@@ -315,8 +330,9 @@ class RequestController extends Controller
                         : null, // Fetch category name directly if category_id exists
                     'feedback' => $request->feedback,
                     'status' => $request->status,
-                    'file_path' => $request->file_path,
-                    'file_url' => $request->file_path ? asset($request->file_path) : null,
+                    'file_path' => $filePath,
+                    'file_url' => $filePath ? asset($filePath) : null,
+                    'date_requested'=>$request->date_requested,
                     'updated_at' => $request->updated_at,
                 ];
             });

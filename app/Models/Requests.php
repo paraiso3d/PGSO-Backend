@@ -22,7 +22,7 @@ class Requests extends Model
         'request_title',
         'description',
         'location_name',
-        'category',
+        'category_id',
         'file_path',
         'status',
         'requested_by',
@@ -55,7 +55,7 @@ class Requests extends Model
             'control_no' => ['nullable', 'string'],
             'request_title' => ['required', 'string'],
             'description' => ['required', 'string'],
-            'category' => ['nullable', 'string'],
+            'category_id' => ['nullable', 'string'],
             'location_name' => ['required', 'string'],
             'requested_by' => ['nullable', 'integer', 'exists:users,id'], // Changed rule for user_id
             'file_path' => [
