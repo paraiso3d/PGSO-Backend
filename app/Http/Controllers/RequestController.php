@@ -138,7 +138,7 @@ class RequestController extends Controller
             $requestRecord = Requests::findOrFail($id);
 
             // Update the status
-            $requestRecord->status = 'For Review';
+            $requestRecord->status = 'For Process';
             $requestRecord->save();
 
             // Fetch the user who made the request
@@ -263,6 +263,7 @@ class RequestController extends Controller
                 'requests.feedback',
                 'requests.status',
                 'requests.date_requested',
+                'requests.personnel_ids',
                 'users.id as requested_by_id',
                 'users.first_name',
                 'users.last_name',
@@ -330,6 +331,10 @@ class RequestController extends Controller
     
             // Format response
             $formattedRequests = $result->getCollection()->transform(function ($request) {
+                $personnelIds = json_decode($request->personnel_ids, true) ?? [];
+                $personnelInfo = User::whereIn('id', $personnelIds)
+                    ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
+                    ->get();
                 return [
                     'id' => $request->id,
                     'control_no' => $request->control_no,
@@ -341,6 +346,12 @@ class RequestController extends Controller
                     'category_name' => $request->category_id 
                         ? DB::table('categories')->where('id', $request->category_id)->value('category_name') 
                         : null,
+                        'personnel' => $personnelInfo->map(function ($personnel) {
+                            return [
+                                'id' => $personnel->id,
+                                'name' => $personnel->name,
+                            ];
+                        }),
                     'feedback' => $request->feedback,
                     'status' => $request->status,
                     'requested_by' => [
@@ -455,51 +466,89 @@ class RequestController extends Controller
         }
     }
 
-    public function assessRequest(Request $request)
+    public function assessRequest(Request $request, $id)
     {
         try {
             // Retrieve the currently logged-in user
             $user = auth()->user();
-
-            // Retrieve the record based on the provided request ID
-            $requests = Requests::where('id', $request->id)->firstOrFail();
-
-            // Update the status to "For Review"
-            $requests->update(['status' => 'For Review']);
-
+    
+            // Retrieve the request record using the ID from the URL
+            $requests = Requests::where('id', $id)->firstOrFail();
+    
+            // Validate the input data, including category_id and personnel_ids
+            $validatedData = $request->validate([
+                'category_id' => 'required|exists:categories,id',
+                'personnel_ids' => 'required|array|min:1', // Ensure personnel_ids is an array with at least one entry
+                'personnel_ids.*' => 'exists:users,id', // Validate that each personnel_id exists in the users table
+            ]);
+    
+            // Retrieve all valid personnel IDs linked to the provided category_id
+            $linkedPersonnelIds = DB::table('category_personnel')
+                ->where('category_id', $validatedData['category_id'])
+                ->pluck('personnel_id')
+                ->toArray();
+    
+            // Check if all provided personnel_ids are linked to the category
+            $invalidPersonnelIds = array_diff($validatedData['personnel_ids'], $linkedPersonnelIds);
+    
+            if (!empty($invalidPersonnelIds)) {
+                throw new Exception("The following personnel IDs are not linked to the selected category: " . implode(', ', $invalidPersonnelIds));
+            }
+    
+            // Update the request with the fetched category_id and the provided personnel_ids (as JSON)
+            $requests->update([
+                'status' => 'For Process',
+                'category_id' => $validatedData['category_id'],  // Assign the category_id
+                'personnel_ids' => json_encode($validatedData['personnel_ids']), // Store multiple personnel IDs as JSON
+            ]);
+    
             // Prepare the full name of the currently logged-in user
-            $fullName = "{$user->first_name} {$user->middle_initial} {$user->last_name}";
-
+            $fullName = trim("{$user->first_name} {$user->middle_initial} {$user->last_name}");
+    
             // Prepare the response
             $response = [
                 'isSuccess' => true,
-                'messsage' => 'Assesing request.',
+                'message' => 'Request assessed successfully.',
                 'request_id' => $requests->id,
                 'status' => $requests->status,
                 'user_id' => $user->id,
                 'user' => $fullName,
+                'category' => [
+                    'id' => $validatedData['category_id'],
+                ],
+                'personnel' => array_map(function ($personnelId) {
+                    $personnel = User::find($personnelId);
+                    return [
+                        'id' => $personnel->id,
+                        'name' => "{$personnel->first_name} {$personnel->last_name}",
+                    ];
+                }, $validatedData['personnel_ids']),
             ];
-
+    
             // Log the API call
-            $this->logAPICalls('assessRequest', $requests->id, [], $response);
-
+            $this->logAPICalls('assessRequest', $requests->id, $request->all(), $response);
+    
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
             // Prepare the error response
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to update the work status.",
+                'message' => "Failed to assess the request.",
                 'error' => $e->getMessage(),
             ];
-
+    
             // Log the API call with failure response
-            $this->logAPICalls('assessRequest', $request->id ?? '', [], $response);
-
+            $this->logAPICalls('assessRequest', $id ?? '', $request->all(), $response);
+    
             return response()->json($response, 500);
         }
     }
+    
+    
 
+
+    
     //Dropdown Request Location
     public function getDropdownOptionsRequestslocation(Request $request)
     {

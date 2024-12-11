@@ -23,6 +23,7 @@ class Requests extends Model
         'note',
         'description',
         'category_id',
+        'personnel_ids',
         'file_path',
         'status',
         'requested_by',
@@ -86,10 +87,19 @@ class Requests extends Model
         return $this->belongsTo(Location::class);
     }
 
-    public function categories()
-    {
-        return $this->belongsTo(Category::class);
-    }
+// Request Model
+public function category()
+{
+    return $this->belongsTo(Category::class);
+}
+
+
+public function division()
+{
+    return $this->belongsTo(Division::class, 'division_id');
+}
+
+
 
 
 }

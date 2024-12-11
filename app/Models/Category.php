@@ -36,6 +36,11 @@ class Category extends Model
 
         return $validator;
     }
+    public function personnel()
+    {
+        return $this->belongsToMany(User::class, 'category_personnel', 'category_id', 'personnel_id');
+    }
+    
 
 }
 

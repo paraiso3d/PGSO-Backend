@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 use DB;
+use App\Models\Division;
+use App\Models\Department;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class CategoryController extends Controller
@@ -19,19 +21,36 @@ class CategoryController extends Controller
     public function createCategory(Request $request)
     {
         try {
-            // Validate the request using division_id and supervisor
+            // Validate the request including an array of personnel_ids
             $request->validate([
                 'category_name' => 'required|string|unique:categories,category_name',
-                'description' => 'required|string', 
+                'description' => 'required|string',
+                'personnel_ids' => 'required|array', // Validate as an array
+                'personnel_ids.*' => 'exists:users,id', // Ensure each id exists in users table
             ]);
-
+    
+            // Check if all personnel_ids belong to users with the role_name "personnel"
+            $personnel = User::whereIn('id', $request->personnel_ids)
+                ->where('role_name', 'personnel')
+                ->get();
+    
+            if ($personnel->count() !== count($request->personnel_ids)) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Some personnel_ids do not belong to users with the role of personnel.',
+                ], 422);
+            }
+    
             // Create the category
             $category = Category::create([
                 'category_name' => $request->category_name,
                 'description' => $request->description,
             ]);
-
-            // Prepare the success response with division and supervisor details
+    
+            // Attach personnel to the category
+            $category->personnel()->attach($request->personnel_ids);
+    
+            // Prepare the success response with personnel details
             $response = [
                 'isSuccess' => true,
                 'message' => 'Category successfully created.',
@@ -39,14 +58,20 @@ class CategoryController extends Controller
                     'id' => $category->id,
                     'category_name' => $category->category_name,
                     'description' => $category->description,
-                ]
+                    'personnel' => $personnel->map(function ($p) {
+                        return [
+                            'id' => $p->id,
+                            'name' => $p->first_name . ' ' . $p->last_name,
+                        ];
+                    }),
+                ],
             ];
-
+    
             // Log API call
             $this->logAPICalls('createCategory', $category->id, $request->all(), $response);
-
+    
             return response()->json($response, 200);
-
+    
         } catch (ValidationException $v) {
             // Prepare the validation error response
             $response = [
@@ -56,7 +81,7 @@ class CategoryController extends Controller
             ];
             $this->logAPICalls('createCategory', "", $request->all(), $response);
             return response()->json($response, 422);
-
+    
         } catch (Throwable $e) {
             // Prepare the error response in case of an exception
             $response = [
@@ -68,6 +93,7 @@ class CategoryController extends Controller
             return response()->json($response, 500);
         }
     }
+    
 
     public function getCategory(Request $request)
     {
@@ -78,8 +104,9 @@ class CategoryController extends Controller
                 'search' => 'nullable|string',
             ]);
     
-            // Build the query to fetch category data
-            $query = Category::select('id', 'category_name', 'description')
+            // Build the query to fetch category data and load personnel relationship
+            $query = Category::with(['personnel:id,first_name,last_name']) // Load related personnel
+                ->select('id', 'category_name', 'description')
                 ->where('is_archived', '0'); // Only include active (non-archived) categories
     
             // Add search functionality
@@ -103,7 +130,13 @@ class CategoryController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Categories retrieved successfully.',
-                'categories' => $categories->items(), // Return only the relevant category fields
+                'categories' => $categories->map(function ($category) {
+                    $category->personnel = $category->personnel->map(function ($personnel) {
+                        unset($personnel->pivot);
+                        return $personnel;
+                    });
+                    return $category;
+                }),
                 'pagination' => [
                     'total' => $categories->total(),
                     'per_page' => $categories->perPage(),
@@ -111,6 +144,7 @@ class CategoryController extends Controller
                     'last_page' => $categories->lastPage(),
                 ],
             ];
+            
     
             // Log the API call
             $this->logAPICalls('getCategory', "", $request->all(), $response);

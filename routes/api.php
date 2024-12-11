@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccomplishmentReportController;
-use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\PgsoDivisionController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DivisionController;
 use App\Http\Controllers\FeedbackController;
@@ -78,7 +78,7 @@ Route::controller(DivisionController::class)->group(function () {
 |--------------------Category API-----------------------
 */
 
-Route::controller(CategoryController::class)->group(function () {
+Route::controller(PgsoDivisionController::class)->group(function () {
     Route::post('category/create', 'createCategory');
     Route::post('category/update/{id}', 'updateCategory');
     Route::post('categories', 'getCategory');
@@ -150,6 +150,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('create', [RequestController::class, 'createRequest']);
         Route::post('accept/{id}', [RequestController::class, 'acceptRequest']);
         Route::post('reject/{id}', [RequestController::class, 'rejectRequest']);
+        Route::post('assess/{id}', [RequestController::class, 'assessRequest']);
         Route::post('list', [RequestController::class, 'getRequests']);
         Route::post('list/{id}', [RequestController::class, 'getRequestById']);
 
@@ -195,8 +196,8 @@ Route::prefix('dropdown')->group(function () {
     Route::get('offices', [UserController::class, 'getDropdownOptionsUseroffice']);
     Route::get('category', [DivisionController::class, 'getdropdownCategories']);
     Route::get('supervisor', [DivisionController::class, 'dropdownSupervisor']);
-    Route::get('categories', [CategoryController::class, 'getDropdownOptionsCategory']);
-    Route::get('teamleaders', [CategoryController::class, 'getdropdownteamleader']);
+    Route::get('categories', [PgsoDivisionController::class, 'getDropdownOptionsCategory']);
+    Route::get('teamleaders', [PgsoDivisionController::class, 'getdropdownteamleader']);
     Route::get('locations', [RequestController::class, 'getDropdownOptionsRequestslocation']);
     Route::get('status', [RequestController::class, 'getDropdownOptionsRequeststatus']);
     Route::get('years', [RequestController::class, 'getDropdownOptionsRequestyear']);
