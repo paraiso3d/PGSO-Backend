@@ -83,7 +83,6 @@ class RequestController extends Controller
                 'control_no' => $controlNo,
                 'request_title'=>$request->input('request_title'),
                 'description' => $request->input('description'),
-                'location_name' => $request->input('location_name'),
                 'category' => $request->input('category'),
                 'file_path' => $filePath,
                 'status' => $request->input('status', 'Pending'),
@@ -100,7 +99,6 @@ class RequestController extends Controller
                     'control_no' => $controlNo,
                     'request_title'=>$newRequest->request_title,
                     'description' => $newRequest->description,
-                    'location_name' => $newRequest->location_name,
                     'category' => $newRequest->category,
                     'file_url' => $fileUrl,
                     'status' => $newRequest->status,
@@ -146,9 +144,13 @@ class RequestController extends Controller
             // Fetch the user who made the request
             $user = $requestRecord->user;
 
+             // Fetch user's division and office location
+        $division = $user->division ? $user->division->division_name : 'N/A';
+        $officeLocation = $user->division ? $user->division->office_location : 'N/A';
+
             // Prepare the response
             $response = [
-                'isSuccess' => true,
+                'isSuccess' => true,    
                 'message' => 'Request has been accepted and is now For Review.',
                 'request' => [
                     'id' => $requestRecord->id,
@@ -158,6 +160,8 @@ class RequestController extends Controller
                         'id' => $user->id,
                         'first_name' => $user->first_name ?? 'N/A',
                         'last_name' => $user->last_name ?? 'N/A',
+                        'division' => $division,
+                        'office_location' => $officeLocation,
                     ],
                     'date_accepted' => now()->toDateTimeString(),
                 ],
@@ -180,19 +184,29 @@ class RequestController extends Controller
     }
 
     // Reject a request and change its status to "Returned"
-    public function rejectRequest($id)
+    public function rejectRequest(Request $request, $id)
     {
         try {
+            // Validate the note input
+            $request->validate([
+                'note' => 'required|string|max:255',
+            ]);
+    
             // Find the request by its ID
             $requestRecord = Requests::findOrFail($id);
-
-            // Update the status
+    
+            // Update the status and note
             $requestRecord->status = 'Returned';
+            $requestRecord->note = $request->note; // Save the note to the database
             $requestRecord->save();
-
+    
             // Fetch the user who made the request
             $user = $requestRecord->user;
 
+            $division = $user->division ? $user->division->division_name : 'N/A';
+            $officeLocation = $user->division ? $user->division->office_location : 'N/A';
+    
+    
             // Prepare the response
             $response = [
                 'isSuccess' => true,
@@ -201,17 +215,20 @@ class RequestController extends Controller
                     'id' => $requestRecord->id,
                     'control_no' => $requestRecord->control_no,
                     'status' => $requestRecord->status,
+                    'note' => $requestRecord->note, // Include the note in the response
                     'requested_by' => [
                         'id' => $user->id,
                         'first_name' => $user->first_name ?? 'N/A',
                         'last_name' => $user->last_name ?? 'N/A',
+                        'division' => $division,
+                        'office_location' => $officeLocation,
                     ],
                     'date_rejected' => now()->toDateTimeString(),
                 ],
             ];
-
-            $this->logAPICalls('rejectRequest', "", [], $response);
-
+    
+            $this->logAPICalls('rejectRequest', "", $request->all(), $response);
+    
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -219,19 +236,17 @@ class RequestController extends Controller
                 'message' => 'Failed to reject the request.',
                 'error' => $e->getMessage(),
             ];
-
-            $this->logAPICalls('rejectRequest', "", [], $response);
-
+    
+            $this->logAPICalls('rejectRequest', "", $request->all(), $response);
+    
             return response()->json($response, 500);
         }
     }
-
-
     public function getRequests(Request $request)
     {
         try {
             $userId = $request->user()->id;
-            $role = $request->user()->role_name; // Fetch the role directly from the users table
+            $role = $request->user()->role_name;
     
             // Pagination settings
             $perPage = $request->input('per_page', 10);
@@ -242,25 +257,28 @@ class RequestController extends Controller
                 'requests.id',
                 'requests.control_no',
                 'requests.request_title',
-                'requests.requested_by',
-                'users.first_name as requested_by_first_name',
-                'users.last_name as requested_by_last_name',
                 'requests.description',
-                'requests.location_name',
                 'requests.file_path',
                 'requests.category_id',
                 'requests.feedback',
                 'requests.status',
                 'requests.date_requested',
+                'users.id as requested_by_id',
+                'users.first_name',
+                'users.last_name',
+                'divisions.division_name',
+                'divisions.office_location',
+                'departments.department_name'
             )
-                ->leftJoin('users', 'users.id', '=', 'requests.requested_by') // Join with users table to get user details
-                ->leftJoin('categories', 'categories.id', '=', 'requests.category_id') // Join with categories table to get category name
-                ->where('requests.is_archived', '=', '0') // Filter active requests
+                ->leftJoin('users', 'users.id', '=', 'requests.requested_by')
+                ->leftJoin('divisions', 'divisions.id', '=', 'users.division_id')
+                ->leftJoin('departments', 'departments.id', '=', 'users.department_id')
+                ->where('requests.is_archived', '=', '0')
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
                 });
     
-            // Apply filters based on input from the request
+            // Apply filters
             if ($request->has('type')) {
                 if ($request->type === 'Returned') {
                     $query->where('requests.status', 'Returned');
@@ -300,45 +318,44 @@ class RequestController extends Controller
                     break;
             }
     
-            // Execute the query with pagination
+            // Execute query with pagination
             $result = $query->paginate($perPage);
     
             if ($result->isEmpty()) {
-                $response = [
+                return response()->json([
                     'isSuccess' => false,
-                    'message' => 'No requests found matching the criteria.',
-                ];
-                $this->logAPICalls('getRequests', "", [], $response);
-    
-                return response()->json($response, 404);
+                    'message' => 'No requests found matching the criteria.'
+                ], 404);
             }
     
-            // Format the response
+            // Format response
             $formattedRequests = $result->getCollection()->transform(function ($request) {
-                $filePath = $request->file_path;
                 return [
                     'id' => $request->id,
                     'control_no' => $request->control_no,
                     'request_title' => $request->request_title,
-                    'requested_by' => $request->requested_by,
-                    'requested_by_name' => $request->requested_by_first_name . ' ' . $request->requested_by_last_name,
                     'description' => $request->description,
-                    'location_name' => $request->location_name,
+                    'file_path' => $request->file_path,
+                    'file_url' => $request->file_path ? asset($request->file_path) : null,
                     'category_id' => $request->category_id,
                     'category_name' => $request->category_id 
                         ? DB::table('categories')->where('id', $request->category_id)->value('category_name') 
-                        : null, // Fetch category name directly if category_id exists
+                        : null,
                     'feedback' => $request->feedback,
                     'status' => $request->status,
-                    'file_path' => $filePath,
-                    'file_url' => $filePath ? asset($filePath) : null,
-                    'date_requested'=>$request->date_requested,
-                    'updated_at' => $request->updated_at,
+                    'requested_by' => [
+                        'id' => $request->requested_by_id,
+                        'first_name' => $request->first_name,
+                        'last_name' => $request->last_name,
+                        'division' => $request->division_name,
+                        'office_location' => $request->office_location,
+                        'department' => $request->department_name,
+                    ],
+                    'date_requested' => $request->date_requested,
                 ];
             });
     
-            // Prepare the response with pagination
-            $response = [
+            return response()->json([
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
                 'requests' => $formattedRequests,
@@ -347,29 +364,18 @@ class RequestController extends Controller
                     'per_page' => $result->perPage(),
                     'current_page' => $result->currentPage(),
                     'last_page' => $result->lastPage(),
-                    'url' => url('api/requestList?page=' . $result->currentPage() . '&per_page=' . $result->perPage()),
                 ],
-            ];
-    
-            $this->logAPICalls('getRequests', "", [], $response);
-    
-            return response()->json($response, 200);
-    
+            ], 200);
         } catch (Throwable $e) {
-            $response = [
+            return response()->json([
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve requests.',
                 'error' => $e->getMessage(),
-            ];
-    
-            $this->logAPICalls('getRequests', "", [], $response);
-    
-            return response()->json($response, 500);
+            ], 500);
         }
     }
     
-    
-    
+
     
     
     // Method to delete (archive) a request
@@ -385,7 +391,6 @@ class RequestController extends Controller
                 'users.first_name as requested_by_first_name',
                 'users.last_name as requested_by_last_name',
                 'requests.description',
-                'requests.location_name',
                 'requests.file_path',
                 'requests.category_id',
                 'categories.category_name', // Fetch category name directly
@@ -418,7 +423,6 @@ class RequestController extends Controller
                 'requested_by' => $requestDetails->requested_by,
                 'requested_by_name' => $requestDetails->requested_by_first_name . ' ' . $requestDetails->requested_by_last_name,
                 'description' => $requestDetails->description,
-                'location_name' => $requestDetails->location_name,
                 'category_id' => $requestDetails->category_id,
                 'category_name' => $requestDetails->category_name, // Include category name
                 'feedback' => $requestDetails->feedback,
@@ -450,7 +454,6 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     }
-    
 
     public function assessRequest(Request $request)
     {

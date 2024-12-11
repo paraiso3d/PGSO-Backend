@@ -20,8 +20,8 @@ class Requests extends Model
     protected $fillable = [
         'control_no',
         'request_title',
+        'note',
         'description',
-        'location_name',
         'category_id',
         'file_path',
         'status',
@@ -56,7 +56,6 @@ class Requests extends Model
             'request_title' => ['required', 'string'],
             'description' => ['required', 'string'],
             'category_id' => ['nullable', 'string'],
-            'location_name' => ['required', 'string'],
             'requested_by' => ['nullable', 'integer', 'exists:users,id'], // Changed rule for user_id
             'file_path' => [
                 'required',
