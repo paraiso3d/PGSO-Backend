@@ -47,26 +47,26 @@ class RequestController extends Controller
         if ($request->hasFile('file_path')) {
             // Get the uploaded file
             $file = $request->file('file_path');
-        
+
             // Define the target directory and file name
             $directory = public_path('img/asset');
             $fileName = 'Request-' . $controlNo . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
-        
+
             // Ensure the directory exists
             if (!file_exists($directory)) {
                 mkdir($directory, 0755, true);
             }
-        
+
             // Move the file to the target directory
             $file->move($directory, $fileName);
-        
+
             // Generate the relative file path
             $filePath = 'img/asset/' . $fileName;
-        
+
             // Generate the file URL
             $fileUrl = asset($filePath);
         }
-        
+
         try {
             $user = auth()->user();
 
@@ -81,7 +81,7 @@ class RequestController extends Controller
             // Create the new request record
             $newRequest = Requests::create([
                 'control_no' => $controlNo,
-                'request_title'=>$request->input('request_title'),
+                'request_title' => $request->input('request_title'),
                 'description' => $request->input('description'),
                 'category' => $request->input('category'),
                 'file_path' => $filePath,
@@ -97,7 +97,7 @@ class RequestController extends Controller
                 'request' => [
                     'id' => $newRequest->id,
                     'control_no' => $controlNo,
-                    'request_title'=>$newRequest->request_title,
+                    'request_title' => $newRequest->request_title,
                     'description' => $newRequest->description,
                     'category' => $newRequest->category,
                     'file_url' => $fileUrl,
@@ -136,22 +136,22 @@ class RequestController extends Controller
         try {
             // Find the request by its ID
             $requestRecord = Requests::findOrFail($id);
-    
+
             // Update the status and set note column to null
             $requestRecord->status = 'For Process';
             $requestRecord->note = null;
             $requestRecord->save();
-    
+
             // Fetch the user who made the request
             $user = $requestRecord->user;
-    
+
             // Fetch user's division and office location
             $division = $user->division ? $user->division->division_name : 'N/A';
             $officeLocation = $user->division ? $user->division->office_location : 'N/A';
-    
+
             // Prepare the response
             $response = [
-                'isSuccess' => true,    
+                'isSuccess' => true,
                 'message' => 'Request has been accepted and is now For Review.',
                 'request' => [
                     'id' => $requestRecord->id,
@@ -167,9 +167,9 @@ class RequestController extends Controller
                     'date_accepted' => now()->toDateTimeString(),
                 ],
             ];
-    
+
             $this->logAPICalls('acceptRequest', "", [], $response);
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -177,13 +177,13 @@ class RequestController extends Controller
                 'message' => 'Failed to accept the request.',
                 'error' => $e->getMessage(),
             ];
-    
+
             $this->logAPICalls('acceptRequest', "", [], $response);
-    
+
             return response()->json($response, 500);
         }
     }
-    
+
     // Reject a request and change its status to "Returned"
     public function rejectRequest(Request $request, $id)
     {
@@ -192,22 +192,22 @@ class RequestController extends Controller
             $request->validate([
                 'note' => 'required|string|max:255',
             ]);
-    
+
             // Find the request by its ID
             $requestRecord = Requests::findOrFail($id);
-    
+
             // Update the status and note
             $requestRecord->status = 'Returned';
             $requestRecord->note = $request->note; // Save the note to the database
             $requestRecord->save();
-    
+
             // Fetch the user who made the request
             $user = $requestRecord->user;
 
             $division = $user->division ? $user->division->division_name : 'N/A';
             $officeLocation = $user->division ? $user->division->office_location : 'N/A';
-    
-    
+
+
             // Prepare the response
             $response = [
                 'isSuccess' => true,
@@ -227,9 +227,9 @@ class RequestController extends Controller
                     'date_rejected' => now()->toDateTimeString(),
                 ],
             ];
-    
+
             $this->logAPICalls('rejectRequest', "", $request->all(), $response);
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -237,9 +237,9 @@ class RequestController extends Controller
                 'message' => 'Failed to reject the request.',
                 'error' => $e->getMessage(),
             ];
-    
+
             $this->logAPICalls('rejectRequest', "", $request->all(), $response);
-    
+
             return response()->json($response, 500);
         }
     }
@@ -248,11 +248,11 @@ class RequestController extends Controller
         try {
             $userId = $request->user()->id;
             $role = $request->user()->role_name;
-    
+
             // Pagination settings
             $perPage = $request->input('per_page', 10);
             $searchTerm = $request->input('search', null);
-    
+
             // Initialize query
             $query = Requests::select(
                 'requests.id',
@@ -279,7 +279,7 @@ class RequestController extends Controller
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
                 });
-    
+
             // Apply filters
             if ($request->has('type')) {
                 if ($request->type === 'Returned') {
@@ -288,20 +288,20 @@ class RequestController extends Controller
                     $query->where('requests.overtime', '>', 0);
                 }
             }
-    
+
             $query->when($request->filled('location'), function ($query) use ($request) {
                 $query->where('requests.location_name', $request->location);
             })
-            ->when($request->filled('status'), function ($query) use ($request) {
-                $query->where('requests.status', $request->status);
-            })
-            ->when($request->filled('category'), function ($query) use ($request) {
-                $query->where('requests.category_id', $request->category);
-            })
-            ->when($request->filled('year'), function ($query) use ($request) {
-                $query->where('requests.fiscal_year', $request->year);
-            });
-    
+                ->when($request->filled('status'), function ($query) use ($request) {
+                    $query->where('requests.status', $request->status);
+                })
+                ->when($request->filled('category'), function ($query) use ($request) {
+                    $query->where('requests.category_id', $request->category);
+                })
+                ->when($request->filled('year'), function ($query) use ($request) {
+                    $query->where('requests.fiscal_year', $request->year);
+                });
+
             // Role-based filtering
             switch ($role) {
                 case 'admin':
@@ -319,17 +319,17 @@ class RequestController extends Controller
                     $query->whereRaw('1 = 0');
                     break;
             }
-    
+
             // Execute query with pagination
             $result = $query->paginate($perPage);
-    
+
             if ($result->isEmpty()) {
                 return response()->json([
                     'isSuccess' => false,
                     'message' => 'No requests found matching the criteria.'
                 ], 404);
             }
-    
+
             // Format response
             $formattedRequests = $result->getCollection()->transform(function ($request) {
                 $personnelIds = json_decode($request->personnel_ids, true) ?? [];
@@ -344,15 +344,15 @@ class RequestController extends Controller
                     'file_path' => $request->file_path,
                     'file_url' => $request->file_path ? asset($request->file_path) : null,
                     'category_id' => $request->category_id,
-                    'category_name' => $request->category_id 
-                        ? DB::table('categories')->where('id', $request->category_id)->value('category_name') 
+                    'category_name' => $request->category_id
+                        ? DB::table('categories')->where('id', $request->category_id)->value('category_name')
                         : null,
-                        'personnel' => $personnelInfo->map(function ($personnel) {
-                            return [
-                                'id' => $personnel->id,
-                                'name' => $personnel->name,
-                            ];
-                        }),
+                    'personnel' => $personnelInfo->map(function ($personnel) {
+                        return [
+                            'id' => $personnel->id,
+                            'name' => $personnel->name,
+                        ];
+                    }),
                     'feedback' => $request->feedback,
                     'status' => $request->status,
                     'requested_by' => [
@@ -366,7 +366,7 @@ class RequestController extends Controller
                     'date_requested' => $request->date_requested,
                 ];
             });
-    
+
             return response()->json([
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
@@ -386,10 +386,10 @@ class RequestController extends Controller
             ], 500);
         }
     }
-    
 
-    
-    
+
+
+
     // Method to delete (archive) a request
     public function getRequestById(Request $request, $id)
     {
@@ -410,12 +410,12 @@ class RequestController extends Controller
                 'requests.status',
                 DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
             )
-            ->leftJoin('users', 'users.id', '=', 'requests.requested_by') // Join with users table to fetch user details
-            ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
-            ->where('requests.id', $id)
-            ->where('requests.is_archived', '=', '0') // Filter out archived requests
-            ->first();
-    
+                ->leftJoin('users', 'users.id', '=', 'requests.requested_by') // Join with users table to fetch user details
+                ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
+                ->where('requests.id', $id)
+                ->where('requests.is_archived', '=', '0') // Filter out archived requests
+                ->first();
+
             // Check if the request exists
             if (!$requestDetails) {
                 $response = [
@@ -423,10 +423,10 @@ class RequestController extends Controller
                     'message' => 'Request not found.',
                 ];
                 $this->logAPICalls('getRequestById', $id, [], $response);
-    
+
                 return response()->json($response, 404);
             }
-    
+
             // Format the response
             $formattedRequest = [
                 'id' => $requestDetails->id,
@@ -443,7 +443,7 @@ class RequestController extends Controller
                 'file_url' => $requestDetails->file_path ? asset($requestDetails->file_path) : null,
                 'updated_at' => $requestDetails->updated_at,
             ];
-    
+
             // Successful response
             $response = [
                 'isSuccess' => true,
@@ -451,9 +451,9 @@ class RequestController extends Controller
                 'request' => $formattedRequest,
             ];
             $this->logAPICalls('getRequestById', $id, [], $response);
-    
+
             return response()->json($response, 200);
-    
+
         } catch (Throwable $e) {
             // Error handling
             $response = [
@@ -462,7 +462,7 @@ class RequestController extends Controller
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('getRequestById', $id, [], $response);
-    
+
             return response()->json($response, 500);
         }
     }
@@ -472,10 +472,10 @@ class RequestController extends Controller
         try {
             // Retrieve the currently logged-in user
             $user = auth()->user();
-            
+
             // Retrieve the request record using the ID from the URL
             $requests = Requests::where('id', $id)->firstOrFail();
-            
+
             // Validate the input data, including category_id and personnel_ids
             $validatedData = $request->validate([
                 'category_id' => 'required|exists:categories,id',
@@ -483,33 +483,33 @@ class RequestController extends Controller
                 'personnel_ids.*' => 'exists:users,id', // Validate that each personnel_id exists in the users table
                 'status' => 'sometimes|in:For Completion', // Optional status parameter
             ]);
-            
+
             // Retrieve all valid personnel IDs linked to the provided category_id
             $linkedPersonnelIds = DB::table('category_personnel')
                 ->where('category_id', $validatedData['category_id'])
                 ->pluck('personnel_id')
                 ->toArray();
-            
+
             // Check if all provided personnel_ids are linked to the category
             $invalidPersonnelIds = array_diff($validatedData['personnel_ids'], $linkedPersonnelIds);
-            
+
             if (!empty($invalidPersonnelIds)) {
                 throw new Exception("The following personnel IDs are not linked to the selected category: " . implode(', ', $invalidPersonnelIds));
             }
-            
+
             // Determine the status to update
             $statusToUpdate = $validatedData['status'] ?? 'For Completion';
-            
+
             // Update the request with the fetched category_id and the provided personnel_ids (as JSON)
             $requests->update([
                 'status' => $statusToUpdate,
                 'category_id' => $validatedData['category_id'],  // Assign the category_id
                 'personnel_ids' => json_encode($validatedData['personnel_ids']), // Store multiple personnel IDs as JSON
             ]);
-            
+
             // Prepare the full name of the currently logged-in user
             $fullName = trim("{$user->first_name} {$user->middle_initial} {$user->last_name}");
-            
+
             // Prepare the response
             $response = [
                 'isSuccess' => true,
@@ -529,10 +529,10 @@ class RequestController extends Controller
                     ];
                 }, $validatedData['personnel_ids']),
             ];
-            
+
             // Log the API call
             $this->logAPICalls('assessRequest', $requests->id, $request->all(), $response);
-            
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             // Prepare the error response
@@ -541,14 +541,14 @@ class RequestController extends Controller
                 'message' => "Failed to assess the request.",
                 'error' => $e->getMessage(),
             ];
-            
+
             // Log the API call with failure response
             $this->logAPICalls('assessRequest', $id ?? '', $request->all(), $response);
-            
+
             return response()->json($response, 500);
         }
     }
-    
+
 
 
     public function submitCompletion(Request $request, $id)
@@ -556,35 +556,35 @@ class RequestController extends Controller
         try {
             // Find the request by its ID
             $requestRecord = Requests::findOrFail($id);
-    
+            $user = auth()->user();
             // Initialize variables for file path and URL
             $fileCompletionPath = null;
             $fileCompletionUrl = null;
-    
+
             // Check if the request has a file
             if ($request->hasFile('file_completion')) {
                 // Get the uploaded file
                 $file = $request->file('file_completion');
-            
+
                 // Define the target directory and file name
                 $directory = public_path('img/asset');
                 $fileName = 'Request-' . $requestRecord->control_no . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
-            
+
                 // Ensure the directory exists
                 if (!file_exists($directory)) {
                     mkdir($directory, 0755, true);
                 }
-            
+
                 // Move the file to the target directory
                 $file->move($directory, $fileName);
-            
+
                 // Generate the relative file path
                 $fileCompletionPath = 'img/asset/' . $fileName;
-            
+
                 // Generate the file URL
                 $fileCompletionUrl = asset($fileCompletionPath);
             }
-    
+
             // Save the file path to the file_completion column
             $requestRecord->file_completion = $fileCompletionPath;
             $requestRecord->status = 'For Feedback';
@@ -596,13 +596,19 @@ class RequestController extends Controller
                 'request' => [
                     'id' => $requestRecord->id,
                     'control_no' => $requestRecord->control_no,
-                    'file_completion' => $fileCompletionUrl,
+                    'file_completion_url' => $fileCompletionUrl, 
+                    'file_completion_path' => $fileCompletionPath,
+                    'submitted_by' => [
+                        'id' => $user->id,
+                        'name' => $user->first_name . ' ' . $user->last_name,
+                        'email' => $user->email,
+                    ],
                 ],
             ];
-    
+
             // Log the API call
             $this->logAPICalls('submitCompletion', "", [], $response);
-    
+
             return response()->json($response, 200);
         } catch (Throwable $e) {
             // Prepare the error response
@@ -611,17 +617,17 @@ class RequestController extends Controller
                 'message' => 'Failed to submit the completion file.',
                 'error' => $e->getMessage(),
             ];
-    
+
             // Log the API call
             $this->logAPICalls('submitCompletion', "", [], $response);
-    
+
             return response()->json($response, 500);
         }
     }
-    
 
 
-    
+
+
     //Dropdown Request Location
     public function getDropdownOptionsRequestslocation(Request $request)
     {
@@ -697,92 +703,92 @@ class RequestController extends Controller
 
 
     public function getCategoriesWithPersonnel()
-{
-    try {
-        // Fetch categories with their associated personnel
-        $categoriesWithPersonnel = DB::table('categories')
-            ->select('categories.id', 'categories.category_name')
-            ->where('categories.is_archived', '0')
-            ->leftJoin('category_personnel', 'categories.id', '=', 'category_personnel.category_id')
-            ->leftJoin('users', 'category_personnel.personnel_id', '=', 'users.id')
-            ->select(
-                'categories.id as category_id', 
-                'categories.category_name',
-                'users.id as personnel_id', 
-                'users.first_name',
-                'users.last_name',
-            )
-            ->get()
-            ->groupBy('category_id')
-            ->map(function ($category) {
-                return [
-                    'id' => $category[0]->category_id,
-                    'category_name' => $category[0]->category_name,
-                    'personnel' => $category->map(function ($personnel) {
-                        return $personnel->personnel_id ? [
-                            'id' => $personnel->personnel_id,
-                            'name' => trim($personnel->first_name . ' ' . $personnel->last_name),
-                        ] : null;
-                    })->filter() // Remove null entries
-                ];
-            })
-            ->values();
+    {
+        try {
+            // Fetch categories with their associated personnel
+            $categoriesWithPersonnel = DB::table('categories')
+                ->select('categories.id', 'categories.category_name')
+                ->where('categories.is_archived', '0')
+                ->leftJoin('category_personnel', 'categories.id', '=', 'category_personnel.category_id')
+                ->leftJoin('users', 'category_personnel.personnel_id', '=', 'users.id')
+                ->select(
+                    'categories.id as category_id',
+                    'categories.category_name',
+                    'users.id as personnel_id',
+                    'users.first_name',
+                    'users.last_name',
+                )
+                ->get()
+                ->groupBy('category_id')
+                ->map(function ($category) {
+                    return [
+                        'id' => $category[0]->category_id,
+                        'category_name' => $category[0]->category_name,
+                        'personnel' => $category->map(function ($personnel) {
+                            return $personnel->personnel_id ? [
+                                'id' => $personnel->personnel_id,
+                                'name' => trim($personnel->first_name . ' ' . $personnel->last_name),
+                            ] : null;
+                        })->filter() // Remove null entries
+                    ];
+                })
+                ->values();
 
-        $response = [
-            'isSuccess' => true,
-            'message' => 'Categories with personnel retrieved successfully.',
-            'categories' => $categoriesWithPersonnel
-        ];
-        
-        return response()->json($response, 200);
-    } catch (Throwable $e) {
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to retrieve categories and personnel.',
-            'error' => $e->getMessage()
-        ];
-        
-        return response()->json($response, 500);
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Categories with personnel retrieved successfully.',
+                'categories' => $categoriesWithPersonnel
+            ];
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve categories and personnel.',
+                'error' => $e->getMessage()
+            ];
+
+            return response()->json($response, 500);
+        }
     }
-}
     //Dropdown Request Status
     public function getUsersByCategory(Request $request)
-{
-    try {
-        // Validate that category_id is provided
-        $request->validate([
-            'category_id' => 'required|exists:categories,id'
-        ]);
+    {
+        try {
+            // Validate that category_id is provided
+            $request->validate([
+                'category_id' => 'required|exists:categories,id'
+            ]);
 
-        $categoryId = $request->input('category_id');
-        
-        // Directly fetch personnel IDs from the pivot table
-        $personnelIds = DB::table('category_personnel')
-            ->where('category_id', $categoryId)
-            ->pluck('personnel_id');
-        
-        // Fetch full user details for those personnel IDs
-        $personnel = User::whereIn('id', $personnelIds)
-            ->select('id', 'name', 'email')
-            ->get();
-        
-        $response = [
-            'isSuccess' => true,
-            'message' => 'Personnel retrieved successfully.',
-            'personnel' => $personnel
-        ];
-        
-        return response()->json($response, 200);
-    } catch (Throwable $e) {
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to retrieve personnel.',
-            'error' => $e->getMessage()
-        ];
-        
-        return response()->json($response, 500);
+            $categoryId = $request->input('category_id');
+
+            // Directly fetch personnel IDs from the pivot table
+            $personnelIds = DB::table('category_personnel')
+                ->where('category_id', $categoryId)
+                ->pluck('personnel_id');
+
+            // Fetch full user details for those personnel IDs
+            $personnel = User::whereIn('id', $personnelIds)
+                ->select('id', 'name', 'email')
+                ->get();
+
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Personnel retrieved successfully.',
+                'personnel' => $personnel
+            ];
+
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve personnel.',
+                'error' => $e->getMessage()
+            ];
+
+            return response()->json($response, 500);
+        }
     }
-}
     //Dropdown Request Division
     public function getDropdownOptionsRequestdivision(Request $request)
     {
