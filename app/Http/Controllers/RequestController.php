@@ -621,42 +621,97 @@ class RequestController extends Controller
 
     }
 
-    //Dropdown Request Status
-    public function getDropdownOptionsRequestyear(Request $request)
-    {
-        try {
 
-            $year = Requests::select('id', 'fiscal_year')
-                ->where('is_archived', '0')
-                ->get();
 
-            // Build the response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Dropdown data retrieved successfully.',
-                'year' => $year
-            ];
+    public function getCategoriesWithPersonnel()
+{
+    try {
+        // Fetch categories with their associated personnel
+        $categoriesWithPersonnel = DB::table('categories')
+            ->select('categories.id', 'categories.category_name')
+            ->where('categories.is_archived', '0')
+            ->leftJoin('category_personnel', 'categories.id', '=', 'category_personnel.category_id')
+            ->leftJoin('users', 'category_personnel.personnel_id', '=', 'users.id')
+            ->select(
+                'categories.id as category_id', 
+                'categories.category_name',
+                'users.id as personnel_id', 
+                'users.first_name',
+                'users.last_name',
+                'users.email'
+            )
+            ->get()
+            ->groupBy('category_id')
+            ->map(function ($category) {
+                return [
+                    'id' => $category[0]->category_id,
+                    'category_name' => $category[0]->category_name,
+                    'personnel' => $category->map(function ($personnel) {
+                        return $personnel->personnel_id ? [
+                            'id' => $personnel->personnel_id,
+                            'name' => trim($personnel->first_name . ' ' . $personnel->last_name),
+                            'email' => $personnel->email
+                        ] : null;
+                    })->filter() // Remove null entries
+                ];
+            })
+            ->values();
 
-            // Log the API call
-            $this->logAPICalls('getDropdownOptionsRequestyear', "", [], $response);
-
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            // Handle the error response
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve dropdown data.',
-                'error' => $e->getMessage()
-            ];
-
-            // Log the error
-            $this->logAPICalls('getDropdownOptionsRequestyear', "", [], $response);
-
-            return response()->json($response, 500);
-        }
-
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Categories with personnel retrieved successfully.',
+            'categories' => $categoriesWithPersonnel
+        ];
+        
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve categories and personnel.',
+            'error' => $e->getMessage()
+        ];
+        
+        return response()->json($response, 500);
     }
+}
+    //Dropdown Request Status
+    public function getUsersByCategory(Request $request)
+{
+    try {
+        // Validate that category_id is provided
+        $request->validate([
+            'category_id' => 'required|exists:categories,id'
+        ]);
 
+        $categoryId = $request->input('category_id');
+        
+        // Directly fetch personnel IDs from the pivot table
+        $personnelIds = DB::table('category_personnel')
+            ->where('category_id', $categoryId)
+            ->pluck('personnel_id');
+        
+        // Fetch full user details for those personnel IDs
+        $personnel = User::whereIn('id', $personnelIds)
+            ->select('id', 'name', 'email')
+            ->get();
+        
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Personnel retrieved successfully.',
+            'personnel' => $personnel
+        ];
+        
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve personnel.',
+            'error' => $e->getMessage()
+        ];
+        
+        return response()->json($response, 500);
+    }
+}
     //Dropdown Request Division
     public function getDropdownOptionsRequestdivision(Request $request)
     {
