@@ -638,7 +638,6 @@ class RequestController extends Controller
                 'users.id as personnel_id', 
                 'users.first_name',
                 'users.last_name',
-                'users.email'
             )
             ->get()
             ->groupBy('category_id')
@@ -650,7 +649,6 @@ class RequestController extends Controller
                         return $personnel->personnel_id ? [
                             'id' => $personnel->personnel_id,
                             'name' => trim($personnel->first_name . ' ' . $personnel->last_name),
-                            'email' => $personnel->email
                         ] : null;
                     })->filter() // Remove null entries
                 ];
