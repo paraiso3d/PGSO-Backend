@@ -598,6 +598,7 @@ class RequestController extends Controller
                     'control_no' => $requestRecord->control_no,
                     'file_completion_url' => $fileCompletionUrl, 
                     'file_completion_path' => $fileCompletionPath,
+                    'status'=>$requestRecord->status,
                     'submitted_by' => [
                         'id' => $user->id,
                         'name' => $user->first_name . ' ' . $user->last_name,
@@ -624,6 +625,64 @@ class RequestController extends Controller
             return response()->json($response, 500);
         }
     }
+
+    public function submitFeedback(Request $request, $id)
+{
+    try {
+        // Validate the input data
+        $this->validate($request, [
+            'feedback' => 'required|string|max:255',
+            'rating' => 'required|numeric|min:0|max:5',
+        ]);
+
+        // Find the request by its ID
+        $requestRecord = Requests::findOrFail($id);
+
+        // Update the feedback and rating columns
+        $requestRecord->feedback = $request->input('feedback');
+        $requestRecord->rating = $request->input('rating');
+        $requestRecord->status = 'Completed';
+        $requestRecord->save();
+
+        // Get the authenticated user
+        $user = auth()->user();
+
+        // Prepare the response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Feedback has been submitted successfully.',
+            'request' => [
+                'id' => $requestRecord->id,
+                'control_no' => $requestRecord->control_no,
+                'feedback' => $requestRecord->feedback,
+                'rating' => $requestRecord->rating,
+                'status'=> $requestRecord->status,
+                'rated_by' => [
+                    'id' => $user->id,
+                    'name' => $user->first_name . ' ' . $user->last_name,
+                    'email' => $user->email,
+                ],
+            ],
+        ];
+
+        // Log the API call
+        $this->logAPICalls('submitFeedback', $user->id, [], $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        // Prepare the error response
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to submit feedback.',
+            'error' => $e->getMessage(),
+        ];
+
+        // Log the API call
+        $this->logAPICalls('submitFeedback', auth()->id(), [], $response);
+
+        return response()->json($response, 500);
+    }
+}
 
 
 
