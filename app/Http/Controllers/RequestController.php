@@ -136,18 +136,19 @@ class RequestController extends Controller
         try {
             // Find the request by its ID
             $requestRecord = Requests::findOrFail($id);
-
-            // Update the status
+    
+            // Update the status and set note column to null
             $requestRecord->status = 'For Process';
+            $requestRecord->note = null;
             $requestRecord->save();
-
+    
             // Fetch the user who made the request
             $user = $requestRecord->user;
-
-             // Fetch user's division and office location
-        $division = $user->division ? $user->division->division_name : 'N/A';
-        $officeLocation = $user->division ? $user->division->office_location : 'N/A';
-
+    
+            // Fetch user's division and office location
+            $division = $user->division ? $user->division->division_name : 'N/A';
+            $officeLocation = $user->division ? $user->division->office_location : 'N/A';
+    
             // Prepare the response
             $response = [
                 'isSuccess' => true,    
@@ -166,9 +167,9 @@ class RequestController extends Controller
                     'date_accepted' => now()->toDateTimeString(),
                 ],
             ];
-
+    
             $this->logAPICalls('acceptRequest', "", [], $response);
-
+    
             return response()->json($response, 200);
         } catch (Throwable $e) {
             $response = [
@@ -176,13 +177,13 @@ class RequestController extends Controller
                 'message' => 'Failed to accept the request.',
                 'error' => $e->getMessage(),
             ];
-
+    
             $this->logAPICalls('acceptRequest', "", [], $response);
-
+    
             return response()->json($response, 500);
         }
     }
-
+    
     // Reject a request and change its status to "Returned"
     public function rejectRequest(Request $request, $id)
     {
@@ -471,40 +472,44 @@ class RequestController extends Controller
         try {
             // Retrieve the currently logged-in user
             $user = auth()->user();
-    
+            
             // Retrieve the request record using the ID from the URL
             $requests = Requests::where('id', $id)->firstOrFail();
-    
+            
             // Validate the input data, including category_id and personnel_ids
             $validatedData = $request->validate([
                 'category_id' => 'required|exists:categories,id',
                 'personnel_ids' => 'required|array|min:1', // Ensure personnel_ids is an array with at least one entry
                 'personnel_ids.*' => 'exists:users,id', // Validate that each personnel_id exists in the users table
+                'status' => 'sometimes|in:For Completion', // Optional status parameter
             ]);
-    
+            
             // Retrieve all valid personnel IDs linked to the provided category_id
             $linkedPersonnelIds = DB::table('category_personnel')
                 ->where('category_id', $validatedData['category_id'])
                 ->pluck('personnel_id')
                 ->toArray();
-    
+            
             // Check if all provided personnel_ids are linked to the category
             $invalidPersonnelIds = array_diff($validatedData['personnel_ids'], $linkedPersonnelIds);
-    
+            
             if (!empty($invalidPersonnelIds)) {
                 throw new Exception("The following personnel IDs are not linked to the selected category: " . implode(', ', $invalidPersonnelIds));
             }
-    
+            
+            // Determine the status to update
+            $statusToUpdate = $validatedData['status'] ?? 'For Completion';
+            
             // Update the request with the fetched category_id and the provided personnel_ids (as JSON)
             $requests->update([
-                'status' => 'For Process',
+                'status' => $statusToUpdate,
                 'category_id' => $validatedData['category_id'],  // Assign the category_id
                 'personnel_ids' => json_encode($validatedData['personnel_ids']), // Store multiple personnel IDs as JSON
             ]);
-    
+            
             // Prepare the full name of the currently logged-in user
             $fullName = trim("{$user->first_name} {$user->middle_initial} {$user->last_name}");
-    
+            
             // Prepare the response
             $response = [
                 'isSuccess' => true,
@@ -524,12 +529,11 @@ class RequestController extends Controller
                     ];
                 }, $validatedData['personnel_ids']),
             ];
-    
+            
             // Log the API call
             $this->logAPICalls('assessRequest', $requests->id, $request->all(), $response);
-    
+            
             return response()->json($response, 200);
-    
         } catch (Throwable $e) {
             // Prepare the error response
             $response = [
@@ -537,14 +541,83 @@ class RequestController extends Controller
                 'message' => "Failed to assess the request.",
                 'error' => $e->getMessage(),
             ];
-    
+            
             // Log the API call with failure response
             $this->logAPICalls('assessRequest', $id ?? '', $request->all(), $response);
-    
+            
             return response()->json($response, 500);
         }
     }
     
+
+
+    public function submitCompletion(Request $request, $id)
+    {
+        try {
+            // Find the request by its ID
+            $requestRecord = Requests::findOrFail($id);
+    
+            // Initialize variables for file path and URL
+            $fileCompletionPath = null;
+            $fileCompletionUrl = null;
+    
+            // Check if the request has a file
+            if ($request->hasFile('file_completion')) {
+                // Get the uploaded file
+                $file = $request->file('file_completion');
+            
+                // Define the target directory and file name
+                $directory = public_path('img/asset');
+                $fileName = 'Request-' . $requestRecord->control_no . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
+            
+                // Ensure the directory exists
+                if (!file_exists($directory)) {
+                    mkdir($directory, 0755, true);
+                }
+            
+                // Move the file to the target directory
+                $file->move($directory, $fileName);
+            
+                // Generate the relative file path
+                $fileCompletionPath = 'img/asset/' . $fileName;
+            
+                // Generate the file URL
+                $fileCompletionUrl = asset($fileCompletionPath);
+            }
+    
+            // Save the file path to the file_completion column
+            $requestRecord->file_completion = $fileCompletionPath;
+            $requestRecord->status = 'For Feedback';
+            $requestRecord->save();
+            // Prepare the response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Completion file has been submitted successfully.',
+                'request' => [
+                    'id' => $requestRecord->id,
+                    'control_no' => $requestRecord->control_no,
+                    'file_completion' => $fileCompletionUrl,
+                ],
+            ];
+    
+            // Log the API call
+            $this->logAPICalls('submitCompletion', "", [], $response);
+    
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Prepare the error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to submit the completion file.',
+                'error' => $e->getMessage(),
+            ];
+    
+            // Log the API call
+            $this->logAPICalls('submitCompletion', "", [], $response);
+    
+            return response()->json($response, 500);
+        }
+    }
     
 
 

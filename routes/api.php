@@ -151,6 +151,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('accept/{id}', [RequestController::class, 'acceptRequest']);
         Route::post('reject/{id}', [RequestController::class, 'rejectRequest']);
         Route::post('assess/{id}', [RequestController::class, 'assessRequest']);
+        Route::post('completion/{id}', [RequestController::class, 'submitCompletion']);
         Route::post('list', [RequestController::class, 'getRequests']);
         Route::post('list/{id}', [RequestController::class, 'getRequestById']);
 
