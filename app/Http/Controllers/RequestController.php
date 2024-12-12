@@ -266,6 +266,7 @@ class RequestController extends Controller
                 'requests.rating',  // Added field
                 'requests.status',
                 'requests.date_requested',
+                'requests.date_completed',
                 'requests.personnel_ids',
                 'users.id as requested_by_id',
                 'users.first_name',
@@ -369,6 +370,7 @@ class RequestController extends Controller
                         'department' => $request->department_name,
                     ],
                     'date_requested' => $request->date_requested,
+                    'date_completed' => $request->date_completed
                 ];
             });
     
@@ -408,12 +410,16 @@ class RequestController extends Controller
                 'requests.requested_by',
                 'users.first_name as requested_by_first_name',
                 'users.last_name as requested_by_last_name',
+                'users.email as requested_by_email', // Include email
                 'requests.description',
                 'requests.file_path',
+                'requests.file_completion', // Include completion file path
                 'requests.category_id',
                 'categories.category_name', // Fetch category name directly
                 'requests.feedback',
                 'requests.status',
+                'requests.date_requested',
+                'requests.date_completed', // Include date completed
                 DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
             )
                 ->leftJoin('users', 'users.id', '=', 'requests.requested_by') // Join with users table to fetch user details
@@ -421,7 +427,7 @@ class RequestController extends Controller
                 ->where('requests.id', $id)
                 ->where('requests.is_archived', '=', '0') // Filter out archived requests
                 ->first();
-
+    
             // Check if the request exists
             if (!$requestDetails) {
                 $response = [
@@ -429,10 +435,10 @@ class RequestController extends Controller
                     'message' => 'Request not found.',
                 ];
                 $this->logAPICalls('getRequestById', $id, [], $response);
-
+    
                 return response()->json($response, 404);
             }
-
+    
             // Format the response
             $formattedRequest = [
                 'id' => $requestDetails->id,
@@ -440,6 +446,7 @@ class RequestController extends Controller
                 'request_title' => $requestDetails->request_title,
                 'requested_by' => $requestDetails->requested_by,
                 'requested_by_name' => $requestDetails->requested_by_first_name . ' ' . $requestDetails->requested_by_last_name,
+                'requested_by_email' => $requestDetails->requested_by_email, // Add requested by email
                 'description' => $requestDetails->description,
                 'category_id' => $requestDetails->category_id,
                 'category_name' => $requestDetails->category_name, // Include category name
@@ -447,9 +454,13 @@ class RequestController extends Controller
                 'status' => $requestDetails->status,
                 'file_path' => $requestDetails->file_path,
                 'file_url' => $requestDetails->file_path ? asset($requestDetails->file_path) : null,
+                'file_completion' => $requestDetails->file_completion, // Add completion file
+                'file_completion_url' => $requestDetails->file_completion ? asset($requestDetails->file_completion) : null, // Add completion file URL
+                'date_requested' => $requestDetails->date_requested,
+                'date_completed' => $requestDetails->date_completed, // Include date completed
                 'updated_at' => $requestDetails->updated_at,
             ];
-
+    
             // Successful response
             $response = [
                 'isSuccess' => true,
@@ -457,9 +468,9 @@ class RequestController extends Controller
                 'request' => $formattedRequest,
             ];
             $this->logAPICalls('getRequestById', $id, [], $response);
-
+    
             return response()->json($response, 200);
-
+    
         } catch (Throwable $e) {
             // Error handling
             $response = [
@@ -468,11 +479,11 @@ class RequestController extends Controller
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('getRequestById', $id, [], $response);
-
+    
             return response()->json($response, 500);
         }
     }
-
+    
     public function assessRequest(Request $request, $id)
     {
         try {
@@ -594,6 +605,7 @@ class RequestController extends Controller
             // Save the file path to the file_completion column
             $requestRecord->file_completion = $fileCompletionPath;
             $requestRecord->status = 'For Feedback';
+            $requestRecord->date_completed = now();
             $requestRecord->save();
             // Prepare the response
             $response = [
@@ -605,6 +617,7 @@ class RequestController extends Controller
                     'file_completion_url' => $fileCompletionUrl, 
                     'file_completion_path' => $fileCompletionPath,
                     'status'=>$requestRecord->status,
+                    'date_completed'=> $requestRecord->date_completed,
                     'submitted_by' => [
                         'id' => $user->id,
                         'name' => $user->first_name . ' ' . $user->last_name,
