@@ -62,14 +62,14 @@ class User extends Authenticatable
 
         return $validator;
     }
-    public function division()
+    public function divisions()
     {
-        return $this->belongsTo(Division::class);
+        return $this->belongsTo(Division::class, 'division_id', 'id');
     }
     
-    public function department()
+    public function departments()
     {
-        return $this->belongsTo(Department::class);
+        return $this->belongsTo(Department::class, 'department_id');
     }
 
     public function categories()
