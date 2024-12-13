@@ -77,4 +77,14 @@ class User extends Authenticatable
     return $this->belongsToMany(Category::class, 'category_personnel', 'personnel_id', 'category_id');
 }
 
+public function division()
+{
+    return $this->belongsTo(Division::class);
+}
+
+public function department()
+{
+    return $this->belongsTo(Department::class);
+}
+
 }
