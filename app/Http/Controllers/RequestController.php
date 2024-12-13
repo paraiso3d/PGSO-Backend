@@ -25,11 +25,12 @@ use Illuminate\Support\Facades\Storage;
 class RequestController extends Controller
 {
     // Method to create a new request
+
     public function createRequest(Request $request)
     {
         // Validate the incoming data using the Requests model's validateRequest method
         $validator = Requests::validateRequest($request->all());
-
+    
         if ($validator->fails()) {
             $response = [
                 'isSuccess' => false,
@@ -37,47 +38,50 @@ class RequestController extends Controller
                 'errors' => $validator->errors(),
             ];
             $this->logAPICalls('createRequest', '', [], $response);
-
+    
             return response()->json($response, 400);
         }
-
+    
         $controlNo = Requests::generateControlNo();
         $filePath = null;
         $fileUrl = null;
+    
         if ($request->hasFile('file_path')) {
             // Get the uploaded file
             $file = $request->file('file_path');
-
+    
             // Define the target directory and file name
             $directory = public_path('img/asset');
             $fileName = 'Request-' . $controlNo . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
-
+    
             // Ensure the directory exists
             if (!file_exists($directory)) {
                 mkdir($directory, 0755, true);
             }
-
+    
             // Move the file to the target directory
             $file->move($directory, $fileName);
-
+    
             // Generate the relative file path
             $filePath = 'img/asset/' . $fileName;
-
+    
             // Generate the file URL
             $fileUrl = asset($filePath);
         }
-
+    
         try {
             $user = auth()->user();
-
+    
             // Extract user details
             $firstName = $user->first_name ?? 'N/A';
             $lastName = $user->last_name ?? 'N/A';
             $division = $user->division->division_name ?? 'N/A'; // Assumes user has a relation to division
             $department = $user->department->department_name ?? 'N/A'; // Assumes user has a relation to department
             $officeLocation = $user->division->office_location ?? 'N/A'; // Fetching office location
-
-
+    
+            // Get the current timestamp using Carbon
+            $dateRequested = Carbon::now();
+    
             // Create the new request record
             $newRequest = Requests::create([
                 'control_no' => $controlNo,
@@ -87,10 +91,10 @@ class RequestController extends Controller
                 'file_path' => $filePath,
                 'status' => $request->input('status', 'Pending'),
                 'requested_by' => $user->id,
-                'date_requested' => now(),
+                'date_requested' => $dateRequested, // Save Carbon instance
                 'is_archived' => false,
             ]);
-
+    
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request successfully created.',
@@ -110,14 +114,14 @@ class RequestController extends Controller
                         'department' => $department,
                         'office_location' => $officeLocation,
                     ],
-                    'date_requested' => $newRequest->date_requested,
+                    'date_requested' => $dateRequested->format('d-m-Y'), // Format with day, month, and year
                 ],
             ];
-
+    
             $this->logAPICalls('createRequest', $newRequest->id, [], $response);
-
+    
             return response()->json($response, 201);
-
+    
         } catch (Throwable $e) {
             // Handle any exceptions
             $response = [
@@ -125,12 +129,13 @@ class RequestController extends Controller
                 'message' => 'Failed to create the request.',
                 'error' => $e->getMessage(),
             ];
-
+    
             $this->logAPICalls('createRequest', '', [], $response);
-
+    
             return response()->json($response, 500);
         }
     }
+
     public function acceptRequest($id)
     {
         try {
