@@ -26,7 +26,6 @@ class DivisionController extends Controller
             'office_location' => 'required|string',
             'staff_id' => 'nullable|array', // Expecting an array of staff IDs
             'staff_id.*' => 'exists:users,id', // Validate each ID exists in the users table
-            'category_id' => 'required|exists:categories,id', // Single category ID
         ]);
 
         // Fetch the assigned category
@@ -56,7 +55,6 @@ class DivisionController extends Controller
             'division_name' => $request->division_name,
             'office_location' => $request->office_location,
             'staff_id' => json_encode(array_column($staffDetails, 'id')), // Save as JSON-encoded string
-            'category_id' => $request->category_id, // Single category ID
         ]);
 
         // Prepare the success response
@@ -68,7 +66,6 @@ class DivisionController extends Controller
                 'division_name' => $division->division_name,
                 'office_location' => $division->office_location,
                 'staff' => $staffDetails, // Include staff details (id, first_name, last_name)
-                'category' => $assignedCategory, // Include category details
             ],
         ];
 
@@ -275,10 +272,6 @@ class DivisionController extends Controller
                 'division_name' => $division->division_name,
                 'office_location' => $division->office_location,
                 'staff' => $staffDetails, // Include decoded staff details
-                'category' => $division->category ? [
-                    'id' => $division->category->id,
-                    'category_name' => $division->category->category_name,
-                ] : null, // Handle null category gracefully
             ];
         });
 
