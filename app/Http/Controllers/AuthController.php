@@ -26,46 +26,50 @@ class AuthController extends Controller
         try {
             // Fetch the user by email
             $user = User::where('email', $request->email)->first();
-
+    
             if ($user) {
                 // Verify the password
                 if (Hash::check($request->password, $user->password)) {
                     // Generate token
                     $token = $user->createToken('auth-token')->plainTextToken;
-
-                    // Attempt to create session    
+    
+                    // Attempt to create session
                     $session = $this->insertSession($user->id);
                     if (!$session) {
                         // Return error if session creation fails
                         return response()->json(['isSuccess' => false, 'message' => 'Failed to create session.'], 500);
                     }
-
+    
                     // Get user type name
                     $roleName = $user->role_name;
-
+    
                     // Prepare response
                     $response = [
                         'isSuccess' => true,
-                        'user' => $user->only(['id', 'email']),
+                        'user' => [
+                            'id' => $user->id,
+                            'email' => $user->email,
+                            'name' => $user->first_name . ' ' . $user->last_name, // Concatenate first and last name
+                        ],
                         'token' => $token,
                         'sessionCode' => $session,
                         'role' => $roleName,
                         'message' => 'Logged in successfully'
                     ];
-
+    
                     // Log the API call
                     $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
-
+    
                     // Return success response
                     return response()->json($response, 200);
-
+    
                 } else {
                     return $this->sendError('Invalid Credentials.');
                 }
             } else {
                 return $this->sendError('Provided email address does not exist.');
             }
-
+    
         } catch (Throwable $e) {
             // Handle errors during login
             $response = [
@@ -73,13 +77,14 @@ class AuthController extends Controller
                 'message' => 'An error occurred during login.',
                 'error' => $e->getMessage(),
             ];
-
+    
             $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
-
+    
             // Return error response
             return response()->json($response, 500);
         }
     }
+    
 
     public function editProfile(Request $request)
     {
