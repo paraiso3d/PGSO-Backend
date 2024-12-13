@@ -315,7 +315,7 @@ class RequestController extends Controller
                 case 'admin':
                     break;
                 case 'head':
-                    $query->whereIn('requests.status', ['Pending']);
+                    $query->whereIn('requests.status', ['Pending','For Process']);
                     break;
                 case 'staff':
                     $query->where('requests.requested_by', $userId);
