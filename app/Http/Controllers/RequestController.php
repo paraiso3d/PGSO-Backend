@@ -321,7 +321,7 @@ class RequestController extends Controller
                     $query->where('requests.requested_by', $userId);
                     break;
                 case 'personnel':
-                    $query->where('requests.status', 'For Completion');
+                    $query->whereIn('requests.status', ['For Completion','Completed']);
                     break;
                 default:
                     $query->whereRaw('1 = 0');
