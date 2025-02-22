@@ -174,77 +174,92 @@ class CategoryController extends Controller
     }
     
     /**
-      Update an existing Category
+     Update an existing Category
      */
     public function updateCategory(Request $request, $id)
     {
         try {
-
+            // Find the category
             $category = Category::findOrFail($id);
-
-
+    
+            // Validate the request
             $request->validate([
-                'category_name' => 'sometimes|required|string',
-                'division_id' => 'sometimes|required|integer|exists:divisions,id',
-                'user_id' => 'sometimes|required|exists:users,id'
+                'category_name' => 'sometimes|required|string|unique:categories,category_name,' . $id,
+                'description' => 'sometimes|required|string',
+                'personnel_ids' => 'sometimes|required|array', // Validate as an array
+                'personnel_ids.*' => 'exists:users,id', // Ensure each id exists in users table
             ]);
-
-
-            $division = $request->has('division_id') ? Division::findOrFail($request->division_id) : Division::find($category->division_id);
-            $teamleader = $request->has('team_leader') ? User::select('id', 'first_name', 'last_name', 'middle_initial')
-                ->findOrFail($request->team_leader) : User::find($category->user_id);
-
-
+    
+            // If personnel_ids are provided, check if they belong to users with role_name "personnel"
+            if ($request->has('personnel_ids')) {
+                $personnel = User::whereIn('id', $request->personnel_ids)
+                    ->where('role_name', 'personnel')
+                    ->get();
+    
+                if ($personnel->count() !== count($request->personnel_ids)) {
+                    return response()->json([
+                        'isSuccess' => false,
+                        'message' => 'Some personnel_ids do not belong to users with the role of personnel.',
+                    ], 422);
+                }
+            } else {
+                $personnel = $category->personnel; // Keep existing personnel if not updating
+            }
+    
+            // Update the category
             $category->update([
                 'category_name' => $request->category_name ?? $category->category_name,
-                'division_id' => $division->id ?? $category->division_id,
-                'user_id' => $teamleader->id ?? $category->user_id
+                'description' => $request->description ?? $category->description,
             ]);
-
-
+    
+            // Update personnel if provided
+            if ($request->has('personnel_ids')) {
+                $category->personnel()->sync($request->personnel_ids); // Sync instead of attach
+            }
+    
+            // Prepare the success response
             $response = [
                 'isSuccess' => true,
-                'message' => "Category successfully updated",
+                'message' => 'Category successfully updated.',
                 'category' => [
                     'id' => $category->id,
                     'category_name' => $category->category_name,
-                    'division_name' => $division->div_name,
-                    'division_id' => $division->id,
-                    'teamleader' => [
-                        'id' => $teamleader->id,
-                        'first_name' => $teamleader->first_name,
-                        'last_name' => $teamleader->last_name,
-                        'middle_initial' => $teamleader->middle_initial,
-                    ]
-                ]
+                    'description' => $category->description,
+                    'personnel' => $personnel->map(function ($p) {
+                        return [
+                            'id' => $p->id,
+                            'name' => $p->first_name . ' ' . $p->last_name,
+                        ];
+                    }),
+                ],
             ];
-
-
+    
+            // Log API call
             $this->logAPICalls('updateCategory', $id, $request->all(), $response);
+    
             return response()->json($response, 200);
-
+    
         } catch (ValidationException $v) {
-
+            // Validation error response
             $response = [
                 'isSuccess' => false,
-                'message' => "Validation failed.",
+                'message' => 'Validation failed.',
                 'errors' => $v->errors(),
             ];
             $this->logAPICalls('updateCategory', "", $request->all(), $response);
             return response()->json($response, 422);
-
+    
         } catch (Throwable $e) {
-
+            // Exception error response
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to update the Category.",
+                'message' => 'Failed to update the Category.',
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('updateCategory', "", $request->all(), $response);
             return response()->json($response, 500);
         }
     }
-
 
     /**
      * Delete a Category by ID
