@@ -62,6 +62,7 @@ Route::prefix('admin')->controller(UserController::class)->group(function () {
     Route::get('users', 'getUserAccounts');
     Route::post('user/delete/{id}', 'deleteUserAccount');
 });
+    Route::middleware('auth:sanctum')->post('users/changeprofile', [UserController::class, 'changeProfile']);
 
 /*
 |--------------------Division API-----------------------

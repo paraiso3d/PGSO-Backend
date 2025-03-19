@@ -12,6 +12,9 @@ use Throwable;
 use App\Models\ApiLog;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Validator;
+
 class UserController extends Controller
 {
     /**
@@ -44,6 +47,7 @@ class UserController extends Controller
                 'role_name' => $request->role_name,
                 'division_id' => $division->id,
                 'department_id' => $department ? $department->id : null,
+                'profile_img' => null, // Explicitly set NULL
             ]);
     
             // Prepare the response
@@ -129,6 +133,7 @@ class UserController extends Controller
                     'department_name' => optional($user->departments)->department_name,
                     'division_id'=>$user->division_id,
                     'division_name'=> optional($user->divisions)->division_name,
+                    'profile_img'=>$user->profile_img,
                     'is_archived' => $user->is_archived,
                 ];
             });
@@ -263,6 +268,102 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
+
+    public function changeProfile(Request $request)
+{
+    try {
+        $user = auth()->user(); // Get the logged-in user
+
+        $validator = Validator::make($request->all(), [
+            'first_name' => ['sometimes', 'string', 'max:255'],
+            'last_name' => ['sometimes', 'string', 'max:255'],
+            'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'password' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'min:8',
+                'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'
+            ],
+            'profile_img' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048']
+        ], [
+            'password.regex' => 'The password must be at least 8 characters long and contain at least one uppercase letter, one number, and one special character (@$!%*?&).'
+        ]);
+
+        if ($validator->fails()) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors()
+            ];
+            $this->logAPICalls('changeProfile', "", $request->all(), $response);
+            return response()->json($response, 422);
+        }
+
+        // Update user details
+        $user->first_name = $request->input('first_name', $user->first_name);
+        $user->last_name = $request->input('last_name', $user->last_name);
+        $user->email = $request->input('email', $user->email);
+
+        // Handle password update
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        // Handle profile image upload with structured logic
+        $filePath = $user->profile_img;
+        $fileUrl = null;
+
+        if ($request->hasFile('profile_img')) {
+            $file = $request->file('profile_img');
+            $directory = public_path('img/profile'); // Define the directory
+            $fileName = 'Profile-' . $user->id . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
+
+            // Ensure directory exists
+            if (!file_exists($directory)) {
+                mkdir($directory, 0755, true);
+            }
+
+            // Move file to the directory
+            $file->move($directory, $fileName);
+
+            // Generate the relative file path
+            $filePath = 'img/profile/' . $fileName;
+            $fileUrl = asset($filePath); // Generate URL
+            $user->profile_img = $filePath;
+        }
+
+        $user->save(); // Save user changes
+
+        // Prepare response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Profile updated successfully.',
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'profile_img' => $fileUrl ?? asset($filePath),
+            ]
+        ];
+
+        $this->logAPICalls('changeProfile', $user->id, $request->except(['password']), $response);
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to update profile.',
+            'error' => $e->getMessage()
+        ];
+        $this->logAPICalls('changeProfile', $user->id, $request->except(['password']), $response);
+        return response()->json($response, 500);
+    }
+}
+
+
+
+
 
 
     public function deleteUserAccount($id)

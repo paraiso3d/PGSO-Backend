@@ -28,6 +28,8 @@ class User extends Authenticatable
         'division_id',
         'department_id',
         'role_name',
+        'status',
+        'profile_img',
         'is_archived'
     ];
 
@@ -47,7 +49,7 @@ class User extends Authenticatable
     public static function validateUserAccount($data)
     {
         // Retrieve arrays of valid user types and offices
-
+    
         // Validate user data
         $validator = Validator::make($data, [
             'first_name' => ['required', 'string', 'alpha_spaces'],
@@ -56,12 +58,21 @@ class User extends Authenticatable
             'role_name' => ['required', 'string'],
             'department_id' => ['required', 'exists:departments,id'],
             'division_id' => ['required', 'exists:divisions,id'],
-            'password' => ['required', 'string', 'min:8'],
-            'is_archived' => ['nullable', 'in:A,I']
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'
+            ],
+            'is_archived' => ['nullable', 'in:A,I'],
+            'profile_img'=> ['nullable']
+        ], [
+            'password.regex' => 'The password must contain at least one uppercase letter, one number, and one special character.'
         ]);
-
+    
         return $validator;
     }
+    
     public function divisions()
     {
         return $this->belongsTo(Division::class, 'division_id', 'id');

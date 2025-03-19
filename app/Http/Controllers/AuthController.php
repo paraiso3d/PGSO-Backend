@@ -49,7 +49,8 @@ class AuthController extends Controller
                         'user' => [
                             'id' => $user->id,
                             'email' => $user->email,
-                            'name' => $user->first_name . ' ' . $user->last_name, // Concatenate first and last name
+                            'name' => $user->first_name . ' ' . $user->last_name,
+                            'profile_img'=>$user->profile_img // Concatenate first and last name
                         ],
                         'token' => $token,
                         'sessionCode' => $session,
