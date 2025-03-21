@@ -1,6 +1,8 @@
 <?php
 
 namespace App\Http\Controllers;
+
+use App\Helpers\AuditLogger;
 use App\Models\User;
 use App\Models\Category;
 use App\Models\Division;
@@ -20,7 +22,17 @@ class DivisionController extends Controller
     public function createDivision(Request $request)
     {
         try {
-            // Validate input data
+            // Get authenticated user
+            $user = auth()->user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
+            // Validate the incoming request
             $request->validate([
                 'division_name' => 'required|string|unique:divisions,division_name',
                 'office_location' => 'required|string',
@@ -31,32 +43,57 @@ class DivisionController extends Controller
             // Validate and fetch staff details
             $staffDetails = [];
             if (!empty($request->staff_id)) {
-                $staffDetails = User::whereIn('id', $request->staff_id)
-                    ->where('role_name', 'staff') // Ensure role is 'staff'
-                    ->get(['id', 'first_name', 'last_name'])
-                    ->toArray();
+                // Fetch staff users based on provided IDs
+                $staffUsers = User::whereIn('id', $request->staff_id)->get(['id', 'first_name', 'last_name', 'role_name']);
     
-                // Check if all provided staff_ids are valid staff
-                $validStaffIds = array_column($staffDetails, 'id');
-                if (count($validStaffIds) !== count($request->staff_id)) {
+                // Check if all provided users have the role 'staff'
+                $invalidUsers = $staffUsers->where('role_name', '!=', 'staff')->pluck('id')->toArray();
+    
+                if (!empty($invalidUsers)) {
+                    AuditLogger::log('Failed Division Creation - Invalid Staff Role', 'N/A', 'N/A');
+    
                     return response()->json([
                         'isSuccess' => false,
-                        'message' => 'One or more user IDs do not have the staff role.',
+                        'message' => 'One or more selected users are not assigned the "staff" role.',
+                        'invalid_users' => $invalidUsers, // Show which users are invalid
                     ], 400);
                 }
+    
+                // Check if any staff is already assigned to another division
+                $alreadyAssignedStaff = Division::whereNotNull('staff_id')
+                    ->whereRaw("JSON_CONTAINS(staff_id, ?)", [json_encode($request->staff_id)])
+                    ->exists();
+    
+                if ($alreadyAssignedStaff) {
+                    AuditLogger::log('Failed Division Creation - Staff Already Assigned', 'N/A', 'N/A');
+    
+                    return response()->json([
+                        'isSuccess' => false,
+                        'message' => 'One or more selected staff members are already assigned to another division.',
+                    ], 400);
+                }
+    
+                // Extract staff details
+                $staffDetails = $staffUsers->map(function ($staff) {
+                    return [
+                        'id' => $staff->id,
+                        'first_name' => $staff->first_name,
+                        'last_name' => $staff->last_name,
+                    ];
+                })->toArray();
             }
     
             // Create the division
             $division = Division::create([
                 'division_name' => $request->division_name,
                 'office_location' => $request->office_location,
-                'staff_id' => json_encode(array_column($staffDetails, 'id')), // Save as JSON-encoded string
+                'staff_id' => json_encode(array_column($staffDetails, 'id')),
             ]);
     
             // Prepare the success response
             $response = [
                 'isSuccess' => true,
-                'message' => 'Division created successfully.',
+                'message' => 'Division successfully created.',
                 'division' => [
                     'id' => $division->id,
                     'division_name' => $division->division_name,
@@ -65,10 +102,11 @@ class DivisionController extends Controller
                 ],
             ];
     
-            // Log API call
-            $this->logAPICalls('createDivision', "", $request->all(), [$response]);
+            // Log API call and audit event
+            $this->logAPICalls('createDivision', $user->email, $request->all(), [$response]);
+            AuditLogger::log('Created Division', 'N/A', 'Active');
     
-            return response()->json($response, 200);
+            return response()->json($response, 201);
         } catch (ValidationException $v) {
             // Validation error response
             $response = [
@@ -76,7 +114,10 @@ class DivisionController extends Controller
                 'message' => 'Invalid input data.',
                 'error' => $v->errors(),
             ];
-            $this->logAPICalls('createDivision', "", $request->all(), [$response]);
+    
+            $this->logAPICalls('createDivision', $user->email ?? 'unknown', $request->all(), [$response]);
+            AuditLogger::log('Failed Division Creation - Validation Error', 'N/A', 'N/A');
+    
             return response()->json($response, 400);
         } catch (Throwable $e) {
             // General error response
@@ -85,10 +126,17 @@ class DivisionController extends Controller
                 'message' => 'Failed to create the Division.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('createDivision', "", $request->all(), [$response]);
+    
+            $this->logAPICalls('createDivision', $user->email ?? 'unknown', $request->all(), [$response]);
+            AuditLogger::log('Error Creating Division', 'N/A', 'N/A');
+    
             return response()->json($response, 500);
         }
     }
+    
+
+
+
     
 
     
@@ -100,8 +148,21 @@ class DivisionController extends Controller
     public function updateDivision(Request $request, $id)
     {
         try {
+            // Get authenticated user
+            $user = auth()->user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
             // Find the division by its ID
             $division = Division::findOrFail($id);
+    
+            // Capture the original division before making any updates
+            $beforeUpdate = $division->getOriginal();
     
             // Validate the incoming request
             $request->validate([
@@ -114,20 +175,45 @@ class DivisionController extends Controller
             // Validate and fetch staff details
             $staffDetails = [];
             if (!empty($request->staff_id)) {
-                $staffDetails = User::whereIn('id', $request->staff_id)
-                    ->where('role_name', 'staff') // Ensure role is 'staff'
-                    ->get(['id', 'first_name', 'last_name'])
-                    ->toArray();
+                // Fetch staff users based on provided IDs
+                $staffUsers = User::whereIn('id', $request->staff_id)->get(['id', 'first_name', 'last_name', 'role_name']);
     
-                // Check if all provided staff_ids are valid staff
-                $validStaffIds = array_column($staffDetails, 'id');
-                if (count($validStaffIds) !== count($request->staff_id)) {
+                // Check if all provided users have the role 'staff'
+                $invalidUsers = $staffUsers->where('role_name', '!=', 'staff')->pluck('id')->toArray();
+    
+                if (!empty($invalidUsers)) {
                     return response()->json([
                         'isSuccess' => false,
-                        'message' => 'One or more user IDs do not have the staff role.',
+                        'message' => 'One or more selected users are not assigned the "staff" role.',
+                        'invalid_users' => $invalidUsers, // Show which users are invalid
                     ], 400);
                 }
+    
+                // Check if any staff is already assigned to another division
+                $alreadyAssignedStaff = Division::whereNotNull('staff_id')
+                    ->where('id', '!=', $id) // Exclude current division
+                    ->whereRaw("JSON_CONTAINS(staff_id, ?)", [json_encode($request->staff_id)])
+                    ->exists();
+    
+                if ($alreadyAssignedStaff) {
+                    return response()->json([
+                        'isSuccess' => false,
+                        'message' => 'One or more selected staff members are already assigned to another division.',
+                    ], 400);
+                }
+    
+                // Extract staff details
+                $staffDetails = $staffUsers->map(function ($staff) {
+                    return [
+                        'id' => $staff->id,
+                        'first_name' => $staff->first_name,
+                        'last_name' => $staff->last_name,
+                    ];
+                })->toArray();
             }
+    
+            // Store the original status before update
+            $statusBefore = $division->status; // Ensure correct tracking of status before update
     
             // Update the division
             $division->update([
@@ -136,10 +222,22 @@ class DivisionController extends Controller
                 'staff_id' => json_encode(array_column($staffDetails, 'id') ?? json_decode($division->staff_id, true)),
             ]);
     
+            // Capture the updated division after changes (excluding timestamps)
+            $beforeUpdate = $division->only(['id', 'division_name', 'office_location', 'staff_id']);
+            $afterUpdate = $division->only(['id', 'division_name', 'office_location', 'staff_id']);
+    
+            // Audit log the update
+            AuditLogger::log(
+                'updateDivision',
+                json_encode($beforeUpdate),
+                json_encode($afterUpdate)   // After state
+            );
+    
             // Prepare the success response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Division successfully updated.',
+                'status_before' => $statusBefore, // ✅ FIXED: Logs actual previous status
                 'division' => [
                     'id' => $division->id,
                     'division_name' => $division->division_name,
@@ -148,8 +246,8 @@ class DivisionController extends Controller
                 ],
             ];
     
-            // Log API call
-            $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
+            // Log API call with authenticated user's email
+            $this->logAPICalls('updateDivision', $user->email, $request->all(), [$response]);
     
             return response()->json($response, 200);
         } catch (ValidationException $v) {
@@ -159,7 +257,16 @@ class DivisionController extends Controller
                 'message' => 'Invalid input data.',
                 'error' => $v->errors(),
             ];
-            $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
+    
+            // Audit log failure with "N/A" before/after
+            AuditLogger::log(
+                'updateDivision',
+                $user->email ?? 'unknown',
+                'N/A',
+                'N/A'
+            );
+    
+            $this->logAPICalls('updateDivision', $user->email ?? 'unknown', $request->all(), [$response]);
             return response()->json($response, 400);
         } catch (Throwable $e) {
             // General error response
@@ -168,10 +275,23 @@ class DivisionController extends Controller
                 'message' => 'Failed to update the Division.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('updateDivision', $id, $request->all(), [$response]);
+    
+            // Audit log failure with "N/A" before/after
+            AuditLogger::log(
+                'updateDivision',
+                $user->email ?? 'unknown',
+                'N/A',
+                'N/A'
+            );
+    
+            $this->logAPICalls('updateDivision', $user->email ?? 'unknown', $request->all(), [$response]);
             return response()->json($response, 500);
         }
     }
+    
+
+    
+    
     
 
     public function getdropdownCategories(Request $request)
@@ -257,6 +377,16 @@ class DivisionController extends Controller
     public function getDivisions()
     {
         try {
+            // Get authenticated user
+            $user = auth()->user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
             // Fetch all divisions that are not archived
             $divisions = Division::where('is_archived', 0)
                 ->get()
@@ -266,10 +396,11 @@ class DivisionController extends Controller
     
                     // Fetch staff details for the decoded IDs
                     $staffDetails = !empty($staffIds)
-                        ? User::whereIn('id', $staffIds)->get(['id', 'first_name', 'last_name'])->map(function ($staff) {
+                        ? User::whereIn('id', $staffIds)->get(['id', 'first_name', 'last_name', 'email'])->map(function ($staff) {
                             return [
                                 'id' => $staff->id,
                                 'name' => $staff->first_name . ' ' . $staff->last_name,
+                                'email' => $staff->email, // Include email
                             ];
                         })->toArray()
                         : [];
@@ -290,8 +421,8 @@ class DivisionController extends Controller
                 'divisions' => $divisions,
             ];
     
-            // Log API call
-            $this->logAPICalls('getDivisions', "", [], [$response]);
+            // Log API call with user's email
+            $this->logAPICalls('getDivisions', $user->email, [], [$response]);
     
             return response()->json($response, 200);
     
@@ -303,12 +434,12 @@ class DivisionController extends Controller
                 'error' => $e->getMessage(),
             ];
     
-            $this->logAPICalls('getDivisions', "", [], [$response]);
+            $this->logAPICalls('getDivisions', $user->email ?? 'unknown', [], [$response]);
     
             return response()->json($response, 500);
         }
     }
-
+    
     
     
 
@@ -316,29 +447,67 @@ class DivisionController extends Controller
     /**
      * Delete a college office.
      */
-    public function deleteDivision(Request $request)
+    public function deleteDivision($id)
     {
         try {
-            $divname = Division::find($request->id);
-
-            $divname->update(['is_archived' => "1"]);
-
+            // Get authenticated user
+            $user = auth()->user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
+            // Find division by ID
+            $division = Division::findOrFail($id);
+    
+            // Capture the original is_archived value before update
+            $beforeUpdate = ['is_archived' => $division->is_archived];
+    
+            // Soft delete by setting is_archived to 1
+            $division->update(['is_archived' => 1]);
+    
+            // Capture the updated is_archived value after update
+            $afterUpdate = ['is_archived' => $division->is_archived];
+    
+            // Audit log only for the is_archived field
+            AuditLogger::log(
+                'deleteDivision',
+                json_encode($beforeUpdate),
+                'Deleted'   // After state
+            );
+    
+            // Success response
             $response = [
                 'isSuccess' => true,
-                'message' => "Division successfully deleted."
+                'message' => "Division successfully archived.",
             ];
-            $this->logAPICalls('deleteDivision', $divname->id, [], [$response]);
+    
+            // Log API call with authenticated user's email
+            $this->logAPICalls('deleteDivision', $user->email, ['division_id' => $division->id], [$response]);
+    
             return response()->json($response, 200);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Division not found.',
+            ], 404);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to delete the Division Name.",
-                'error' => $e->getMessage()
+                'message' => "Failed to archive the division.",
+                'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('deleteDivision', "", [], [$response]);
+    
+            $this->logAPICalls('deleteDivision', $user->email ?? 'unknown', ['division_id' => $id], [$response]);
+    
             return response()->json($response, 500);
         }
     }
+    
+
 
     /*
      * Log all API calls.
@@ -359,15 +528,5 @@ class DivisionController extends Controller
         return true;
     }
 
-    /**
-     * Test method to verify API functionality.
-     */
-    public function test()
-    {
-        return response()->json([
-            'isSuccess' => true,
-            'message' => 'Test successful'
-        ], 200);
-    }
 }
 

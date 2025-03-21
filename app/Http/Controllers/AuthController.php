@@ -21,189 +21,71 @@ use Illuminate\Support\Facades\Storage;
 class AuthController extends Controller
 {
 
-    public function login(Request $request)
-    {
-        try {
-            // Fetch the user by email
-            $user = User::where('email', $request->email)->first();
-    
-            if ($user) {
-                // Verify the password
-                if (Hash::check($request->password, $user->password)) {
-                    // Generate token
-                    $token = $user->createToken('auth-token')->plainTextToken;
-    
-                    // Attempt to create session
-                    $session = $this->insertSession($user->id);
-                    if (!$session) {
-                        // Return error if session creation fails
-                        return response()->json(['isSuccess' => false, 'message' => 'Failed to create session.'], 500);
-                    }
-    
-                    // Get user type name
-                    $roleName = $user->role_name;
-    
-                    // Prepare response
-                    $response = [
-                        'isSuccess' => true,
-                        'user' => [
-                            'id' => $user->id,
-                            'email' => $user->email,
-                            'name' => $user->first_name . ' ' . $user->last_name,
-                            'profile_img'=>$user->profile_img // Concatenate first and last name
-                        ],
-                        'token' => $token,
-                        'sessionCode' => $session,
-                        'role' => $roleName,
-                        'message' => 'Logged in successfully'
-                    ];
-    
-                    // Log the API call
-                    $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
-    
-                    // Return success response
-                    return response()->json($response, 200);
-    
-                } else {
-                    return $this->sendError('Invalid Credentials.');
+   public function login(Request $request)
+{
+    try {
+        // Fetch the user by email
+        $user = User::where('email', $request->email)->first();
+
+        if ($user) {
+            // Verify the password
+            if (Hash::check($request->password, $user->password)) {
+                // Generate token
+                $token = $user->createToken('auth-token')->plainTextToken;
+
+                // Attempt to create session
+                $session = $this->insertSession($user->id);
+                if (!$session) {
+                    // Return error if session creation fails
+                    return response()->json(['isSuccess' => false, 'message' => 'Failed to create session.'], 500);
                 }
+
+                // Get user role
+                $roleName = $user->role_name;
+
+                // Prepare response
+                $response = [
+                    'isSuccess' => true,
+                    'user' => [
+                        'id' => $user->id,
+                        'email' => $user->email,
+                        'name' => $user->first_name . ' ' . $user->last_name,
+                        'profile' => $user->profile,
+                        'age' => $user->age,
+                        'gender' => $user->gender,
+                        'number' => $user->number,
+                    ],
+                    'token' => $token,
+                    'sessionCode' => $session,
+                    'role' => $roleName,
+                    'message' => 'Logged in successfully'
+                ];
+
+                // Log the API call
+                $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
+
+                // Return success response
+                return response()->json($response, 200);
             } else {
-                return $this->sendError('Provided email address does not exist.');
+                return $this->sendError('Invalid Credentials.');
             }
-    
-        } catch (Throwable $e) {
-            // Handle errors during login
-            $response = [
-                'isSuccess' => false,
-                'message' => 'An error occurred during login.',
-                'error' => $e->getMessage(),
-            ];
-    
-            $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
-    
-            // Return error response
-            return response()->json($response, 500);
+        } else {
+            return $this->sendError('Provided email address does not exist.');
         }
+    } catch (Throwable $e) {
+        // Handle errors during login
+        $response = [
+            'isSuccess' => false,
+            'message' => 'An error occurred during login.',
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
+
+        // Return error response
+        return response()->json($response, 500);
     }
-    
-
-    public function editProfile(Request $request)
-    {
-        $user = $request->user(); // Get the authenticated user
-
-        // Validate request input
-        $request->validate([
-            'last_name' => 'required|string',
-            'first_name' => 'required|string',
-            'middle_initial' => 'nullable|string',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'profile_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
-            'signature' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
-        ]);
-
-        try {
-            // Update user information except profile image and signature
-            $user->update($request->only(['last_name', 'first_name', 'middle_initial', 'email']));
-
-            $profileImagePath = null;
-            $signaturePath = null;
-
-            // Handle profile image upload in base64 format
-            if ($request->hasFile('profile_image')) {
-                $profileImageContents = file_get_contents($request->file('profile_image')->getRealPath());
-                $base64ProfileImage = 'data:image/' . $request->file('profile_image')->extension() . ';base64,' . base64_encode($profileImageContents);
-
-                // Save the image using saveImage method
-                $path = $this->getSetting("ASSET_IMAGE_PATH");
-                $fdateNow = now()->format('Y-m-d');
-                $ftimeNow = now()->format('His');
-                $profileImagePath = (new AuthController)->saveImage($base64ProfileImage, 'profile', 'Profile-' . $user->id, $fdateNow . '_' . $ftimeNow);
-
-                // Update the profile image path in user record
-                $user->update(['profile_image' => $profileImagePath]);
-            }
-
-            // Handle signature upload in base64 format
-            if ($request->hasFile('signature')) {
-                $signatureContents = file_get_contents($request->file('signature')->getRealPath());
-                $base64Signature = 'data:image/' . $request->file('signature')->extension() . ';base64,' . base64_encode($signatureContents);
-
-                // Save the signature using saveImage method
-                $signaturePath = (new AuthController)->saveImage($base64Signature, 'signature', 'Signature-' . $user->id, $fdateNow . '_' . $ftimeNow);
-
-                // Update the signature path in user record
-                $user->update(['signature' => $signaturePath]);
-            }
-
-            // Prepare response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Profile updated successfully',
-                'user' => $user->only(['last_name', 'first_name', 'middle_initial', 'email']),
-            ];
-
-            // Log API call
-            $this->logAPICalls('editProfile', $user->email, $request->all(), $response);
-
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'An error occurred',
-                'error' => $e->getMessage(),
-            ];
-
-            // Log API call
-            $this->logAPICalls('editProfile', $user->email, $request->all(), $response);
-
-            return response()->json($response, 500);
-        }
-    }
-
-    public function changePassword(Request $request)
-    {
-
-        $user = $request->user(); // Get the authenticated user
-
-        // Validate the input
-        $request->validate([
-            'password' => 'required',
-            'new_password' => 'required|min:8|confirmed',
-            'new_password_confirmation' => 'required|min:8',
-        ]);
-
-        try {
-            // Check if the current password is correct
-            if (!Hash::check($request->password, $user->password)) {
-                $response = ['message' => 'Current password is incorrect'];
-                $this->logAPICalls('changePassword', $user->email, $request->except(['password', 'new_password', 'new_password_confirmation']), $response); // Log API call
-                return response()->json($response, 400); // 400 Bad Request
-            }
-
-            // Update the password
-            $user->password = Hash::make($request->new_password); // Hash the new password
-            $user->save(); // Save the updated user data
-
-            // Prepare response
-            $response = ['message' => 'Password changed successfully'];
-
-            // Exclude passwords from being logged
-            $this->logAPICalls('changePassword', $user->email, $request->except(['password', 'new_password', 'new_password_confirmation']), $response); // Log API call
-            return response()->json($response, 200); // 200 OK
-        } catch (Throwable $e) {
-            // Prepare error response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Failed to change password',
-                'error' => $e->getMessage(),
-            ];
-
-            // Exclude passwords from being logged
-            $this->logAPICalls('changePassword', $user->email, $request->except(['password', 'new_password', 'new_password_confirmation']), $response);
-
-            return response()->json($response, 500); // 500 Internal Server Error
-        }
-    }
+}
 
     public function logout(Request $request)
     {

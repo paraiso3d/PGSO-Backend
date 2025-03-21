@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Category;
 use App\Models\Department;
 use App\Models\Location;
@@ -27,227 +28,268 @@ class RequestController extends Controller
     // Method to create a new request
 
     public function createRequest(Request $request)
-    {
-        // Validate the incoming data using the Requests model's validateRequest method
-        $validator = Requests::validateRequest($request->all());
-    
-        if ($validator->fails()) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors(),
-            ];
-            $this->logAPICalls('createRequest', '', [], $response);
-    
-            return response()->json($response, 400);
+{
+    // Validate the incoming data using the Requests model's validateRequest method
+    $validator = Requests::validateRequest($request->all());
+
+    if ($validator->fails()) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Validation error',
+            'errors' => $validator->errors(),
+        ];
+        $this->logAPICalls('createRequest', '', [], $response);
+
+        return response()->json($response, 400);
+    }
+
+    $controlNo = Requests::generateControlNo();
+    $filePath = null;
+    $fileUrl = null;
+
+    if ($request->hasFile('file_path')) {
+        // Get the uploaded file
+        $file = $request->file('file_path');
+
+        // Define the target directory and file name
+        $directory = public_path('img/asset');
+        $fileName = 'Request-' . $controlNo . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
+
+        // Ensure the directory exists
+        if (!file_exists($directory)) {
+            mkdir($directory, 0755, true);
         }
-    
-        $controlNo = Requests::generateControlNo();
-        $filePath = null;
-        $fileUrl = null;
-    
-        if ($request->hasFile('file_path')) {
-            // Get the uploaded file
-            $file = $request->file('file_path');
-    
-            // Define the target directory and file name
-            $directory = public_path('img/asset');
-            $fileName = 'Request-' . $controlNo . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
-    
-            // Ensure the directory exists
-            if (!file_exists($directory)) {
-                mkdir($directory, 0755, true);
-            }
-    
-            // Move the file to the target directory
-            $file->move($directory, $fileName);
-    
-            // Generate the relative file path
-            $filePath = 'img/asset/' . $fileName;
-    
-            // Generate the file URL
-            $fileUrl = asset($filePath);
-        }
-    
-        try {
-            $user = auth()->user();
-    
-            // Extract user details
-            $firstName = $user->first_name ?? 'N/A';
-            $lastName = $user->last_name ?? 'N/A';
-            $division = $user->division->division_name ?? 'N/A'; // Assumes user has a relation to division
-            $department = $user->department->department_name ?? 'N/A'; // Assumes user has a relation to department
-            $officeLocation = $user->division->office_location ?? 'N/A'; // Fetching office location
-    
-            // Get the current timestamp using Carbon
-            $dateRequested = Carbon::now();
-    
-            // Create the new request record
-            $newRequest = Requests::create([
+
+        // Move the file to the target directory
+        $file->move($directory, $fileName);
+
+        // Generate the relative file path
+        $filePath = 'img/asset/' . $fileName;
+
+        // Generate the file URL
+        $fileUrl = asset($filePath);
+    }
+
+    try {
+        $user = auth()->user();
+
+        // Extract user details
+        $firstName = $user->first_name ?? 'N/A';
+        $lastName = $user->last_name ?? 'N/A';
+        $division = $user->division->division_name ?? 'N/A'; // Assumes user has a relation to division
+        $department = $user->department->department_name ?? 'N/A'; // Assumes user has a relation to department
+        $officeLocation = $user->division->office_location ?? 'N/A'; // Fetching office location
+
+        // Get the current timestamp using Carbon
+        $dateRequested = Carbon::now();
+
+        // Create the new request record
+        $newRequest = Requests::create([
+            'control_no' => $controlNo,
+            'request_title' => $request->input('request_title'),
+            'description' => $request->input('description'),
+            'category' => $request->input('category'),
+            'file_path' => $filePath,
+            'status' => $request->input('status', 'Pending'),
+            'requested_by' => $user->id,
+            'date_requested' => $dateRequested, // Save Carbon instance
+            'is_archived' => false,
+        ]);
+
+        // 🔹 Audit Logging: Before = "N/A", After = "Pending"
+        AuditLogger::log('createRequest', 'N/A','Pending');
+
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Request successfully created.',
+            'request' => [
+                'id' => $newRequest->id,
                 'control_no' => $controlNo,
-                'request_title' => $request->input('request_title'),
-                'description' => $request->input('description'),
-                'category' => $request->input('category'),
-                'file_path' => $filePath,
-                'status' => $request->input('status', 'Pending'),
-                'requested_by' => $user->id,
-                'date_requested' => $dateRequested, // Save Carbon instance
-                'is_archived' => false,
-            ]);
-    
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Request successfully created.',
-                'request' => [
-                    'id' => $newRequest->id,
-                    'control_no' => $controlNo,
-                    'request_title' => $newRequest->request_title,
-                    'description' => $newRequest->description,
-                    'category' => $newRequest->category,
-                    'file_url' => $fileUrl,
-                    'status' => $newRequest->status,
-                    'requested_by' => [
-                        'id' => $user->id,
-                        'first_name' => $firstName,
-                        'last_name' => $lastName,
-                        'division' => $division,
-                        'department' => $department,
-                        'office_location' => $officeLocation,
-                    ],
-                    'date_requested' => $dateRequested->format('d-m-Y'), // Format with day, month, and year
+                'request_title' => $newRequest->request_title,
+                'description' => $newRequest->description,
+                'category' => $newRequest->category,
+                'file_url' => $fileUrl,
+                'status' => $newRequest->status,
+                'requested_by' => [
+                    'id' => $user->id,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'division' => $division,
+                    'department' => $department,
+                    'office_location' => $officeLocation,
                 ],
-            ];
-    
-            $this->logAPICalls('createRequest', $newRequest->id, [], $response);
-    
-            return response()->json($response, 201);
-    
-        } catch (Throwable $e) {
-            // Handle any exceptions
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to create the request.',
-                'error' => $e->getMessage(),
-            ];
-    
-            $this->logAPICalls('createRequest', '', [], $response);
-    
-            return response()->json($response, 500);
-        }
+                'date_requested' => $dateRequested->format('d-m-Y'), // Format with day, month, and year
+            ],
+        ];
+
+        $this->logAPICalls('createRequest', $newRequest->id, [], $response);
+
+        return response()->json($response, 201);
+
+    } catch (Throwable $e) {
+        // Handle any exceptions
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to create the request.',
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('createRequest', '', [], $response);
+
+        return response()->json($response, 500);
     }
+}
 
-    public function acceptRequest($id)
-    {
-        try {
-            // Find the request by its ID
-            $requestRecord = Requests::findOrFail($id);
 
-            // Update the status and set note column to null
-            $requestRecord->status = 'For Process';
-            $requestRecord->note = null;
-            $requestRecord->save();
+public function acceptRequest($id)
+{
+    try {
+        // Find the request by its ID
+        $requestRecord = Requests::findOrFail($id);
 
-            // Fetch the user who made the request
-            $user = $requestRecord->user;
+        // Get the authenticated user
+        $authUser = auth()->user();
 
-            // Fetch user's division and office location
-            $division = $user->division ? $user->division->division_name : 'N/A';
-            $officeLocation = $user->division ? $user->division->office_location : 'N/A';
+        // Capture before state for audit logging
+        $before = [
+            'status' => $requestRecord->status ?? 'N/A',
+            'note' => $requestRecord->note ?? 'N/A',
+        ];
 
-            // Prepare the response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Request has been accepted and is now For Review.',
-                'request' => [
-                    'id' => $requestRecord->id,
-                    'control_no' => $requestRecord->control_no,
-                    'status' => $requestRecord->status,
-                    'requested_by' => [
-                        'id' => $user->id,
-                        'first_name' => $user->first_name ?? 'N/A',
-                        'last_name' => $user->last_name ?? 'N/A',
-                        'division' => $division,
-                        'office_location' => $officeLocation,
-                    ],
-                    'date_accepted' => now()->toDateTimeString(),
+        // Update the status and set note column to null
+        $requestRecord->status = 'For Process';
+        $requestRecord->note = null;
+        $requestRecord->save();
+
+        // Capture after state for audit logging
+        $after = [
+            'status' => $requestRecord->status,
+            'note' => $requestRecord->note,
+        ];
+
+        // Log the audit
+        AuditLogger::log('acceptRequest', 'Pending' , 'For Process');
+
+        // Fetch the user who made the request
+        $user = $requestRecord->user;
+
+        // Fetch user's division and office location
+        $division = $user->division ? $user->division->division_name : 'N/A';
+        $officeLocation = $user->division ? $user->division->office_location : 'N/A';
+
+        // Prepare the response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Request has been accepted and is now For Review.',
+            'request' => [
+                'id' => $requestRecord->id,
+                'control_no' => $requestRecord->control_no,
+                'status' => $requestRecord->status,
+                'requested_by' => [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name ?? 'N/A',
+                    'last_name' => $user->last_name ?? 'N/A',
+                    'division' => $division,
+                    'office_location' => $officeLocation,
                 ],
-            ];
+                'date_accepted' => now()->toDateTimeString(),
+            ],
+        ];
 
-            $this->logAPICalls('acceptRequest', "", [], $response);
+        $this->logAPICalls('acceptRequest', $id, [], $response);
 
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to accept the request.',
-                'error' => $e->getMessage(),
-            ];
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to accept the request.',
+            'error' => $e->getMessage(),
+        ];
 
-            $this->logAPICalls('acceptRequest', "", [], $response);
+        $this->logAPICalls('acceptRequest', $id, [], $response);
 
-            return response()->json($response, 500);
-        }
+        return response()->json($response, 500);
     }
+}
+
 
     // Reject a request and change its status to "Returned"
-    public function rejectRequest(Request $request, $id)
-    {
-        try {
-            // Validate the note input
-            $request->validate([
-                'note' => 'required|string|max:255',
-            ]);
+  public function rejectRequest(Request $request, $id)
+{
+    try {
+        // Validate the note input
+        $request->validate([
+            'note' => 'required|string|max:255',
+        ]);
 
-            // Find the request by its ID
-            $requestRecord = Requests::findOrFail($id);
+        // Find the request by its ID
+        $requestRecord = Requests::findOrFail($id);
 
-            // Update the status and note
-            $requestRecord->status = 'Returned';
-            $requestRecord->note = $request->note; // Save the note to the database
-            $requestRecord->save();
+        // Get the authenticated user
+        $authUser = auth()->user();
 
-            // Fetch the user who made the request
-            $user = $requestRecord->user;
+        // Capture before state for audit logging
+        $before = [
+            'status' => $requestRecord->status ?? 'N/A',
+            'note' => $requestRecord->note ?? 'N/A',
+        ];
 
-            $division = $user->division ? $user->division->division_name : 'N/A';
-            $officeLocation = $user->division ? $user->division->office_location : 'N/A';
+        // Update the status and note
+        $requestRecord->status = 'Returned';
+        $requestRecord->note = $request->note; // Save the note to the database
+        $requestRecord->save();
 
+        // Capture after state for audit logging
+        $after = [
+            'status' => $requestRecord->status,
+            'note' => $requestRecord->note,
+        ];
 
-            // Prepare the response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Request has been rejected and is now Returned.',
-                'request' => [
-                    'id' => $requestRecord->id,
-                    'control_no' => $requestRecord->control_no,
-                    'status' => $requestRecord->status,
-                    'note' => $requestRecord->note, // Include the note in the response
-                    'requested_by' => [
-                        'id' => $user->id,
-                        'first_name' => $user->first_name ?? 'N/A',
-                        'last_name' => $user->last_name ?? 'N/A',
-                        'division' => $division,
-                        'office_location' => $officeLocation,
-                    ],
-                    'date_rejected' => now()->toDateTimeString(),
+        // Log the audit
+        AuditLogger::log('rejectRequest', 'Pending', 'Returned');
+
+        // Fetch the user who made the request
+        $user = $requestRecord->user;
+
+        $division = $user->division ? $user->division->division_name : 'N/A';
+        $officeLocation = $user->division ? $user->division->office_location : 'N/A';
+
+        // Prepare the response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Request has been rejected and is now Returned.',
+            'request' => [
+                'id' => $requestRecord->id,
+                'control_no' => $requestRecord->control_no,
+                'status' => $requestRecord->status,
+                'note' => $requestRecord->note, // Include the note in the response
+                'requested_by' => [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name ?? 'N/A',
+                    'last_name' => $user->last_name ?? 'N/A',
+                    'division' => $division,
+                    'office_location' => $officeLocation,
                 ],
-            ];
+                'date_rejected' => now()->toDateTimeString(),
+            ],
+        ];
 
-            $this->logAPICalls('rejectRequest', "", $request->all(), $response);
+        $this->logAPICalls('rejectRequest', $id, $request->all(), $response);
 
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to reject the request.',
-                'error' => $e->getMessage(),
-            ];
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to reject the request.',
+            'error' => $e->getMessage(),
+        ];
 
-            $this->logAPICalls('rejectRequest', "", $request->all(), $response);
+        $this->logAPICalls('rejectRequest', $id, $request->all(), $response);
 
-            return response()->json($response, 500);
-        }
+        return response()->json($response, 500);
     }
+}
+
     public function getRequests(Request $request)
     {
         try {
@@ -490,184 +532,188 @@ class RequestController extends Controller
     }
     
     public function assessRequest(Request $request, $id)
-    {
-        try {
-            // Retrieve the currently logged-in user
-            $user = auth()->user();
-    
-            // Retrieve the request record using the ID from the URL
-            $requests = Requests::where('id', $id)->firstOrFail();
-    
-            // Validate the input data, including category_id and personnel_ids
-            $validatedData = $request->validate([
-                'category_id' => 'required|exists:categories,id',
-                'personnel_ids' => 'required|array|min:1', // Ensure personnel_ids is an array with at least one entry
-                'personnel_ids.*' => 'exists:users,id', // Validate that each personnel_id exists in the users table
-                'status' => 'sometimes|in:For Completion', // Optional status parameter
-            ]);
-    
-            // Retrieve only ACTIVE personnel linked to the provided category_id
-            $activePersonnelIds = DB::table('category_personnel')
-                ->join('users', 'category_personnel.personnel_id', '=', 'users.id')
-                ->where('category_personnel.category_id', $validatedData['category_id'])
-                ->where('users.status', 'Active') // Filter only Active personnel
-                ->pluck('users.id')
-                ->toArray();
-    
-            // Check if all provided personnel_ids are linked to the category and are Active
-            $invalidPersonnelIds = array_diff($validatedData['personnel_ids'], $activePersonnelIds);
-    
-            if (!empty($invalidPersonnelIds)) {
-                throw new Exception("The following personnel IDs are either not linked to the category or not active: " . implode(', ', $invalidPersonnelIds));
-            }
-    
-            // Determine the status to update
-            $statusToUpdate = $validatedData['status'] ?? 'For Completion';
-    
-            // Update the request with the fetched category_id and the provided personnel_ids (as JSON)
-            $requests->update([
-                'status' => $statusToUpdate,
-                'category_id' => $validatedData['category_id'],  // Assign the category_id
-                'personnel_ids' => json_encode($validatedData['personnel_ids']), // Store multiple personnel IDs as JSON
-            ]);
-    
-            // ✅ Update personnel status to "Assigned"
-            User::whereIn('id', $validatedData['personnel_ids'])->update(['status' => 'Assigned']);
-    
-            // Prepare the full name of the currently logged-in user
-            $fullName = trim("{$user->first_name} {$user->middle_initial} {$user->last_name}");
-    
-            // Prepare the response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Request assessed successfully. Personnel status updated to Assigned.',
-                'request_id' => $requests->id,
-                'status' => $requests->status,
-                'user_id' => $user->id,
-                'user' => $fullName,
-                'category' => [
-                    'id' => $validatedData['category_id'],
-                ],
-                'personnel' => array_map(function ($personnelId) {
-                    $personnel = User::find($personnelId);
-                    return [
-                        'id' => $personnel->id,
-                        'name' => "{$personnel->first_name} {$personnel->last_name}",
-                        'status' => $personnel->status, // Show updated status
-                    ];
-                }, $validatedData['personnel_ids']),
-            ];
-    
-            // Log the API call
-            $this->logAPICalls('assessRequest', $requests->id, $request->all(), $response);
-    
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            // Prepare the error response
-            $response = [
-                'isSuccess' => false,
-                'message' => "Failed to assess the request.",
-                'error' => $e->getMessage(),
-            ];
-    
-            // Log the API call with failure response
-            $this->logAPICalls('assessRequest', $id ?? '', $request->all(), $response);
-    
-            return response()->json($response, 500);
+{
+    try {
+        // Retrieve the currently logged-in user
+        $user = auth()->user();
+
+        // Retrieve the request record using the ID from the URL
+        $requests = Requests::where('id', $id)->firstOrFail();
+
+        // Capture before state for audit logging
+        $before = [
+            'status' => $requests->status ?? 'N/A',
+            'category_id' => $requests->category_id ?? 'N/A',
+            'personnel_ids' => json_decode($requests->personnel_ids, true) ?? [],
+        ];
+
+        // Validate the input data, including category_id and personnel_ids
+        $validatedData = $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'personnel_ids' => 'required|array|min:1', // Ensure personnel_ids is an array with at least one entry
+            'personnel_ids.*' => 'exists:users,id', // Validate that each personnel_id exists in the users table
+            'status' => 'sometimes|in:For Completion', // Optional status parameter
+        ]);
+
+        // Retrieve only ACTIVE personnel linked to the provided category_id
+        $activePersonnelIds = DB::table('category_personnel')
+            ->join('users', 'category_personnel.personnel_id', '=', 'users.id')
+            ->where('category_personnel.category_id', $validatedData['category_id'])
+            ->where('users.status', 'Active') // Filter only Active personnel
+            ->pluck('users.id')
+            ->toArray();
+
+        // Check if all provided personnel_ids are linked to the category and are Active
+        $invalidPersonnelIds = array_diff($validatedData['personnel_ids'], $activePersonnelIds);
+
+        if (!empty($invalidPersonnelIds)) {
+            throw new Exception("The following personnel IDs are either not linked to the category or not active: " . implode(', ', $invalidPersonnelIds));
         }
+
+        // Determine the status to update
+        $statusToUpdate = $validatedData['status'] ?? 'For Completion';
+
+        // Update the request with the fetched category_id and the provided personnel_ids (as JSON)
+        $requests->update([
+            'status' => $statusToUpdate,
+            'category_id' => $validatedData['category_id'],  // Assign the category_id
+            'personnel_ids' => json_encode($validatedData['personnel_ids']), // Store multiple personnel IDs as JSON
+        ]);
+
+        User::whereIn('id', $validatedData['personnel_ids'])->update(['status' => 'Assigned']);
+
+        // Capture after state for audit logging
+        $after = [
+            'status' => $requests->status,
+            'category_id' => $requests->category_id,
+            'personnel_ids' => $validatedData['personnel_ids'],
+        ];
+
+        // Log the audit
+        AuditLogger::log('assessRequest', 'For Process', 'For Completion');
+
+        // Prepare the full name of the currently logged-in user
+        $fullName = trim("{$user->first_name} {$user->middle_initial} {$user->last_name}");
+
+        // Prepare the response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Request assessed successfully. Personnel status updated to Assigned.',
+            'request_id' => $requests->id,
+            'status' => $requests->status,
+            'user_id' => $user->id,
+            'user' => $fullName,
+            'category' => [
+                'id' => $validatedData['category_id'],
+            ],
+            'personnel' => array_map(function ($personnelId) {
+                $personnel = User::find($personnelId);
+                return [
+                    'id' => $personnel->id,
+                    'name' => "{$personnel->first_name} {$personnel->last_name}",
+                    'status' => $personnel->status, // Show updated status
+                ];
+            }, $validatedData['personnel_ids']),
+        ];
+
+        // Log the API call
+        $this->logAPICalls('assessRequest', $requests->id, $request->all(), $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        // Prepare the error response
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to assess the request.",
+            'error' => $e->getMessage(),
+        ];
+
+        // Log the API call with failure response
+        $this->logAPICalls('assessRequest', $id ?? '', $request->all(), $response);
+
+        return response()->json($response, 500);
     }
+}
+
     
 
 
 
 
-    public function submitCompletion(Request $request, $id)
-    {
-        try {
-            // Find the request by its ID
-            $requestRecord = Requests::findOrFail($id);
-            $user = auth()->user();
-            
-            // Initialize variables for file path and URL
-            $fileCompletionPath = null;
-            $fileCompletionUrl = null;
-    
-            // Check if the request has a file
-            if ($request->hasFile('file_completion')) {
-                // Get the uploaded file
-                $file = $request->file('file_completion');
-    
-                // Define the target directory and file name
-                $directory = public_path('img/asset');
-                $fileName = 'Request-' . $requestRecord->control_no . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
-    
-                // Ensure the directory exists
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
-    
-                // Move the file to the target directory
-                $file->move($directory, $fileName);
-    
-                // Generate the relative file path
-                $fileCompletionPath = 'img/asset/' . $fileName;
-    
-                // Generate the file URL
-                $fileCompletionUrl = asset($fileCompletionPath);
+public function submitCompletion(Request $request, $id)
+{
+    try {
+        // Find the request by its ID
+        $requestRecord = Requests::findOrFail($id);
+        $user = auth()->user();
+        
+        // Store previous data for audit logging
+        $previousData = $requestRecord->toArray();
+
+        // Initialize variables for file path and URL
+        $fileCompletionPath = null;
+        $fileCompletionUrl = null;
+
+        if ($request->hasFile('file_completion')) {
+            $file = $request->file('file_completion');
+
+            $directory = public_path('img/asset');
+            $fileName = 'Request-' . $requestRecord->control_no . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
+
+            if (!file_exists($directory)) {
+                mkdir($directory, 0755, true);
             }
-    
-            // ✅ Change request status to "For Feedback"
-            $requestRecord->file_completion = $fileCompletionPath;
-            $requestRecord->status = 'For Feedback';
-            $requestRecord->date_completed = now();
-            $requestRecord->save();
-    
-            // ✅ Retrieve and update personnel status back to "Active"
-            $personnelIds = json_decode($requestRecord->personnel_ids, true);
-            if (!empty($personnelIds)) {
-                User::whereIn('id', $personnelIds)->update(['status' => 'Active']);
-            }
-    
-            // Prepare the response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Completion file has been submitted successfully.',
-                'request' => [
-                    'id' => $requestRecord->id,
-                    'control_no' => $requestRecord->control_no,
-                    'file_completion_url' => $fileCompletionUrl, 
-                    'file_completion_path' => $fileCompletionPath,
-                    'status' => $requestRecord->status,
-                    'date_completed' => $requestRecord->date_completed,
-                    'submitted_by' => [
-                        'id' => $user->id,
-                        'name' => $user->first_name . ' ' . $user->last_name,
-                        'email' => $user->email,
-                    ],
-                    'personnel_updated' => $personnelIds,
-                ],
-            ];
-    
-            // Log the API call
-            $this->logAPICalls('submitCompletion', $requestRecord->id, $request->all(), $response);
-    
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            // Prepare the error response
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to submit the completion file.',
-                'error' => $e->getMessage(),
-            ];
-    
-            // Log the API call
-            $this->logAPICalls('submitCompletion', $id ?? '', $request->all(), $response);
-    
-            return response()->json($response, 500);
+
+            $file->move($directory, $fileName);
+
+            $fileCompletionPath = 'img/asset/' . $fileName;
+            $fileCompletionUrl = asset($fileCompletionPath);
         }
+
+       
+        $requestRecord->file_completion = $fileCompletionPath;
+        $requestRecord->status = 'For Feedback';
+        $requestRecord->date_completed = now();
+        $requestRecord->save();
+
+        
+        $personnelIds = json_decode($requestRecord->personnel_ids, true);
+        if (!empty($personnelIds)) {
+            User::whereIn('id', $personnelIds)->update(['status' => 'Active']);
+        }
+
+        
+        AuditLogger::log('submitCompletion', 'For Completion', 'For Feedback');
+
+        return response()->json([
+            'isSuccess' => true,
+            'message' => 'Completion file has been submitted successfully.',
+            'request' => [
+                'id' => $requestRecord->id,
+                'control_no' => $requestRecord->control_no,
+                'file_completion_url' => $fileCompletionUrl,
+                'file_completion_path' => $fileCompletionPath,
+                'status' => $requestRecord->status,
+                'date_completed' => $requestRecord->date_completed,
+                'submitted_by' => [
+                    'id' => $user->id,
+                    'name' => $user->first_name . ' ' . $user->last_name,
+                    'email' => $user->email,
+                ],
+                'personnel_updated' => $personnelIds,
+            ],
+        ], 200);
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Failed to submit the completion file.',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
     
-    public function submitFeedback(Request $request, $id)
+public function submitFeedback(Request $request, $id)
 {
     try {
         // Validate the input data
@@ -678,6 +724,10 @@ class RequestController extends Controller
 
         // Find the request by its ID
         $requestRecord = Requests::findOrFail($id);
+        $user = auth()->user();
+
+        // Store previous data for audit logging
+        $previousData = $requestRecord->toArray();
 
         // Update the feedback and rating columns
         $requestRecord->feedback = $request->input('feedback');
@@ -685,11 +735,11 @@ class RequestController extends Controller
         $requestRecord->status = 'Completed';
         $requestRecord->save();
 
-        // Get the authenticated user
-        $user = auth()->user();
 
-        // Prepare the response
-        $response = [
+        AuditLogger::log('submitFeedback', 'For Feedback', 'Complete');
+
+        
+        return response()->json([
             'isSuccess' => true,
             'message' => 'Feedback has been submitted successfully.',
             'request' => [
@@ -704,26 +754,16 @@ class RequestController extends Controller
                     'email' => $user->email,
                 ],
             ],
-        ];
-
-        // Log the API call
-        $this->logAPICalls('submitFeedback', $user->id, [], $response);
-
-        return response()->json($response, 200);
+        ], 200);
     } catch (Throwable $e) {
-        // Prepare the error response
-        $response = [
+        return response()->json([
             'isSuccess' => false,
             'message' => 'Failed to submit feedback.',
             'error' => $e->getMessage(),
-        ];
-
-        // Log the API call
-        $this->logAPICalls('submitFeedback', auth()->id(), [], $response);
-
-        return response()->json($response, 500);
+        ], 500);
     }
 }
+
 
 
 

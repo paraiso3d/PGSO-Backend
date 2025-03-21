@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Helpers\AuditLogger;
 use App\Models\User;
 use App\Models\Category;
 use App\Models\ApiLog;
@@ -21,6 +22,16 @@ class CategoryController extends Controller
     public function createCategory(Request $request)
     {
         try {
+            // Get authenticated user
+            $user = auth()->user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
             // Validate the request including an array of personnel_ids
             $request->validate([
                 'category_name' => 'required|string|unique:categories,category_name',
@@ -28,6 +39,18 @@ class CategoryController extends Controller
                 'personnel_ids' => 'required|array', // Validate as an array
                 'personnel_ids.*' => 'exists:users,id', // Ensure each id exists in users table
             ]);
+    
+            // Check if personnel is already assigned to another category
+            $alreadyAssigned = DB::table('category_personnel')
+                ->whereIn('personnel_id', $request->personnel_ids)
+                ->exists();
+    
+            if ($alreadyAssigned) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'One or more personnel are already assigned to another category.',
+                ], 422);
+            }
     
             // Check if all personnel_ids belong to users with the role_name "personnel"
             $personnel = User::whereIn('id', $request->personnel_ids)
@@ -41,10 +64,11 @@ class CategoryController extends Controller
                 ], 422);
             }
     
-            // Create the category
+            // Create the category with status "Active"
             $category = Category::create([
                 'category_name' => $request->category_name,
                 'description' => $request->description,
+                'status' => 'Active',
             ]);
     
             // Attach personnel to the category
@@ -58,6 +82,7 @@ class CategoryController extends Controller
                     'id' => $category->id,
                     'category_name' => $category->category_name,
                     'description' => $category->description,
+                    'status' => 'Active',
                     'personnel' => $personnel->map(function ($p) {
                         return [
                             'id' => $p->id,
@@ -68,10 +93,16 @@ class CategoryController extends Controller
             ];
     
             // Log API call
-            $this->logAPICalls('createCategory', $category->id, $request->all(), $response);
+            $this->logAPICalls('createCategory', $user->email, $request->all(), [$response]);
+    
+            // Log Audit Trail
+            AuditLogger::log(
+                'Created Category',
+                'N/A', // No old data since it's a new record
+                'Active'
+            );
     
             return response()->json($response, 200);
-    
         } catch (ValidationException $v) {
             // Prepare the validation error response
             $response = [
@@ -79,9 +110,11 @@ class CategoryController extends Controller
                 'message' => 'Validation failed.',
                 'errors' => $v->errors()
             ];
-            $this->logAPICalls('createCategory', "", $request->all(), $response);
-            return response()->json($response, 422);
     
+            $this->logAPICalls('createCategory', $user->email ?? 'unknown', $request->all(), [$response]);
+            AuditLogger::log('Failed Category Creation - Validation Error', 'N/A', 'N/A');
+    
+            return response()->json($response, 422);
         } catch (Throwable $e) {
             // Prepare the error response in case of an exception
             $response = [
@@ -89,10 +122,14 @@ class CategoryController extends Controller
                 'message' => 'Failed to create the Category.',
                 'error' => $e->getMessage()
             ];
-            $this->logAPICalls('createCategory', "", $request->all(), $response);
+    
+            $this->logAPICalls('createCategory', $user->email ?? 'unknown', $request->all(), [$response]);
+            AuditLogger::log('Error Creating Category', 'N/A', 'N/A');
+    
             return response()->json($response, 500);
         }
     }
+    
     
 
     public function getCategory(Request $request)
@@ -179,6 +216,16 @@ class CategoryController extends Controller
     public function updateCategory(Request $request, $id)
     {
         try {
+            // Get authenticated user
+            $user = auth()->user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
             // Find the category
             $category = Category::findOrFail($id);
     
@@ -202,9 +249,25 @@ class CategoryController extends Controller
                         'message' => 'Some personnel_ids do not belong to users with the role of personnel.',
                     ], 422);
                 }
+    
+                // Check if any personnel is already assigned to another category
+                $alreadyAssigned = DB::table('category_personnel')
+                    ->whereIn('personnel_id', $request->personnel_ids)
+                    ->where('category_id', '!=', $id) // Ensure it’s not the same category
+                    ->exists();
+    
+                if ($alreadyAssigned) {
+                    return response()->json([
+                        'isSuccess' => false,
+                        'message' => 'One or more personnel are already assigned to another category.',
+                    ], 422);
+                }
             } else {
                 $personnel = $category->personnel; // Keep existing personnel if not updating
             }
+    
+            // Store old data for audit log
+            $oldData = json_encode($category->toArray());
     
             // Update the category
             $category->update([
@@ -235,7 +298,15 @@ class CategoryController extends Controller
             ];
     
             // Log API call
-            $this->logAPICalls('updateCategory', $id, $request->all(), $response);
+            $this->logAPICalls('updateCategory', $user->email, $request->all(), $response);
+    
+            // Log Audit Trail
+            AuditLogger::log(
+                'Updated Category',
+                $oldData, // Old category data
+                json_encode($category->toArray()), // New category data
+                'Active' // Status remains Active
+            );
     
             return response()->json($response, 200);
     
@@ -246,7 +317,9 @@ class CategoryController extends Controller
                 'message' => 'Validation failed.',
                 'errors' => $v->errors(),
             ];
-            $this->logAPICalls('updateCategory', "", $request->all(), $response);
+            $this->logAPICalls('updateCategory', $user->email ?? 'unknown', $request->all(), $response);
+            AuditLogger::log('Failed Category Update - Validation Error', 'N/A', 'N/A');
+    
             return response()->json($response, 422);
     
         } catch (Throwable $e) {
@@ -256,36 +329,75 @@ class CategoryController extends Controller
                 'message' => 'Failed to update the Category.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('updateCategory', "", $request->all(), $response);
+            $this->logAPICalls('updateCategory', $user->email ?? 'unknown', $request->all(), $response);
+            AuditLogger::log('Error Updating Category', 'N/A', 'N/A');
+    
             return response()->json($response, 500);
         }
     }
+    
 
     /**
      * Delete a Category by ID
      */
     public function deleteCategory($id)
-    {
-        try {
-            $category = Category::findOrFail($id);
-            $category->update(['is_archived' => "1"]);
+{
+    try {
+        // Get authenticated user
+        $user = auth()->user();
 
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Category successfully deleted.'
-            ];
-            $this->logAPICalls('deleteCategory', $id, [], $response);
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
+        if (!$user) {
+            return response()->json([
                 'isSuccess' => false,
-                'message' => 'Failed to delete the Category.',
-                'error' => $e->getMessage()
-            ];
-            $this->logAPICalls('deleteCategory', "", [], $response);
-            return response()->json($response, 500);
+                'message' => 'Unauthorized. Please log in.',
+            ], 401);
         }
+
+        // Find the category
+        $category = Category::findOrFail($id);
+
+        // Store old data for audit log
+        $oldData = json_encode($category->toArray());
+
+        // Mark category as archived
+        $category->update(['is_archived' => "1"]);
+
+        // Prepare success response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Category successfully deleted.'
+        ];
+
+        // Log API call
+        $this->logAPICalls('deleteCategory', $user->email, [], $response);
+
+        // Log Audit Trail
+        AuditLogger::log(
+            'Deleted Category',
+            $oldData, // Old category data before deletion
+            'Deleted'
+        );
+
+        return response()->json($response, 200);
+
+    } catch (Throwable $e) {
+        // Prepare error response
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to delete the Category.',
+            'error' => $e->getMessage()
+        ];
+
+        // Log API call
+        $this->logAPICalls('deleteCategory', $user->email ?? 'unknown', [], $response);
+
+        // Log Audit Trail for failure
+        AuditLogger::log('Error Deleting Category', 'N/A', 'N/A');
+
+        return response()->json($response, 500);
     }
+}
+
 
     public function getDropdownOptionsCategory(Request $request)
     {

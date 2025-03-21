@@ -42,24 +42,24 @@ Route::controller(AuthController::class)->group(function () {
 });
 
 
-/*
-|--------------------Profile API-----------------------
-*/
+// /*
+// |--------------------Profile API-----------------------
+// */
 
-Route::prefix('users')->middleware(['auth:sanctum'])->group(function () {
-    Route::get('profile', [AuthController::class, 'viewProfile']);
-    Route::post('profile/edit', [AuthController::class, 'editProfile']);
-    Route::post('password/change', [AuthController::class, 'changePassword']);
-});
+// Route::prefix('users')->middleware(['auth:sanctum'])->group(function () {
+//     Route::get('profile', [AuthController::class, 'viewProfile']);
+//     Route::post('profile/edit', [AuthController::class, 'editProfile']);
+//     Route::post('password/change', [AuthController::class, 'changePassword']);
+// });
 
 /*
 |--------------------USERS API-----------------------
 */
 
-Route::prefix('admin')->controller(UserController::class)->group(function () {
+Route::prefix('admin')->middleware('auth:sanctum')->controller(UserController::class)->group(function () {
     Route::post('user/create', 'createUserAccount');
     Route::post('user/update/{id}', 'updateUserAccount');
-    Route::get('users', 'getUserAccounts');
+    Route::get('users', 'getUserAccounts');  // Now requires authentication
     Route::post('user/delete/{id}', 'deleteUserAccount');
 });
     Route::middleware('auth:sanctum')->post('users/changeprofile', [UserController::class, 'changeProfile']);
@@ -68,22 +68,26 @@ Route::prefix('admin')->controller(UserController::class)->group(function () {
 |--------------------Division API-----------------------
 */
 
-Route::controller(DivisionController::class)->group(function () {
-    Route::post('division/create', 'createDivision');
-    Route::post('division/update/{id}', 'updateDivision');
-    Route::get('divisions', 'getDivisions');
-    Route::post('division/delete/{id}', 'deleteDivision');
+Route::middleware('auth:sanctum')->group(function () {
+    Route::controller(DivisionController::class)->group(function () {
+        Route::post('division/create', 'createDivision');
+        Route::post('division/update/{id}', 'updateDivision');
+        Route::get('divisions', 'getDivisions');
+        Route::post('division/delete/{id}', 'deleteDivision');
+    });
 });
 
 /*
 |--------------------Category API-----------------------
 */
 
-Route::controller(CategoryController::class)->group(function () {
-    Route::post('category/create', 'createCategory');
-    Route::post('category/update/{id}', 'updateCategory');
-    Route::get('categories', 'getCategory');
-    Route::post('delete/category/{id}', 'deleteCategory');
+Route::middleware('auth:sanctum')->group(function () {
+    Route::controller(CategoryController::class)->group(function () {
+        Route::post('category/create', 'createCategory');
+        Route::post('category/update/{id}', 'updateCategory');
+        Route::get('categories', 'getCategory');
+        Route::post('delete/category/{id}', 'deleteCategory');
+    });
 });
 
 /*
@@ -112,7 +116,7 @@ Route::prefix('admin')->controller(ManpowerController::class)->group(function ()
 |--------------------Offices API-----------------------
 */
 
-Route::prefix('admin')->controller(DepartmentController::class)->group(function () {
+Route::prefix('admin')->middleware('auth:sanctum')->controller(DepartmentController::class)->group(function () {
     Route::post('department/create', 'createOffice');
     Route::post('department/update/{id}', 'updateOffice');
     Route::get('department', 'getOffices');

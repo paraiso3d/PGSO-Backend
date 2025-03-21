@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLogger;
 use App\Models\Department;
 use App\Models\Division;
 use App\Models\Role;
@@ -23,52 +24,77 @@ class UserController extends Controller
     public function createUserAccount(Request $request)
     {
         try {
+            // Validate user input
             $validator = User::validateUserAccount($request->all());
-
+    
             if ($validator->fails()) {
                 $response = [
                     'isSuccess' => false,
                     'message' => 'Validation failed.',
                     'errors' => $validator->errors()
                 ];
-                $this->logAPICalls('createUserAccount', "", $request->all(), $response);
-                return response()->json($response, 500);
+    
+                // Log validation failure
+                AuditLogger::log('Failed User Creation - Validation Error');
+    
+                return response()->json($response, 422);
             }
+    
+            // Find division (required)
             $division = Division::findOrFail($request->division_id);
+    
+            // Find department (optional)
             $department = $request->department_id ? Department::findOrFail($request->department_id) : null;
-            
+    
+            // Handle profile image upload (optional)
+            $profilePath = null;
+            if ($request->hasFile('profile')) {
+                $profilePath = $request->file('profile')->store('profiles', 'public');
+            }
+    
+            // Create user account
             $userAccount = User::create([
                 'first_name' => $request->first_name,
-                'middle_initial' => $request->middle_initial,
+                'middle_initial' => $request->middle_initial ?? null,
                 'last_name' => $request->last_name,
+                'number' => $request->number,
+                'age' => $request->age,
+                'gender' => $request->gender,
                 'email' => $request->email,
                 'designation' => $request->designation,
                 'password' => Hash::make($request->password),
                 'role_name' => $request->role_name,
                 'division_id' => $division->id,
                 'department_id' => $department ? $department->id : null,
-                'profile_img' => null, // Explicitly set NULL
+                'profile' => $profilePath,
             ]);
     
-            // Prepare the response
+            // Log successful user creation
+            AuditLogger::log('Created New User Account', 'N/A', 'Active');
+    
+            // Prepare success response
             $response = [
                 'isSuccess' => true,
                 'message' => 'User account successfully created.',
                 'user' => [
                     'id' => $userAccount->id,
                     'first_name' => $userAccount->first_name,
+                    'middle_initial' => $userAccount->middle_initial,
                     'last_name' => $userAccount->last_name,
+                    'number' => $userAccount->number,
+                    'age' => $userAccount->age,
+                    'gender' => $userAccount->gender,
                     'email' => $userAccount->email,
-                    'role_name' => $userAccount->role_name, // Return role name directly
+                    'designation' => $userAccount->designation,
+                    'role_name' => $userAccount->role_name,
                     'division_id' => $userAccount->division_id,
                     'department_id' => $userAccount->department_id,
+                    'profile' => $profilePath ? asset('storage/' . $profilePath) : null,
                 ],
             ];
     
-            // Log API call
-            $this->logAPICalls('createUserAccount', "", $request->except(['password']), $response);
+            return response()->json($response, 201);
     
-            return response()->json($response, 200);
         } catch (ValidationException $v) {
             // Handle validation errors
             $response = [
@@ -76,31 +102,49 @@ class UserController extends Controller
                 'message' => 'Validation failed.',
                 'errors' => $v->errors(),
             ];
-            $this->logAPICalls('createUserAccount', "", $request->all(), $response);
-            return response()->json($response, 400);
+    
+            // Log validation failure
+            AuditLogger::log('Failed User Creation - Validation Exception');
+    
+            return response()->json($response, 422);
         } catch (Throwable $e) {
-            // Handle other errors
+            // Handle unexpected errors
             $response = [
                 'isSuccess' => false,
-                'message' => 'Failed to create the user account.',
+                'message' => 'An error occurred while creating the user account.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('createUserAccount', "", $request->all(), $response);
+    
+            // Log unexpected error
+            AuditLogger::log('Error Creating User Account', null, $e->getMessage());
+    
             return response()->json($response, 500);
         }
     }
+    
+    
      /**
      * Create a get user account.
      */
     public function getUserAccounts(Request $request)
     {
         try {
+            // Ensure the user is authenticated
+            if (!auth()->check()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized access.',
+                ], 401);
+            }
+    
+            $userEmail = auth()->user()->email; // Get the authenticated user's email
+    
             $searchTerm = $request->input('search', null);
             $perPage = $request->input('per_page', 10);
-    
+        
             // Query the users table with necessary filters
-            $query = User::with(['departments:id,department_name','divisions:id,division_name'])
-                ->select('id', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id')
+            $query = User::with(['departments:id,department_name', 'divisions:id,division_name'])
+                ->select('id', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'profile', 'age', 'gender', 'number')
                 ->where('is_archived', '0')
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where(function ($activeQuery) use ($searchTerm) {
@@ -117,8 +161,10 @@ class UserController extends Controller
                     'isSuccess' => false,
                     'message' => 'No active Users found matching the criteria',
                 ];
-                $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
-                return response()->json($response, 500);
+                
+                $this->logAPICalls('getUserAccounts', $userEmail, $request->all(), $response);
+    
+                return response()->json($response, 404);
             }
     
             // Format the user data
@@ -128,13 +174,16 @@ class UserController extends Controller
                     'first_name' => $user->first_name,
                     'last_name' => $user->last_name,
                     'email' => $user->email,
-                    'role_name' => $user->role_name, // Directly use the role_name column
+                    'role_name' => $user->role_name,
                     'department_id' => $user->department_id,
                     'department_name' => optional($user->departments)->department_name,
-                    'division_id'=>$user->division_id,
-                    'division_name'=> optional($user->divisions)->division_name,
-                    'profile_img'=>$user->profile_img,
+                    'division_id' => $user->division_id,
+                    'division_name' => optional($user->divisions)->division_name,
+                    'profile_img' => $user->profile ? asset('storage/' . $user->profile) : null,
                     'is_archived' => $user->is_archived,
+                    'age' => $user->age, // Added age
+                    'gender' => $user->gender, // Added gender
+                    'number' => $user->number, // Added number
                 ];
             });
     
@@ -150,20 +199,23 @@ class UserController extends Controller
                 ],
             ];
     
-            $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
+            $this->logAPICalls('getUserAccounts', $userEmail, $request->all(), $response);
+    
             return response()->json($response, 200);
     
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve user accounts.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
     
-            $this->logAPICalls('getUserAccounts', "", $request->all(), $response);
+            $this->logAPICalls('getUserAccounts', auth()->user()->email ?? "Unknown", $request->all(), $response);
+    
             return response()->json($response, 500);
         }
     }
+    
     
     /**
      * Update an existing user account.
@@ -274,10 +326,11 @@ class UserController extends Controller
     try {
         $user = auth()->user(); // Get the logged-in user
 
+        // Validation rules
         $validator = Validator::make($request->all(), [
             'first_name' => ['sometimes', 'string', 'max:255'],
             'last_name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'email' => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
             'password' => [
                 'sometimes',
                 'nullable',
@@ -285,57 +338,55 @@ class UserController extends Controller
                 'min:8',
                 'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'
             ],
-            'profile_img' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048']
+            'number' => ['sometimes', 'string', Rule::unique('users')->ignore($user->id)],
+            'age' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'gender' => ['sometimes', 'in:Male,Female'],
+            'profile' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048']
         ], [
-            'password.regex' => 'The password must be at least 8 characters long and contain at least one uppercase letter, one number, and one special character (@$!%*?&).'
+            'password.regex' => 'Password must be at least 8 characters long and include at least one uppercase letter, one number, and one special character (@$!%*?&).'
         ]);
 
+        // Return validation errors
         if ($validator->fails()) {
             $response = [
                 'isSuccess' => false,
                 'message' => 'Validation failed.',
                 'errors' => $validator->errors()
             ];
-            $this->logAPICalls('changeProfile', "", $request->all(), $response);
+
+            AuditLogger::log('Failed Profile Update - Validation Error', $user->email, 'N/A');
             return response()->json($response, 422);
         }
 
+        // Store old values before update (for audit logging)
+        $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile']);
+
         // Update user details
-        $user->first_name = $request->input('first_name', $user->first_name);
-        $user->last_name = $request->input('last_name', $user->last_name);
-        $user->email = $request->input('email', $user->email);
+        $user->fill($request->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender']));
 
         // Handle password update
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
         }
 
-        // Handle profile image upload with structured logic
-        $filePath = $user->profile_img;
-        $fileUrl = null;
-
-        if ($request->hasFile('profile_img')) {
-            $file = $request->file('profile_img');
-            $directory = public_path('img/profile'); // Define the directory
+        // Handle profile image upload
+        if ($request->hasFile('profile')) {
+            $file = $request->file('profile');
             $fileName = 'Profile-' . $user->id . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
 
-            // Ensure directory exists
-            if (!file_exists($directory)) {
-                mkdir($directory, 0755, true);
+            // Delete old profile image if exists
+            if ($user->profile && Storage::disk('public')->exists($user->profile)) {
+                Storage::disk('public')->delete($user->profile);
             }
 
-            // Move file to the directory
-            $file->move($directory, $fileName);
-
-            // Generate the relative file path
-            $filePath = 'img/profile/' . $fileName;
-            $fileUrl = asset($filePath); // Generate URL
-            $user->profile_img = $filePath;
+            // Store new profile image
+            $path = $file->storeAs('profiles', $fileName, 'public');
+            $user->profile = $path;
         }
 
         $user->save(); // Save user changes
 
-        // Prepare response
+        // Prepare success response
         $response = [
             'isSuccess' => true,
             'message' => 'Profile updated successfully.',
@@ -344,11 +395,16 @@ class UserController extends Controller
                 'first_name' => $user->first_name,
                 'last_name' => $user->last_name,
                 'email' => $user->email,
-                'profile_img' => $fileUrl ?? asset($filePath),
+                'number' => $user->number,
+                'age' => $user->age,
+                'gender' => $user->gender,
+                'profile' => $user->profile ? asset('storage/' . $user->profile) : null
             ]
         ];
 
-        $this->logAPICalls('changeProfile', $user->id, $request->except(['password']), $response);
+        // Log audit (store changes)
+        AuditLogger::log('Updated Profile', json_encode($oldData), json_encode($user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile'])));
+
         return response()->json($response, 200);
     } catch (Throwable $e) {
         $response = [
@@ -356,44 +412,60 @@ class UserController extends Controller
             'message' => 'Failed to update profile.',
             'error' => $e->getMessage()
         ];
-        $this->logAPICalls('changeProfile', $user->id, $request->except(['password']), $response);
+
+        AuditLogger::log('Error Updating Profile', $user->email, $e->getMessage());
+        return response()->json($response, 500);
+    }
+}
+
+    
+
+public function deleteUserAccount($id)
+{
+    try {
+        // Find user account
+        $userAccount = User::findOrFail($id);
+
+        // Store old data for audit logging
+        $oldData = $userAccount->only(['is_archived']);
+
+        // Archive the user account
+        $userAccount->update(['is_archived' => '1']);
+
+        // Prepare response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'User account successfully deleted.',
+        ];
+
+        // Log audit - Store changes
+        AuditLogger::log(
+            'Delete User Account',
+            json_encode($oldData),
+            'Deleted'
+        );
+
+        // Log API call using email instead of ID
+        $this->logAPICalls('deleteUserAccount', $userAccount->email, [], $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        // Handle errors
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to delete the user account.',
+            'error' => $e->getMessage()
+        ];
+
+        // Log error audit
+        AuditLogger::log('Error Deleting User Account', json_encode(['id' => $id]), $e->getMessage());
+
         return response()->json($response, 500);
     }
 }
 
 
-
-
-
-
-    public function deleteUserAccount($id)
-    {
-        try {
-
-            $userAccount = User::findOrFail($id);
-
-            $userAccount->update(['is_archived' => '1']);
-
-            $response = [
-                'isSuccess' => true,
-                'message' => 'UserAccount successfully archived.',
-            ];
-
-            $this->logAPICalls('deleteUserAccount', $id, [], $response);
-
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to archive the UserAccount.',
-                'error' => $e->getMessage()
-            ];
-
-            $this->logAPICalls('deleteUserAccount', $id, [], $response);
-
-            return response()->json($response, 500);
-        }
-    }
+    
 
     public function getDropdownOptionsUsertype(Request $request)
     {

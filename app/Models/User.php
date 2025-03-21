@@ -29,7 +29,10 @@ class User extends Authenticatable
         'department_id',
         'role_name',
         'status',
-        'profile_img',
+        'profile',
+        'age',
+        'gender',
+        'number',
         'is_archived'
     ];
 
@@ -48,9 +51,6 @@ class User extends Authenticatable
 
     public static function validateUserAccount($data)
     {
-        // Retrieve arrays of valid user types and offices
-    
-        // Validate user data
         $validator = Validator::make($data, [
             'first_name' => ['required', 'string', 'alpha_spaces'],
             'last_name' => ['required', 'string', 'alpha_spaces'],
@@ -64,14 +64,24 @@ class User extends Authenticatable
                 'min:8',
                 'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'
             ],
+            'age' => ['required', 'integer', 'min:1', 'max:100'], // 
+            'gender' => ['required', 'in:Male,Female'], //
+            'number' => ['required', 'string', 'unique:users,number', 'regex:/^\d{11,15}$/'], 
             'is_archived' => ['nullable', 'in:A,I'],
-            'profile_img'=> ['nullable']
+            'profile' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'] 
         ], [
-            'password.regex' => 'The password must contain at least one uppercase letter, one number, and one special character.'
+            'password.regex' => 'The password must contain at least one uppercase letter, one number, and one special character.',
+            'age.max' => 'The maximum age allowed is 100.',
+            'gender.in' => 'The gender must be either Male or Female.',
+            'number.regex' => 'The number must be between 10 and 15 digits.',
+            'profile.image' => 'The profile must be a valid image file.',
+            'profile.mimes' => 'The profile must be a file of type: jpeg, png, jpg, gif.',
+            'profile.max' => 'The profile image must not exceed 2MB.'
         ]);
     
         return $validator;
     }
+    
     
     public function divisions()
     {
