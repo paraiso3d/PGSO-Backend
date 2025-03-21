@@ -186,7 +186,9 @@ class DepartmentController extends Controller
                 'id' => $department->id,
                 'department_name' => $department->department_name,
                 'acronym' => $department->acronym,
-                'divisions' => $divisions
+                'divisions' => $divisions,
+                'created_at' => $department->created_at,
+                'updated_at' => $department->updated_at
             ];
         });
 

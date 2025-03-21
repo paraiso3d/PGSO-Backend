@@ -9,10 +9,19 @@ use Illuminate\Support\Facades\Validator;
 class Category extends Model
 {
     use HasFactory;
+
+    public $timestamps = true; 
     protected $fillable = [
         'category_name',
         'description',
         'is_archived',
+        'created_at',
+        'updated_at'
+    ];
+
+    protected $casts = [
+        'created_at' => 'datetime:Y-m-d H:i:s',
+        'updated_at' => 'datetime:Y-m-d H:i:s',
     ];
 
     public static function validateCategory($data)

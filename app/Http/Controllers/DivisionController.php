@@ -399,7 +399,8 @@ class DivisionController extends Controller
                         ? User::whereIn('id', $staffIds)->get(['id', 'first_name', 'last_name', 'email'])->map(function ($staff) {
                             return [
                                 'id' => $staff->id,
-                                'name' => $staff->first_name . ' ' . $staff->last_name,
+                                'first_name' => $staff->first_name,
+                                'last_name' => $staff->last_name,
                                 'email' => $staff->email, // Include email
                             ];
                         })->toArray()
@@ -411,6 +412,8 @@ class DivisionController extends Controller
                         'division_name' => $division->division_name,
                         'office_location' => $division->office_location,
                         'staff' => $staffDetails, // Include decoded staff details
+                        'created_at' => $division->created_at,
+                        'updated_at' => $division->updated_at
                     ];
                 });
     

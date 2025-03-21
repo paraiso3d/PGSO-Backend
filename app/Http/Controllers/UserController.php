@@ -66,7 +66,7 @@ class UserController extends Controller
                 'role_name' => $request->role_name,
                 'division_id' => $division->id,
                 'department_id' => $department ? $department->id : null,
-                'profile' => $profilePath,
+                'avatar' => $profilePath,
             ]);
     
             // Log successful user creation
@@ -89,7 +89,7 @@ class UserController extends Controller
                     'role_name' => $userAccount->role_name,
                     'division_id' => $userAccount->division_id,
                     'department_id' => $userAccount->department_id,
-                    'profile' => $profilePath ? asset('storage/' . $profilePath) : null,
+                    'avatar' => $profilePath ? asset('storage/' . $profilePath) : null,
                 ],
             ];
     
@@ -179,7 +179,7 @@ class UserController extends Controller
                     'department_name' => optional($user->departments)->department_name,
                     'division_id' => $user->division_id,
                     'division_name' => optional($user->divisions)->division_name,
-                    'profile_img' => $user->profile ? asset('storage/' . $user->profile) : null,
+                    'avatar' => $user->profile ? asset('storage/' . $user->profile) : null,
                     'is_archived' => $user->is_archived,
                     'age' => $user->age, // Added age
                     'gender' => $user->gender, // Added gender
