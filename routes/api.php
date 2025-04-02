@@ -18,6 +18,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\ActualWorkController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\DashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -195,6 +197,22 @@ Route::get('inspections/{id}', [InspectionController::class, 'getInspections']);
 Route::get('manpower/deploy', [ActualWorkController::class, 'getManpowerDeploy']);
 
 /*
+|--------------------DashBoard API-----------------------
+*/
+Route::prefix('dashboard')->group(function () {
+    Route::get('/requests-by-category', [DashboardController::class, 'getTotalRequestsByCategory']);
+    Route::get('/requests-by-status', [DashboardController::class, 'getTotalRequestsByStatus']);
+    Route::get('/monthly-requests', [DashboardController::class, 'getMonthlyRequests']);
+    Route::get('/manpower-by-category', [DashboardController::class, 'getTotalManpowerByCategory']);
+    Route::get('/summary', [DashboardController::class, 'getDashboardSummary']);
+});
+
+
+
+
+
+
+/*
 |--------------------Dropdown API-----------------------
 */
 
@@ -217,3 +235,8 @@ Route::prefix('dropdown')->group(function () {
     Route::get('manpower', [ActualWorkController::class, 'getDropdownOptionsActualwork']);
 });
 
+/*
+|--------------------AuditLog API-----------------------
+*/
+
+Route::get('/auditlogs', [AuditLogController::class, 'getAuditLogs']);

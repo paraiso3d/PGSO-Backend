@@ -50,6 +50,10 @@ class Category extends Model
         return $this->belongsToMany(User::class, 'category_personnel', 'category_id', 'personnel_id');
     }
     
+    public function requests()
+{
+    return $this->hasMany(Requests::class, 'category_id', 'id'); // Assuming 'category_id' is the foreign key in the requests table
+}
 
 }
 
