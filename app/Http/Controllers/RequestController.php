@@ -294,11 +294,11 @@ class RequestController extends Controller
         try {
             $userId = $request->user()->id;
             $role = $request->user()->role_name;
-
+    
             // Pagination settings
             $perPage = $request->input('per_page', 10);
             $searchTerm = $request->input('search', null);
-
+    
             // Initialize query
             $query = Requests::select(
                 'requests.id',
@@ -306,10 +306,10 @@ class RequestController extends Controller
                 'requests.request_title',
                 'requests.description',
                 'requests.file_path',
-                'requests.file_completion',  // Added field
+                'requests.file_completion',
                 'requests.category_id',
                 'requests.feedback',
-                'requests.rating',  // Added field
+                'requests.rating',
                 'requests.status',
                 'requests.date_requested',
                 'requests.date_completed',
@@ -328,7 +328,7 @@ class RequestController extends Controller
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
                 });
-
+    
             // Apply filters
             if ($request->has('type')) {
                 if ($request->type === 'Returned') {
@@ -337,7 +337,7 @@ class RequestController extends Controller
                     $query->where('requests.overtime', '>', 0);
                 }
             }
-
+    
             $query->when($request->filled('location'), function ($query) use ($request) {
                 $query->where('requests.location_name', $request->location);
             })
@@ -350,7 +350,7 @@ class RequestController extends Controller
                 ->when($request->filled('year'), function ($query) use ($request) {
                     $query->where('requests.fiscal_year', $request->year);
                 });
-
+    
             // Role-based filtering
             switch ($role) {
                 case 'admin':
@@ -361,24 +361,24 @@ class RequestController extends Controller
                 case 'staff':
                     $query->where('requests.requested_by', $userId);
                     break;
-                case 'personnel':
-                    $query->whereIn('requests.status', ['For Completion', 'Completed']);
-                    break;
+                    case 'personnel':
+                        $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)]);
+                        break;
                 default:
                     $query->whereRaw('1 = 0');
                     break;
             }
-
+    
             // Execute query with pagination
             $result = $query->paginate($perPage);
-
+    
             if ($result->isEmpty()) {
                 return response()->json([
                     'isSuccess' => false,
                     'message' => 'No requests found matching the criteria.'
                 ], 404);
             }
-
+    
             // Format response
             $formattedRequests = $result->getCollection()->transform(function ($request) {
                 $personnelIds = json_decode($request->personnel_ids, true) ?? [];
@@ -392,8 +392,8 @@ class RequestController extends Controller
                     'description' => $request->description,
                     'file_path' => $request->file_path,
                     'file_url' => $request->file_path ? asset($request->file_path) : null,
-                    'file_completion' => $request->file_completion,  // Added field
-                    'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,  // Added field
+                    'file_completion' => $request->file_completion,
+                    'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
                     'category_id' => $request->category_id,
                     'category_name' => $request->category_id
                         ? DB::table('categories')->where('id', $request->category_id)->value('category_name')
@@ -405,7 +405,7 @@ class RequestController extends Controller
                         ];
                     }),
                     'feedback' => $request->feedback,
-                    'rating' => $request->rating,  // Added field
+                    'rating' => $request->rating,
                     'status' => $request->status,
                     'requested_by' => [
                         'id' => $request->requested_by_id,
@@ -419,7 +419,7 @@ class RequestController extends Controller
                     'date_completed' => $request->date_completed
                 ];
             });
-
+    
             return response()->json([
                 'isSuccess' => true,
                 'message' => 'Requests retrieved successfully.',
@@ -439,7 +439,7 @@ class RequestController extends Controller
             ], 500);
         }
     }
-
+    
 
 
 
