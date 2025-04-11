@@ -157,36 +157,37 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('create', [RequestController::class, 'createRequest']);
         Route::post('accept/{id}', [RequestController::class, 'acceptRequest']);
         Route::post('reject/{id}', [RequestController::class, 'rejectRequest']);
+        Route::post('assign/{id}', [RequestController::class, 'assignTeamLead']);
         Route::post('assess/{id}', [RequestController::class, 'assessRequest']);
         Route::post('completion/{id}', [RequestController::class, 'submitCompletion']);
         Route::post('feedback/{id}', [RequestController::class, 'submitFeedback']);
         Route::get('list', [RequestController::class, 'getRequests']);
         Route::get('list/{id}', [RequestController::class, 'getRequestById']);
 
-        // Review Routes
-        Route::post('review/update/{id}', [ReviewController::class, 'updateReview']);
-        Route::post('review/edit/{id}', [ReviewController::class, 'editReview']);
-        Route::post('review/return/{id}', [ReviewController::class, 'returnReview']);
+        // // Review Routes
+        // Route::post('review/update/{id}', [ReviewController::class, 'updateReview']);
+        // Route::post('review/edit/{id}', [ReviewController::class, 'editReview']);
+        // Route::post('review/return/{id}', [ReviewController::class, 'returnReview']);
 
-        // Inspection Report Routes
-        Route::post('inspection/create/{id}', [InspectionController::class, 'createInspection']);
-        Route::post('inspection/update/{id}', [InspectionController::class, 'updateInspection']);
-        Route::post('inspection/delete/{id}', [InspectionController::class, 'deleteInspection']);
-        Route::post('inspection/submit/{id}', [InspectionController::class, 'submitInspection']);
+        // // Inspection Report Routes
+        // Route::post('inspection/create/{id}', [InspectionController::class, 'createInspection']);
+        // Route::post('inspection/update/{id}', [InspectionController::class, 'updateInspection']);
+        // Route::post('inspection/delete/{id}', [InspectionController::class, 'deleteInspection']);
+        // Route::post('inspection/submit/{id}', [InspectionController::class, 'submitInspection']);
 
-        // Work Report Routes
-        Route::post('work-report/create/{id}', [ActualWorkController::class, 'createWorkreport']);
-        Route::post('work-report/update/{id}', [ActualWorkController::class, 'updateWorkreport']);
-        Route::post('work-report/submit/{id}', [ActualWorkController::class, 'submitWorkreport']);
-        Route::post('manpower/deploy', [ActualWorkController::class, 'addManpowerDeploy']);
-        Route::post('manpower/deploy/delete/{id}', [ActualWorkController::class, 'deletemanpowerdeployment']);
+        // // Work Report Routes
+        // Route::post('work-report/create/{id}', [ActualWorkController::class, 'createWorkreport']);
+        // Route::post('work-report/update/{id}', [ActualWorkController::class, 'updateWorkreport']);
+        // Route::post('work-report/submit/{id}', [ActualWorkController::class, 'submitWorkreport']);
+        // Route::post('manpower/deploy', [ActualWorkController::class, 'addManpowerDeploy']);
+        // Route::post('manpower/deploy/delete/{id}', [ActualWorkController::class, 'deletemanpowerdeployment']);
 
-        // Accomplishment Report Routes
-        Route::post('accomplishment/save/{id}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
+        // // Accomplishment Report Routes
+        // Route::post('accomplishment/save/{id}', [AccomplishmentReportController::class, 'saveAccomplishmentReport']);
 
         // Feedback Report Routes
-        Route::post('feedback/save/{id}', [FeedbackController::class, 'saveFeedback']);
-        Route::post('feedback/submit/{id}', [FeedbackController::class, 'submitFeedback']);
+        // Route::post('feedback/save/{id}', [FeedbackController::class, 'saveFeedback']);
+        // Route::post('feedback/submit/{id}', [FeedbackController::class, 'submitFeedback']);
     });
 
 });

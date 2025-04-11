@@ -24,6 +24,7 @@ class Requests extends Model
         'description',
         'category_id',
         'personnel_ids',
+        'team_lead_id',
         'file_path',
         'status',
         'requested_by',
@@ -57,7 +58,8 @@ class Requests extends Model
             'request_title' => ['required', 'string'],
             'description' => ['required', 'string'],
             'category_id' => ['nullable', 'string'],
-            'requested_by' => ['nullable', 'integer', 'exists:users,id'], // Changed rule for user_id
+            'requested_by' => ['nullable', 'integer', 'exists:users,id'],
+             // Changed rule for user_id
             'file_path' => [
                 'required',
                 // 'file',

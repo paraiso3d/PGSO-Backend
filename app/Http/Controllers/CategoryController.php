@@ -21,200 +21,207 @@ class CategoryController extends Controller
      * Create a new Category
      */
     public function createCategory(Request $request)
-    {
-        try {
-            // Get authenticated user
-            $user = auth()->user();
+{
+    try {
+        $user = auth()->user();
 
-            if (!$user) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'Unauthorized. Please log in.',
-                ], 401);
-            }
+        if (!$user) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Unauthorized. Please log in.',
+            ], 401);
+        }
 
-            // Validate the request including an array of personnel_ids
-            $request->validate([
-                'category_name' => 'required|string|unique:categories,category_name',
-                'description' => 'required|string',
-                'personnel_ids' => 'required|array', // Validate as an array
-                'personnel_ids.*' => 'exists:users,id', // Ensure each id exists in users table
+        // Validate
+        $request->validate([
+            'category_name' => 'required|string|unique:categories,category_name',
+            'description' => 'required|string',
+            'personnel_ids' => 'required|array',
+            'personnel_ids.*' => 'required|exists:users,id',
+            'teamlead_ids' => 'required|array',  // Allow multiple team leads
+            'teamlead_ids.*' => 'exists:users,id', // Ensure all team leads are valid users
+        ]);
+
+        $personnelIds = $request->personnel_ids;
+        $teamleadIds = $request->teamlead_ids;
+
+        // Merge and check for assignment conflicts
+        $allIds = array_unique(array_merge($personnelIds, $teamleadIds));
+
+        $alreadyAssigned = DB::table('category_personnel')
+            ->whereIn('personnel_id', $allIds)
+            ->exists();
+
+        if ($alreadyAssigned) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'One or more personnel are already assigned to another category.',
+            ], 422);
+        }
+
+        // Validate all are "personnel" role
+        $personnel = User::whereIn('id', $allIds)
+            ->where('role_name', 'personnel')
+            ->get();
+
+        if ($personnel->count() !== count($allIds)) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Some IDs do not belong to users with the role of personnel.',
+            ], 422);
+        }
+
+        // Create category
+        $category = Category::create([
+            'category_name' => $request->category_name,
+            'description' => $request->description,
+            'status' => 'Active',
+        ]);
+
+        // Attach personnel and set team leads
+        foreach ($personnelIds as $personnelId) {
+            $category->personnel()->attach($personnelId, [
+                'is_team_lead' => in_array($personnelId, $teamleadIds)
             ]);
+        }
 
-            // Check if personnel is already assigned to another category
-            $alreadyAssigned = DB::table('category_personnel')
-                ->whereIn('personnel_id', $request->personnel_ids)
-                ->exists();
-
-            if ($alreadyAssigned) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'One or more personnel are already assigned to another category.',
-                ], 422);
-            }
-
-            // Check if all personnel_ids belong to users with the role_name "personnel"
-            $personnel = User::whereIn('id', $request->personnel_ids)
-                ->where('role_name', 'personnel')
-                ->get();
-
-            if ($personnel->count() !== count($request->personnel_ids)) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'Some personnel_ids do not belong to users with the role of personnel.',
-                ], 422);
-            }
-
-            // Create the category with status "Active"
-            $category = Category::create([
-                'category_name' => $request->category_name,
-                'description' => $request->description,
+        // Build response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Category successfully created.',
+            'category' => [
+                'id' => $category->id,
+                'category_name' => $category->category_name,
+                'description' => $category->description,
                 'status' => 'Active',
-            ]);
+                'personnel' => $personnel->map(function ($p) use ($teamleadIds) {
+                    return [
+                        'id' => $p->id,
+                        'name' => $p->first_name . ' ' . $p->last_name,
+                        'is_team_lead' => in_array($p->id, $teamleadIds),
+                    ];
+                }),
+            ],
+        ];
 
-            // Attach personnel to the category
-            $category->personnel()->attach($request->personnel_ids);
+        $this->logAPICalls('createCategory', $user->email, $request->all(), [$response]);
+        AuditLogger::log('Created Category', 'N/A', 'Active');
 
-            // Prepare the success response with personnel details
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Category successfully created.',
-                'category' => [
+        return response()->json($response, 200);
+
+    } catch (ValidationException $v) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Validation failed.',
+            'errors' => $v->errors()
+        ];
+        $this->logAPICalls('createCategory', $user->email ?? 'unknown', $request->all(), [$response]);
+        AuditLogger::log('Failed Category Creation - Validation Error', 'N/A', 'N/A');
+        return response()->json($response, 422);
+
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to create the Category.',
+            'error' => $e->getMessage()
+        ];
+        $this->logAPICalls('createCategory', $user->email ?? 'unknown', $request->all(), [$response]);
+        AuditLogger::log('Error Creating Category', 'N/A', 'N/A');
+        return response()->json($response, 500);
+    }
+}
+
+    
+
+
+
+public function getCategory(Request $request)
+{
+    try {
+        // Validate the request
+        $validated = $request->validate([
+            'per_page' => 'nullable|integer|min:1',
+            'search' => 'nullable|string',
+        ]);
+
+        // Build the query to fetch category data and load personnel relationship
+        $query = Category::with(['personnel:id,first_name,last_name'])
+            ->select('id', 'category_name', 'description', 'created_at', 'updated_at')
+            ->where('is_archived', '0'); // Only include active (non-archived) categories
+
+        // Add search functionality
+        if (!empty($validated['search'])) {
+            $query->where('category_name', 'like', '%' . $validated['search'] . '%');
+        }
+
+        // Paginate results
+        $perPage = $validated['per_page'] ?? 10;
+        $categories = $query->paginate($perPage);
+
+        // Check if any categories were found
+        if ($categories->isEmpty()) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'No categories found matching the criteria.',
+            ], 404);
+        }
+
+        // Format the response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Categories retrieved successfully.',
+            'categories' => $categories->map(function ($category) {
+                return [
                     'id' => $category->id,
                     'category_name' => $category->category_name,
                     'description' => $category->description,
-                    'status' => 'Active',
-                    'personnel' => $personnel->map(function ($p) {
+                    'created_at' => $category->created_at ? $category->created_at->format('Y-m-d H:i:s') : null,
+                    'updated_at' => $category->updated_at ? $category->updated_at->format('Y-m-d H:i:s') : null,
+                    'personnel' => $category->personnel->map(function ($personnel) {
                         return [
-                            'id' => $p->id,
-                            'name' => $p->first_name . ' ' . $p->last_name,
+                            'id' => $personnel->id,
+                            'name' => $personnel->first_name . ' ' . $personnel->last_name,
+                            'is_team_lead' => $personnel->pivot->is_team_lead, // Access the pivot data
                         ];
                     }),
-                ],
-            ];
+                ];
+            }),
+            'pagination' => [
+                'total' => $categories->total(),
+                'per_page' => $categories->perPage(),
+                'current_page' => $categories->currentPage(),
+                'last_page' => $categories->lastPage(),
+            ],
+        ];
 
-            // Log API call
-            $this->logAPICalls('createCategory', $user->email, $request->all(), [$response]);
+        // Log the API call
+        $this->logAPICalls('getCategory', "", $request->all(), $response);
 
-            // Log Audit Trail
-            AuditLogger::log(
-                'Created Category',
-                'N/A', // No old data since it's a new record
-                'Active'
-            );
-
-            return response()->json($response, 200);
-        } catch (ValidationException $v) {
-            // Prepare the validation error response
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Validation failed.',
-                'errors' => $v->errors()
-            ];
-
-            $this->logAPICalls('createCategory', $user->email ?? 'unknown', $request->all(), [$response]);
-            AuditLogger::log('Failed Category Creation - Validation Error', 'N/A', 'N/A');
-
-            return response()->json($response, 422);
-        } catch (Throwable $e) {
-            // Prepare the error response in case of an exception
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to create the Category.',
-                'error' => $e->getMessage()
-            ];
-
-            $this->logAPICalls('createCategory', $user->email ?? 'unknown', $request->all(), [$response]);
-            AuditLogger::log('Error Creating Category', 'N/A', 'N/A');
-
-            return response()->json($response, 500);
-        }
+        return response()->json($response, 200);
+    } catch (ValidationException $v) {
+        // Handle validation errors
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Validation failed.',
+            'errors' => $v->errors(),
+        ];
+        $this->logAPICalls('getCategory', "", $request->all(), $response);
+        return response()->json($response, 422);
+    } catch (Throwable $e) {
+        // Handle other exceptions
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve categories.',
+            'error' => $e->getMessage(),
+        ];
+        $this->logAPICalls('getCategory', "", $request->all(), $response);
+        return response()->json($response, 500);
     }
+}
 
 
 
-    public function getCategory(Request $request)
-    {
-        try {
-            // Validate the request
-            $validated = $request->validate([
-                'per_page' => 'nullable|integer|min:1',
-                'search' => 'nullable|string',
-            ]);
 
-            // Build the query to fetch category data and load personnel relationship
-            $query = Category::with(['personnel:id,first_name,last_name']) // Load related personnel
-                ->select('id', 'category_name', 'description', 'created_at', 'updated_at')
-                ->where('is_archived', '0'); // Only include active (non-archived) categories
-
-            // Add search functionality
-            if (!empty($validated['search'])) {
-                $query->where('category_name', 'like', '%' . $validated['search'] . '%');
-            }
-
-            // Paginate results
-            $perPage = $validated['per_page'] ?? 10;
-            $categories = $query->paginate($perPage);
-
-            // Check if any categories were found
-            if ($categories->isEmpty()) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'No categories found matching the criteria.',
-                ], 404);
-            }
-
-            // Format the response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Categories retrieved successfully.',
-                'categories' => $categories->map(function ($category) {
-                    return [
-                        'id' => $category->id,
-                        'category_name' => $category->category_name,
-                        'description' => $category->description,
-                        'created_at' => $category->created_at ? $category->created_at->format('Y-m-d H:i:s') : null,
-                        'updated_at' => $category->updated_at ? $category->updated_at->format('Y-m-d H:i:s') : null,
-                        'personnel' => $category->personnel->map(function ($personnel) {
-                            unset($personnel->pivot);
-                            return $personnel;
-                        }),
-                    ];
-                }),
-                'pagination' => [
-                    'total' => $categories->total(),
-                    'per_page' => $categories->perPage(),
-                    'current_page' => $categories->currentPage(),
-                    'last_page' => $categories->lastPage(),
-                ],
-            ];
-
-
-
-            // Log the API call
-            $this->logAPICalls('getCategory', "", $request->all(), $response);
-
-            return response()->json($response, 200);
-        } catch (ValidationException $v) {
-            // Handle validation errors
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Validation failed.',
-                'errors' => $v->errors(),
-            ];
-            $this->logAPICalls('getCategory', "", $request->all(), $response);
-            return response()->json($response, 422);
-        } catch (Throwable $e) {
-            // Handle other exceptions
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve categories.',
-                'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('getCategory', "", $request->all(), $response);
-            return response()->json($response, 500);
-        }
-    }
 
     /**
      Update an existing Category
@@ -222,71 +229,77 @@ class CategoryController extends Controller
     public function updateCategory(Request $request, $id)
     {
         try {
-            // Get authenticated user
             $user = auth()->user();
-
+    
             if (!$user) {
                 return response()->json([
                     'isSuccess' => false,
                     'message' => 'Unauthorized. Please log in.',
                 ], 401);
             }
-
+    
             // Find the category
             $category = Category::findOrFail($id);
-
+    
             // Validate the request
             $request->validate([
                 'category_name' => 'sometimes|required|string|unique:categories,category_name,' . $id,
                 'description' => 'sometimes|required|string',
-                'personnel_ids' => 'sometimes|required|array', // Validate as an array
-                'personnel_ids.*' => 'exists:users,id', // Ensure each id exists in users table
+                'personnel_ids' => 'sometimes|required|array',
+                'personnel_ids.*' => 'exists:users,id',
+                'teamlead_ids' => 'sometimes|required|array',
+                'teamlead_ids.*' => 'exists:users,id',
             ]);
-
-            // If personnel_ids are provided, check if they belong to users with role_name "personnel"
-            if ($request->has('personnel_ids')) {
-                $personnel = User::whereIn('id', $request->personnel_ids)
-                    ->where('role_name', 'personnel')
-                    ->get();
-
-                if ($personnel->count() !== count($request->personnel_ids)) {
-                    return response()->json([
-                        'isSuccess' => false,
-                        'message' => 'Some personnel_ids do not belong to users with the role of personnel.',
-                    ], 422);
-                }
-
-                // Check if any personnel is already assigned to another category
-                $alreadyAssigned = DB::table('category_personnel')
-                    ->whereIn('personnel_id', $request->personnel_ids)
-                    ->where('category_id', '!=', $id) // Ensure it’s not the same category
-                    ->exists();
-
-                if ($alreadyAssigned) {
-                    return response()->json([
-                        'isSuccess' => false,
-                        'message' => 'One or more personnel are already assigned to another category.',
-                    ], 422);
-                }
-            } else {
-                $personnel = $category->personnel; // Keep existing personnel if not updating
+    
+            $personnelIds = $request->personnel_ids ?? $category->personnel->pluck('id')->toArray();
+            $teamleadIds = $request->teamlead_ids ?? [];
+    
+            $allIds = array_unique(array_merge($personnelIds, $teamleadIds));
+    
+            // Validate all are personnel
+            $personnel = User::whereIn('id', $allIds)
+                ->where('role_name', 'personnel')
+                ->get();
+    
+            if ($personnel->count() !== count($allIds)) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Some IDs do not belong to users with the role of personnel.',
+                ], 422);
             }
-
-            // Store old data for audit log
+    
+            // Check for assignment conflicts (excluding current category)
+            $alreadyAssigned = DB::table('category_personnel')
+                ->whereIn('personnel_id', $allIds)
+                ->where('category_id', '!=', $id)
+                ->exists();
+    
+            if ($alreadyAssigned) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'One or more personnel are already assigned to another category.',
+                ], 422);
+            }
+    
+            // Store old data for audit
             $oldData = json_encode($category->toArray());
-
-            // Update the category
+    
+            // Update the category fields
             $category->update([
                 'category_name' => $request->category_name ?? $category->category_name,
                 'description' => $request->description ?? $category->description,
             ]);
-
-            // Update personnel if provided
-            if ($request->has('personnel_ids')) {
-                $category->personnel()->sync($request->personnel_ids); // Sync instead of attach
+    
+            // Sync personnel with team lead flags
+            $syncData = [];
+            foreach ($personnelIds as $personnelId) {
+                $syncData[$personnelId] = [
+                    'is_team_lead' => in_array($personnelId, $teamleadIds),
+                ];
             }
-
-            // Prepare the success response
+            $category->personnel()->sync($syncData);
+    
+            // Prepare response
             $response = [
                 'isSuccess' => true,
                 'message' => 'Category successfully updated.',
@@ -294,51 +307,49 @@ class CategoryController extends Controller
                     'id' => $category->id,
                     'category_name' => $category->category_name,
                     'description' => $category->description,
-                    'personnel' => $personnel->map(function ($p) {
+                    'personnel' => $personnel->map(function ($p) use ($teamleadIds) {
                         return [
                             'id' => $p->id,
                             'name' => $p->first_name . ' ' . $p->last_name,
+                            'is_team_lead' => in_array($p->id, $teamleadIds),
                         ];
                     }),
                 ],
             ];
-
-            // Log API call
-            $this->logAPICalls('updateCategory', $user->email, $request->all(), $response);
-
-            // Log Audit Trail
+    
+            $this->logAPICalls('updateCategory', $user->email, $request->all(), [$response]);
+    
             AuditLogger::log(
                 'Updated Category',
-                $oldData, // Old category data
-                json_encode($category->toArray()), // New category data
-                'Active' // Status remains Active
+                $oldData,
+                json_encode($category->toArray()),
+                'Active'
             );
-
+    
             return response()->json($response, 200);
+    
         } catch (ValidationException $v) {
-            // Validation error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'Validation failed.',
                 'errors' => $v->errors(),
             ];
-            $this->logAPICalls('updateCategory', $user->email ?? 'unknown', $request->all(), $response);
+            $this->logAPICalls('updateCategory', $user->email ?? 'unknown', $request->all(), [$response]);
             AuditLogger::log('Failed Category Update - Validation Error', 'N/A', 'N/A');
-
             return response()->json($response, 422);
+    
         } catch (Throwable $e) {
-            // Exception error response
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to update the Category.',
                 'error' => $e->getMessage(),
             ];
-            $this->logAPICalls('updateCategory', $user->email ?? 'unknown', $request->all(), $response);
+            $this->logAPICalls('updateCategory', $user->email ?? 'unknown', $request->all(), [$response]);
             AuditLogger::log('Error Updating Category', 'N/A', 'N/A');
-
             return response()->json($response, 500);
         }
     }
+    
 
 
     /**

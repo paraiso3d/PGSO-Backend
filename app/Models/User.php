@@ -93,9 +93,20 @@ class User extends Authenticatable
         return $this->belongsTo(Department::class, 'department_id');
     }
 
-    public function categories()
+   // In the User model
+// In User Model
+public function categories()
 {
-    return $this->belongsToMany(Category::class, 'category_personnel', 'personnel_id', 'category_id');
+    return $this->belongsToMany(Category::class, 'category_personnel', 'personnel_id', 'category_id')
+                ->withPivot('is_team_lead');  // Ensure you're including 'is_team_lead'
+}
+
+public function isTeamLeadForCategory($categoryId)
+{
+    return $this->categories()
+                ->wherePivot('category_id', $categoryId)
+                ->wherePivot('is_team_lead', true)
+                ->exists();
 }
 
 public function division()

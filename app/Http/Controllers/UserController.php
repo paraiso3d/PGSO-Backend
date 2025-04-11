@@ -341,7 +341,7 @@ class UserController extends Controller
             'number' => ['sometimes', 'string', Rule::unique('users')->ignore($user->id)],
             'age' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'gender' => ['sometimes', 'in:Male,Female'],
-            'profile' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048']
+            'avatar' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048']
         ], [
             'password.regex' => 'Password must be at least 8 characters long and include at least one uppercase letter, one number, and one special character (@$!%*?&).'
         ]);
@@ -359,7 +359,7 @@ class UserController extends Controller
         }
 
         // Store old values before update (for audit logging)
-        $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile']);
+        $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'avatar']);
 
         // Update user details
         $user->fill($request->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender']));
@@ -398,7 +398,7 @@ class UserController extends Controller
                 'number' => $user->number,
                 'age' => $user->age,
                 'gender' => $user->gender,
-                'profile' => $user->profile ? asset('storage/' . $user->profile) : null
+                'avatar' => $user->profile ? asset('storage/' . $user->profile) : null
             ]
         ];
 

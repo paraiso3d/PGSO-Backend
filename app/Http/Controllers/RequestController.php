@@ -321,13 +321,13 @@ class RequestController extends Controller
                 'divisions.office_location',
                 'departments.department_name'
             )
-                ->leftJoin('users', 'users.id', '=', 'requests.requested_by')
-                ->leftJoin('divisions', 'divisions.id', '=', 'users.division_id')
-                ->leftJoin('departments', 'departments.id', '=', 'users.department_id')
-                ->where('requests.is_archived', '=', '0')
-                ->when($searchTerm, function ($query, $searchTerm) {
-                    return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
-                });
+            ->leftJoin('users', 'users.id', '=', 'requests.requested_by')
+            ->leftJoin('divisions', 'divisions.id', '=', 'users.division_id')
+            ->leftJoin('departments', 'departments.id', '=', 'users.department_id')
+            ->where('requests.is_archived', '=', '0')
+            ->when($searchTerm, function ($query, $searchTerm) {
+                return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
+            });
     
             // Apply filters
             if ($request->has('type')) {
@@ -341,15 +341,15 @@ class RequestController extends Controller
             $query->when($request->filled('location'), function ($query) use ($request) {
                 $query->where('requests.location_name', $request->location);
             })
-                ->when($request->filled('status'), function ($query) use ($request) {
-                    $query->where('requests.status', $request->status);
-                })
-                ->when($request->filled('category'), function ($query) use ($request) {
-                    $query->where('requests.category_id', $request->category);
-                })
-                ->when($request->filled('year'), function ($query) use ($request) {
-                    $query->where('requests.fiscal_year', $request->year);
-                });
+            ->when($request->filled('status'), function ($query) use ($request) {
+                $query->where('requests.status', $request->status);
+            })
+            ->when($request->filled('category'), function ($query) use ($request) {
+                $query->where('requests.category_id', $request->category);
+            })
+            ->when($request->filled('year'), function ($query) use ($request) {
+                $query->where('requests.fiscal_year', $request->year);
+            });
     
             // Role-based filtering
             switch ($role) {
@@ -361,8 +361,30 @@ class RequestController extends Controller
                 case 'staff':
                     $query->where('requests.requested_by', $userId);
                     break;
-                    case 'personnel':
+                case 'personnel':
+                    // If user is personnel, but also a team lead, let them access requests in their categories
+                    $isTeamLead = $request->user()->categories()->wherePivot('is_team_lead', true)->exists();
+    
+                    if ($isTeamLead) {
+                        $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
+                        $categoryIds = $categories->pluck('id');
+    
+                        // Fetch "To Assign" requests in the categories where the user is a team lead
+                        $query->whereIn('requests.category_id', $categoryIds)
+                              ->where('requests.status', 'To Assign');
+                    } else {
+                        // Default personnel behavior: only fetch requests related to the user
                         $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)]);
+                    }
+                    break;
+                    case 'team_lead':
+                        // Handle case if user is a team lead
+                        $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
+                        if ($categories->isNotEmpty()) {
+                            $categoryIds = $categories->pluck('id');
+                            $query->whereIn('requests.category_id', $categoryIds)
+                                  ->where('requests.status', 'To Assign');
+                        }
                         break;
                 default:
                     $query->whereRaw('1 = 0');
@@ -385,6 +407,19 @@ class RequestController extends Controller
                 $personnelInfo = User::whereIn('id', $personnelIds)
                     ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
                     ->get();
+    
+                // Fetch team lead information
+                $teamLeadInfo = null;
+                if ($request->category_id) {
+                    $category = Category::find($request->category_id);
+                    if ($category) {
+                        $teamLeadId = $category->personnel()->wherePivot('is_team_lead', true)->first()->id ?? null;
+                        if ($teamLeadId) {
+                            $teamLeadInfo = User::find($teamLeadId);
+                        }
+                    }
+                }
+    
                 return [
                     'id' => $request->id,
                     'control_no' => $request->control_no,
@@ -398,6 +433,11 @@ class RequestController extends Controller
                     'category_name' => $request->category_id
                         ? DB::table('categories')->where('id', $request->category_id)->value('category_name')
                         : null,
+                        'team_lead' => $teamLeadInfo ? [
+                            'id' => $teamLeadInfo->id,
+                            'first_name' => $teamLeadInfo->first_name,
+                            'last_name' => $teamLeadInfo->last_name,
+                        ] : null, // Null if no team lead is assigned
                     'personnel' => $personnelInfo->map(function ($personnel) {
                         return [
                             'id' => $personnel->id,
@@ -416,7 +456,7 @@ class RequestController extends Controller
                         'department' => $request->department_name,
                     ],
                     'date_requested' => $request->date_requested,
-                    'date_completed' => $request->date_completed
+                    'date_completed' => $request->date_completed,
                 ];
             });
     
@@ -440,6 +480,7 @@ class RequestController extends Controller
         }
     }
     
+
 
 
 
@@ -529,71 +570,167 @@ class RequestController extends Controller
         }
     }
 
+    public function assignTeamLead(Request $request, $id)
+    {
+        try {
+            $user = auth()->user();
+            $requests = Requests::findOrFail($id);
+        
+            // Capture before state
+            $before = [
+                'status' => $requests->status ?? 'N/A',
+                'category_id' => $requests->category_id ?? 'N/A',
+                'team_lead_id' => $requests->team_lead_id ?? null,
+            ];
+        
+            // Validate input (only one team lead)
+            $validatedData = $request->validate([
+                'category_id' => 'required|exists:categories,id',
+                'team_lead_id' => 'required|exists:users,id',
+            ]);
+        
+            // Verify if the provided team lead is marked as is_team_lead in the category_personnel pivot
+            $validTeamLead = DB::table('category_personnel')
+                ->join('users', 'category_personnel.personnel_id', '=', 'users.id')
+                ->where('category_personnel.category_id', $validatedData['category_id'])
+                ->where('category_personnel.is_team_lead', 1)
+                ->where('users.id', $validatedData['team_lead_id'])
+                ->exists();
+        
+            if (!$validTeamLead) {
+                throw new Exception("The selected team lead is either invalid or not marked as a team lead in the selected category.");
+            }
+        
+            // Update request with the single team lead
+            $requests->update([
+                'status' => 'For Assign',
+                'category_id' => $validatedData['category_id'],
+                'team_lead_id' => $validatedData['team_lead_id'],
+            ]);
+        
+            // Capture after state
+            $after = [
+                'status' => $requests->status,
+                'category_id' => $requests->category_id,
+                'team_lead_id' => $validatedData['team_lead_id'],
+            ];
+        
+            AuditLogger::log('assignTeamLead', 'Assigning Team Lead', 'To Assign');
+        
+            $fullName = trim("{$user->first_name} {$user->middle_initial} {$user->last_name}");
+        
+            // Fetch the team lead's details
+            $teamLead = User::find($validatedData['team_lead_id']);
+        
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Team lead assigned successfully. Status updated to "To Assign".',
+                'request_id' => $requests->id,
+                'status' => $requests->status,
+                'user_id' => $user->id,
+                'user' => $fullName,
+                'category' => ['id' => $validatedData['category_id']],
+                'team_lead' => [
+                    'id' => $teamLead->id,
+                    'first_name' => $teamLead->first_name,
+                    'last_name' => $teamLead->last_name,
+                    'status' => $teamLead->status,
+                ],
+            ];
+        
+            $this->logAPICalls('assignTeamLead', $requests->id, $request->all(), $response);
+            return response()->json($response, 200);
+        
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to assign team lead to the request.",
+                'error' => $e->getMessage(),
+            ];
+        
+            $this->logAPICalls('assignTeamLead', $id ?? '', $request->all(), $response);
+            return response()->json($response, 500);
+        }
+    }
+    
+    
+
+
+
     public function assessRequest(Request $request, $id)
     {
         try {
-            // Retrieve the currently logged-in user
             $user = auth()->user();
-
-            // Retrieve the request record using the ID from the URL
             $requests = Requests::where('id', $id)->firstOrFail();
-
-            // Capture before state for audit logging
+    
+            // Capture before state
             $before = [
                 'status' => $requests->status ?? 'N/A',
                 'category_id' => $requests->category_id ?? 'N/A',
                 'personnel_ids' => json_decode($requests->personnel_ids, true) ?? [],
             ];
-
-            // Validate the input data, including category_id and personnel_ids
+    
+            // Validate input (no more category_id)
             $validatedData = $request->validate([
-                'category_id' => 'required|exists:categories,id',
-                'personnel_ids' => 'required|array|min:1', // Ensure personnel_ids is an array with at least one entry
-                'personnel_ids.*' => 'exists:users,id', // Validate that each personnel_id exists in the users table
-                'status' => 'sometimes|in:For Completion', // Optional status parameter
+                'personnel_ids' => 'required|array|min:1',
+                'personnel_ids.*' => 'exists:users,id',
+                'status' => 'sometimes|in:For Completion',
             ]);
-
-            // Retrieve only ACTIVE personnel linked to the provided category_id
-            $activePersonnelIds = DB::table('category_personnel')
-                ->join('users', 'category_personnel.personnel_id', '=', 'users.id')
-                ->where('category_personnel.category_id', $validatedData['category_id'])
-                ->where('users.status', 'Active') // Filter only Active personnel
-                ->pluck('users.id')
+    
+            // Only get Active personnel
+            $activePersonnelIds = User::where('status', 'Active')
+                ->whereIn('id', $validatedData['personnel_ids'])
+                ->pluck('id')
                 ->toArray();
-
-            // Check if all provided personnel_ids are linked to the category and are Active
+    
             $invalidPersonnelIds = array_diff($validatedData['personnel_ids'], $activePersonnelIds);
-
+    
             if (!empty($invalidPersonnelIds)) {
-                throw new Exception("The following personnel IDs are either not linked to the category or not active: " . implode(', ', $invalidPersonnelIds));
+                throw new Exception("The following personnel IDs are not active: " . implode(', ', $invalidPersonnelIds));
             }
-
-            // Determine the status to update
+    
+            // Check if personnel belong to the same category as the request
+            $personnelCategoryIds = \DB::table('category_personnel')
+                ->whereIn('personnel_id', $validatedData['personnel_ids']) // changed from user_id to personnel_id
+                ->pluck('category_id')
+                ->unique();
+    
+            \Log::info('Request category_id: ' . $requests->category_id);
+            \Log::info('Personnel category_ids: ' . implode(', ', $personnelCategoryIds->toArray()));
+    
+            if (!$personnelCategoryIds->contains($requests->category_id)) {
+                throw new Exception("Selected personnel are not part of the same category as the request.");
+            }
+    
+            // Get team lead from the requests table using team_lead_id
+            $teamLeadData = null;
+            if ($requests->team_lead_id) {
+                $teamLeadData = User::find($requests->team_lead_id);
+            }
+    
             $statusToUpdate = $validatedData['status'] ?? 'For Completion';
-
-            // Update the request with the fetched category_id and the provided personnel_ids (as JSON)
+    
+            // Update request (category_id is untouched)
             $requests->update([
                 'status' => $statusToUpdate,
-                'category_id' => $validatedData['category_id'],  // Assign the category_id
-                'personnel_ids' => json_encode($validatedData['personnel_ids']), // Store multiple personnel IDs as JSON
+                'personnel_ids' => json_encode($validatedData['personnel_ids']),
             ]);
-
+    
+            // Update personnel status to Assigned
             User::whereIn('id', $validatedData['personnel_ids'])->update(['status' => 'Assigned']);
-
-            // Capture after state for audit logging
+    
+            // Capture after state
             $after = [
                 'status' => $requests->status,
                 'category_id' => $requests->category_id,
                 'personnel_ids' => $validatedData['personnel_ids'],
             ];
-
-            // Log the audit
+    
+            // Log audit trail
             AuditLogger::log('assessRequest', 'For Process', 'For Completion');
-
-            // Prepare the full name of the currently logged-in user
+    
             $fullName = trim("{$user->first_name} {$user->middle_initial} {$user->last_name}");
-
-            // Prepare the response
+    
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request assessed successfully. Personnel status updated to Assigned.',
@@ -602,37 +739,44 @@ class RequestController extends Controller
                 'user_id' => $user->id,
                 'user' => $fullName,
                 'category' => [
-                    'id' => $validatedData['category_id'],
+                    'id' => $requests->category_id,
                 ],
                 'personnel' => array_map(function ($personnelId) {
                     $personnel = User::find($personnelId);
                     return [
                         'id' => $personnel->id,
-                        'first_name' => "{$personnel->first_name}",
-                        'last_name' => "{$personnel->last_name}",
-                        'status' => $personnel->status, // Show updated status
+                        'first_name' => $personnel->first_name,
+                        'last_name' => $personnel->last_name,
+                        'status' => $personnel->status,
                     ];
                 }, $validatedData['personnel_ids']),
+                'team_lead' => $teamLeadData ? [
+                    'id' => $teamLeadData->id,
+                    'first_name' => $teamLeadData->first_name,
+                    'last_name' => $teamLeadData->last_name,
+                ] : null,
             ];
-
-            // Log the API call
+    
             $this->logAPICalls('assessRequest', $requests->id, $request->all(), $response);
-
             return response()->json($response, 200);
+    
         } catch (Throwable $e) {
-            // Prepare the error response
+            \Log::error('Assess Request error: ' . $e->getMessage());
+    
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to assess the request.",
                 'error' => $e->getMessage(),
             ];
-
-            // Log the API call with failure response
+    
             $this->logAPICalls('assessRequest', $id ?? '', $request->all(), $response);
-
             return response()->json($response, 500);
         }
     }
+    
+
+
+    
 
 
 
