@@ -21,72 +21,73 @@ use Illuminate\Support\Facades\Storage;
 class AuthController extends Controller
 {
 
-   public function login(Request $request)
-{
-    try {
-        // Fetch the user by email
-        $user = User::where('email', $request->email)->first();
-
-        if ($user) {
-            // Verify the password
-            if (Hash::check($request->password, $user->password)) {
-                // Generate token
-                $token = $user->createToken('auth-token')->plainTextToken;
-
-                // Attempt to create session
-                $session = $this->insertSession($user->id);
-                if (!$session) {
-                    // Return error if session creation fails
-                    return response()->json(['isSuccess' => false, 'message' => 'Failed to create session.'], 500);
+    public function login(Request $request)
+    {
+        try {
+            // Fetch the user by email
+            $user = User::where('email', $request->email)->first();
+    
+            if ($user) {
+                // Check if the user is archived or inactive
+                if ($user->is_archived == 1 || $user->status != 'active') {
+                    return $this->sendError('Your account is not active or has been archived.');
                 }
-
-                // Get user role
-                $roleName = $user->role_name;
-
-                // Prepare response
-                $response = [
-                    'isSuccess' => true,
-                    'user' => [
-                        'id' => $user->id,
-                        'email' => $user->email,
-                        'first_name' => $user->first_name,
-                        'last_name' =>$user->last_name,
-                        'avatar' => $user->profile,
-                        'age' => $user->age,
-                        'gender' => $user->gender,
-                        'number' => $user->number,
-                    ],
-                    'token' => $token,
-                    'sessionCode' => $session,
-                    'role' => $roleName,
-                    'message' => 'Logged in successfully'
-                ];
-
-                // Log the API call
-                $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
-
-                // Return success response
-                return response()->json($response, 200);
+    
+                // Verify the password
+                if (Hash::check($request->password, $user->password)) {
+                    // Generate token
+                    $token = $user->createToken('auth-token')->plainTextToken;
+    
+                    // Attempt to create session
+                    $session = $this->insertSession($user->id);
+                    if (!$session) {
+                        return response()->json(['isSuccess' => false, 'message' => 'Failed to create session.'], 500);
+                    }
+    
+                    // Get user role
+                    $roleName = $user->role_name;
+    
+                    // Prepare response
+                    $response = [
+                        'isSuccess' => true,
+                        'user' => [
+                            'id' => $user->id,
+                            'email' => $user->email,
+                            'first_name' => $user->first_name,
+                            'last_name' => $user->last_name,
+                            'avatar' => $user->profile,
+                            'age' => $user->age,
+                            'gender' => $user->gender,
+                            'number' => $user->number,
+                        ],
+                        'token' => $token,
+                        'sessionCode' => $session,
+                        'role' => $roleName,
+                        'message' => 'Logged in successfully'
+                    ];
+    
+                    $this->logAPICalls('login', $user->email, $request->except(['password']), $response);
+    
+                    return response()->json($response, 200);
+                } else {
+                    return $this->sendError('Invalid Credentials.');
+                }
             } else {
-                return $this->sendError('Invalid Credentials.');
+                return $this->sendError('Provided email address does not exist.');
             }
-        } else {
-            return $this->sendError('Provided email address does not exist.');
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'An error occurred during login.',
+                'error' => $e->getMessage(),
+            ];
+    
+            $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
+    
+            return response()->json($response, 500);
         }
-    } catch (Throwable $e) {
-        // Handle errors during login
-        $response = [
-            'isSuccess' => false,
-            'message' => 'An error occurred during login.',
-            'error' => $e->getMessage(),
-        ];
-
-        $this->logAPICalls('login', $request->email ?? 'unknown', $request->except(['password']), $response);
-
-        // Return error response
-        return response()->json($response, 500);
     }
-}
+    
 
     public function logout(Request $request)
     {
