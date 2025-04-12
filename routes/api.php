@@ -133,7 +133,7 @@ Route::prefix('admin')->controller(UserTypeController::class)->group(function ()
     Route::post('user-type/create', 'createUserType');
     Route::post('user-type/update/{id}', 'updateUserType');
     Route::get('user-types', 'getUserTypes');
-    Route::post('user-type/toggle/{id}', 'toggleUsertype');
+    Route::post('users/{id}/toggle-status', 'toggleUserStatus');
     Route::post('user-type/delete/{id}', 'deleteUserType');
 });
 

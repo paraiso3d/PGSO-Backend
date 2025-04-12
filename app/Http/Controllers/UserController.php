@@ -159,7 +159,7 @@ class UserController extends Controller
         
             // Query the users table with necessary filters
             $query = User::with(['departments:id,department_name', 'divisions:id,division_name'])
-                ->select('id','profile', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'profile', 'age', 'gender', 'number', 'status')
+                ->select('id','profile', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'avatar', 'age', 'gender', 'number', 'status')
                 ->where('is_archived', '0')
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where(function ($activeQuery) use ($searchTerm) {
