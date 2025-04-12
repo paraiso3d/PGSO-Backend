@@ -63,6 +63,7 @@ Route::prefix('admin')->middleware('auth:sanctum')->controller(UserController::c
     Route::post('user/update/{id}', 'updateUserAccount');
     Route::get('users', 'getUserAccounts');  // Now requires authentication
     Route::post('user/delete/{id}', 'deleteUserAccount');
+    Route::post('users/{id}/toggle-status', 'toggleUserStatus');
 });
     Route::middleware('auth:sanctum')->post('users/changeprofile', [UserController::class, 'changeProfile']);
 
@@ -133,7 +134,6 @@ Route::prefix('admin')->controller(UserTypeController::class)->group(function ()
     Route::post('user-type/create', 'createUserType');
     Route::post('user-type/update/{id}', 'updateUserType');
     Route::get('user-types', 'getUserTypes');
-    Route::post('users/{id}/toggle-status', 'toggleUserStatus');
     Route::post('user-type/delete/{id}', 'deleteUserType');
 });
 
