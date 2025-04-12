@@ -322,7 +322,7 @@ class UserController extends Controller
         }
     }
 
-    public function changeProfile(Request $request)
+  public function changeProfile(Request $request)
 {
     try {
         $user = auth()->user(); // Get the logged-in user
@@ -332,6 +332,7 @@ class UserController extends Controller
             'first_name' => ['sometimes', 'string', 'max:255'],
             'last_name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
+            'current_password' => ['required'], // Confirm user identity
             'password' => [
                 'sometimes',
                 'nullable',
@@ -344,7 +345,7 @@ class UserController extends Controller
             'gender' => ['sometimes', 'in:Male,Female'],
             'avatar' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048']
         ], [
-            'password.regex' => 'Password must be at least 8 characters long and include at least one uppercase letter, one number, and one special character (@$!%*?&).'
+            'password.regex' => 'Password must be at least 8 characters long and include at least one uppercase letter, one number, and one special character (@$!%*?&).',
         ]);
 
         // Return validation errors
@@ -359,8 +360,19 @@ class UserController extends Controller
             return response()->json($response, 422);
         }
 
+        // Verify current password
+        if (!Hash::check($request->current_password, $user->password)) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Current password is incorrect.'
+            ];
+
+            AuditLogger::log('Failed Profile Update - Incorrect Password', $user->email, 'Incorrect current password.');
+            return response()->json($response, 403);
+        }
+
         // Store old values before update (for audit logging)
-        $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'avatar']);
+        $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile']);
 
         // Update user details
         $user->fill($request->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender']));
@@ -418,6 +430,7 @@ class UserController extends Controller
         return response()->json($response, 500);
     }
 }
+
 
     
 
