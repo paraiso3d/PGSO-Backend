@@ -159,7 +159,7 @@ class UserController extends Controller
         
             // Query the users table with necessary filters
             $query = User::with(['departments:id,department_name', 'divisions:id,division_name'])
-                ->select('id','profile', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'avatar', 'age', 'gender', 'number', 'status')
+                ->select('id','avatar', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'age', 'gender', 'number', 'status')
                 ->where('is_archived', '0')
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where(function ($activeQuery) use ($searchTerm) {
@@ -194,7 +194,7 @@ class UserController extends Controller
                     'department_name' => optional($user->departments)->department_name,
                     'division_id' => $user->division_id,
                     'division_name' => optional($user->divisions)->division_name,
-                    'avatar' => $user->profile ? asset('storage/' . $user->profile) : null,
+                    'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
                     'is_archived' => $user->is_archived,
                     'age' => $user->age, // Added age
                     'gender' => $user->gender, // Added gender
@@ -386,7 +386,7 @@ class UserController extends Controller
             }
     
             // Store old values before update (for audit logging)
-            $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile']);
+            $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'avatar']);
     
             // Update user fields
             $user->fill($request->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender']));
@@ -414,12 +414,12 @@ class UserController extends Controller
                 $file->move(dirname($absolutePath), basename($absolutePath));
             
                 // Delete old profile image if exists
-                if ($user->profile && Storage::disk('public')->exists(str_replace('storage/', '', $user->profile))) {
-                    Storage::disk('public')->delete(str_replace('storage/', '', $user->profile));
+                if ($user->avatar && Storage::disk('public')->exists(str_replace('storage/', '', $user->avatar))) {
+                    Storage::disk('public')->delete(str_replace('storage/', '', $user->avatar));
                 }
             
                 // Save the relative path in the profile column
-                $user->profile = 'storage/' . $relativePath;
+                $user->avatar = 'storage/' . $relativePath;
             }
             
     
@@ -437,12 +437,12 @@ class UserController extends Controller
                     'number' => $user->number,
                     'age' => $user->age,
                     'gender' => $user->gender,
-                    'avatar' => $user->profile ? asset($user->profile) : null
+                    'avatar' => $user->avatar ? asset($user->avatar) : null
                 ]
             ];
     
             // Log audit
-            AuditLogger::log('Updated Profile', json_encode($oldData), json_encode($user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile'])));
+            AuditLogger::log('Updated Profile', json_encode($oldData), json_encode($user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'avatar'])));
     
             return response()->json($response, 200);
         } catch (Throwable $e) {
