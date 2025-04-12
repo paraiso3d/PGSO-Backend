@@ -29,7 +29,7 @@ class User extends Authenticatable
         'department_id',
         'role_name',
         'status',
-        'profile',
+        'avatar',
         'age',
         'gender',
         'number',
@@ -68,7 +68,7 @@ class User extends Authenticatable
             'gender' => ['required', 'in:Male,Female'], //
             'number' => ['required', 'string', 'unique:users,number', 'regex:/^\d{11,15}$/'], 
             'is_archived' => ['nullable', 'in:A,I'],
-            'profile' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'] 
+            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'] 
         ], [
             'password.regex' => 'The password must contain at least one uppercase letter, one number, and one special character.',
             'age.max' => 'The maximum age allowed is 100.',
