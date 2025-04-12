@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use Illuminate\Support\Facades\Storage;
 use App\Helpers\AuditLogger;
 use App\Models\Department;
 use App\Models\Division;
@@ -48,8 +48,22 @@ class UserController extends Controller
     
             // Handle profile image upload (optional)
             $profilePath = null;
-            if ($request->hasFile('profile')) {
-                $profilePath = $request->file('profile')->store('profiles', 'public');
+            if ($request->hasFile('avatar')) {
+                // Ensure the target directory exists
+                $directoryPath = public_path('img/profile');
+                if (!file_exists($directoryPath)) {
+                    mkdir($directoryPath, 0755, true); // Create directory if not exists
+                }
+    
+                // Upload the file to public/img/profile
+                $file = $request->file('avatar');
+                $fileName = 'Profile-' . uniqid() . '.' . $file->getClientOriginalExtension();
+    
+                // Move the uploaded file to the correct location
+                $file->move($directoryPath, $fileName);
+    
+                // Save the relative path to the file
+                $profilePath = 'img/profile/' . $fileName;
             }
     
             // Create user account
@@ -66,7 +80,7 @@ class UserController extends Controller
                 'role_name' => $request->role_name,
                 'division_id' => $division->id,
                 'department_id' => $department ? $department->id : null,
-                'avatar' => $profilePath,
+                'avatar' => $profilePath,  // Store the relative path to the profile image
             ]);
     
             // Log successful user creation
@@ -89,7 +103,7 @@ class UserController extends Controller
                     'role_name' => $userAccount->role_name,
                     'division_id' => $userAccount->division_id,
                     'department_id' => $userAccount->department_id,
-                    'avatar' => $profilePath ? asset('storage/' . $profilePath) : null,
+                    'avatar' => $profilePath ? asset('storage/' . $profilePath) : null,  // Prepare the avatar URL
                 ],
             ];
     
@@ -121,6 +135,7 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
+    
     
     
      /**
@@ -322,115 +337,179 @@ class UserController extends Controller
         }
     }
 
-  public function changeProfile(Request $request)
+    public function changeProfile(Request $request)
+    {
+        try {
+            $user = auth()->user(); // Get the logged-in user
+    
+            // Validation rules
+            $validator = Validator::make($request->all(), [
+                'first_name' => ['sometimes', 'string', 'max:255'],
+                'last_name' => ['sometimes', 'string', 'max:255'],
+                'email' => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
+                'current_password' => ['required'], // Confirm user identity
+                'password' => [
+                    'sometimes',
+                    'nullable',
+                    'string',
+                    'min:8',
+                    'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'
+                ],
+                'number' => ['sometimes', 'string', Rule::unique('users')->ignore($user->id)],
+                'age' => ['sometimes', 'integer', 'min:1', 'max:100'],
+                'gender' => ['sometimes', 'in:Male,Female'],
+                'avatar' => ['sometimes', 'nullable', 'file', 'mimes:jpeg,png,jpg,pdf,docx', 'max:2048']
+            ], [
+                'password.regex' => 'Password must be at least 8 characters long and include at least one uppercase letter, one number, and one special character (@$!%*?&).',
+            ]);
+    
+            if ($validator->fails()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors()
+                ];
+    
+                AuditLogger::log('Failed Profile Update - Validation Error', $user->email, 'N/A');
+                return response()->json($response, 422);
+            }
+    
+            // Verify current password
+            if (!Hash::check($request->current_password, $user->password)) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'Current password is incorrect.'
+                ];
+    
+                AuditLogger::log('Failed Profile Update - Incorrect Password', $user->email, 'Incorrect current password.');
+                return response()->json($response, 403);
+            }
+    
+            // Store old values before update (for audit logging)
+            $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile']);
+    
+            // Update user fields
+            $user->fill($request->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender']));
+    
+            // Handle password update
+            if ($request->filled('password')) {
+                $user->password = Hash::make($request->password);
+            }
+    
+            // Handle avatar upload
+            if ($request->hasFile('avatar')) {
+                $file = $request->file('avatar');
+                $fileName = 'Profile-' . $user->id . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
+            
+                // Path: public/img/profile/Profile-7-20250412021919.png
+                $relativePath = 'img/profile/' . $fileName;
+                $absolutePath = public_path($relativePath);
+            
+                // Ensure the directory exists
+                if (!file_exists(dirname($absolutePath))) {
+                    mkdir(dirname($absolutePath), 0755, true); // Create directory if doesn't exist
+                }
+            
+                // Move the uploaded file to the public directory
+                $file->move(dirname($absolutePath), basename($absolutePath));
+            
+                // Delete old profile image if exists
+                if ($user->profile && Storage::disk('public')->exists(str_replace('storage/', '', $user->profile))) {
+                    Storage::disk('public')->delete(str_replace('storage/', '', $user->profile));
+                }
+            
+                // Save the relative path in the profile column
+                $user->profile = 'storage/' . $relativePath;
+            }
+            
+    
+            $user->save(); // Save changes
+    
+            // Prepare success response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Profile updated successfully.',
+                'user' => [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'number' => $user->number,
+                    'age' => $user->age,
+                    'gender' => $user->gender,
+                    'avatar' => $user->profile ? asset($user->profile) : null
+                ]
+            ];
+    
+            // Log audit
+            AuditLogger::log('Updated Profile', json_encode($oldData), json_encode($user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile'])));
+    
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to update profile.',
+                'error' => $e->getMessage()
+            ];
+    
+            AuditLogger::log('Error Updating Profile', $user->email ?? 'Unknown', $e->getMessage());
+            return response()->json($response, 500);
+        }
+    }
+    
+    
+
+public function toggleUserStatus($id)
 {
     try {
-        $user = auth()->user(); // Get the logged-in user
+        // Find the user account
+        $userAccount = User::findOrFail($id);
 
-        // Validation rules
-        $validator = Validator::make($request->all(), [
-            'first_name' => ['sometimes', 'string', 'max:255'],
-            'last_name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
-            'current_password' => ['required'], // Confirm user identity
-            'password' => [
-                'sometimes',
-                'nullable',
-                'string',
-                'min:8',
-                'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'
-            ],
-            'number' => ['sometimes', 'string', Rule::unique('users')->ignore($user->id)],
-            'age' => ['sometimes', 'integer', 'min:1', 'max:100'],
-            'gender' => ['sometimes', 'in:Male,Female'],
-            'avatar' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048']
-        ], [
-            'password.regex' => 'Password must be at least 8 characters long and include at least one uppercase letter, one number, and one special character (@$!%*?&).',
-        ]);
+        // Store the old status for audit logging
+        $oldData = $userAccount->only(['status']);
 
-        // Return validation errors
-        if ($validator->fails()) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Validation failed.',
-                'errors' => $validator->errors()
-            ];
+        // Determine new status
+        $newStatus = $userAccount->status === 'Active' ? 'Inactive' : 'Active';
 
-            AuditLogger::log('Failed Profile Update - Validation Error', $user->email, 'N/A');
-            return response()->json($response, 422);
-        }
+        // Update the user's status
+        $userAccount->update(['status' => $newStatus]);
 
-        // Verify current password
-        if (!Hash::check($request->current_password, $user->password)) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Current password is incorrect.'
-            ];
-
-            AuditLogger::log('Failed Profile Update - Incorrect Password', $user->email, 'Incorrect current password.');
-            return response()->json($response, 403);
-        }
-
-        // Store old values before update (for audit logging)
-        $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile']);
-
-        // Update user details
-        $user->fill($request->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender']));
-
-        // Handle password update
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
-
-        // Handle profile image upload
-        if ($request->hasFile('profile')) {
-            $file = $request->file('profile');
-            $fileName = 'Profile-' . $user->id . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
-
-            // Delete old profile image if exists
-            if ($user->profile && Storage::disk('public')->exists($user->profile)) {
-                Storage::disk('public')->delete($user->profile);
-            }
-
-            // Store new profile image
-            $path = $file->storeAs('profiles', $fileName, 'public');
-            $user->profile = $path;
-        }
-
-        $user->save(); // Save user changes
-
-        // Prepare success response
+        // Prepare a response message
+        $action = $newStatus === 'Inactive' ? 'deactivated' : 'activated';
         $response = [
             'isSuccess' => true,
-            'message' => 'Profile updated successfully.',
-            'user' => [
-                'id' => $user->id,
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-                'email' => $user->email,
-                'number' => $user->number,
-                'age' => $user->age,
-                'gender' => $user->gender,
-                'avatar' => $user->profile ? asset('storage/' . $user->profile) : null
-            ]
+            'message' => "User account has been successfully {$action}.",
         ];
 
-        // Log audit (store changes)
-        AuditLogger::log('Updated Profile', json_encode($oldData), json_encode($user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'profile'])));
+        // Log audit
+        AuditLogger::log(
+            ucfirst($action) . ' User',
+            json_encode($oldData),
+            "Status changed to {$newStatus}"
+        );
+
+        // Log API call
+        $this->logAPICalls('toggleUserStatus', $userAccount->email, [], $response);
 
         return response()->json($response, 200);
     } catch (Throwable $e) {
+        // Handle errors
         $response = [
             'isSuccess' => false,
-            'message' => 'Failed to update profile.',
+            'message' => 'Failed to change user status.',
             'error' => $e->getMessage()
         ];
 
-        AuditLogger::log('Error Updating Profile', $user->email, $e->getMessage());
+        // Log error
+        AuditLogger::log(
+            'Error Changing User Status',
+            json_encode(['id' => $id]),
+            $e->getMessage()
+        );
+
         return response()->json($response, 500);
     }
 }
-
 
     
 
