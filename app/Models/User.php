@@ -59,7 +59,6 @@ class User extends Authenticatable
             'department_id' => ['required', 'exists:departments,id'],
             'division_id' => ['required', 'exists:divisions,id'],
             'password' => [
-                'required',
                 'string',
                 'min:8',
                 'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'

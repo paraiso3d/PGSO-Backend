@@ -70,7 +70,7 @@ class AuthController extends Controller
     
                     return response()->json($response, 200);
                 } else {
-                    return $this->sendError('Invalid Credentials.');
+                    return $this->sendError('Wrong Password.');
                 }
             } else {
                 return $this->sendError('Provided email address does not exist.');

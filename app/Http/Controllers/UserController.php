@@ -15,6 +15,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Mail;
 
 class UserController extends Controller
 {
@@ -24,7 +25,6 @@ class UserController extends Controller
     public function createUserAccount(Request $request)
     {
         try {
-            // Validate user input
             $validator = User::validateUserAccount($request->all());
     
             if ($validator->fails()) {
@@ -34,39 +34,29 @@ class UserController extends Controller
                     'errors' => $validator->errors()
                 ];
     
-                // Log validation failure
                 AuditLogger::log('Failed User Creation - Validation Error');
-    
                 return response()->json($response, 422);
             }
     
-            // Find division (required)
             $division = Division::findOrFail($request->division_id);
-    
-            // Find department (optional)
             $department = $request->department_id ? Department::findOrFail($request->department_id) : null;
     
-            // Handle profile image upload (optional)
             $profilePath = null;
             if ($request->hasFile('avatar')) {
-                // Ensure the target directory exists
                 $directoryPath = public_path('img/profile');
                 if (!file_exists($directoryPath)) {
-                    mkdir($directoryPath, 0755, true); // Create directory if not exists
+                    mkdir($directoryPath, 0755, true);
                 }
     
-                // Upload the file to public/img/profile
                 $file = $request->file('avatar');
                 $fileName = 'Profile-' . uniqid() . '.' . $file->getClientOriginalExtension();
-    
-                // Move the uploaded file to the correct location
                 $file->move($directoryPath, $fileName);
-    
-                // Save the relative path to the file
                 $profilePath = 'img/profile/' . $fileName;
             }
     
-            // Create user account
+            // Set default password
+            $defaultPassword = '@Password1';
+    
             $userAccount = User::create([
                 'first_name' => $request->first_name,
                 'middle_initial' => $request->middle_initial ?? null,
@@ -76,17 +66,28 @@ class UserController extends Controller
                 'gender' => $request->gender,
                 'email' => $request->email,
                 'designation' => $request->designation,
-                'password' => Hash::make($request->password),
+                'password' => Hash::make($defaultPassword),
                 'role_name' => $request->role_name,
                 'division_id' => $division->id,
                 'department_id' => $department ? $department->id : null,
-                'avatar' => $profilePath,  // Store the relative path to the profile image
+                'avatar' => $profilePath,
             ]);
     
-            // Log successful user creation
+            // Send email with default password
+            $emailBody = "Dear {$userAccount->first_name} {$userAccount->last_name},\n\n"
+                . "Your account has been created.\n\n"
+                . "Login Email: {$userAccount->email}\n"
+                . "Default Password: {$defaultPassword}\n\n"
+                . "Please log in and change your password as soon as possible.\n\n"
+                . "Thank you.";
+    
+            Mail::raw($emailBody, function ($message) use ($userAccount) {
+                $message->to($userAccount->email)
+                        ->subject('Your New Account Credentials');
+            });
+    
             AuditLogger::log('Created New User Account', 'N/A', 'Active');
     
-            // Prepare success response
             $response = [
                 'isSuccess' => true,
                 'message' => 'User account successfully created.',
@@ -103,38 +104,29 @@ class UserController extends Controller
                     'role_name' => $userAccount->role_name,
                     'division_id' => $userAccount->division_id,
                     'department_id' => $userAccount->department_id,
-                    'avatar' => $profilePath ? asset($profilePath) : null,  // Prepare the avatar URL using public_path()
+                    'avatar' => $profilePath ? asset($profilePath) : null,
                 ],
             ];
     
             return response()->json($response, 201);
     
         } catch (ValidationException $v) {
-            // Handle validation errors
-            $response = [
+            AuditLogger::log('Failed User Creation - Validation Exception');
+            return response()->json([
                 'isSuccess' => false,
                 'message' => 'Validation failed.',
                 'errors' => $v->errors(),
-            ];
-    
-            // Log validation failure
-            AuditLogger::log('Failed User Creation - Validation Exception');
-    
-            return response()->json($response, 422);
+            ], 422);
         } catch (Throwable $e) {
-            // Handle unexpected errors
-            $response = [
+            AuditLogger::log('Error Creating User Account', null, $e->getMessage());
+            return response()->json([
                 'isSuccess' => false,
                 'message' => 'An error occurred while creating the user account.',
                 'error' => $e->getMessage(),
-            ];
-    
-            // Log unexpected error
-            AuditLogger::log('Error Creating User Account', null, $e->getMessage());
-    
-            return response()->json($response, 500);
+            ], 500);
         }
     }
+    
     
 
     
@@ -158,11 +150,17 @@ class UserController extends Controller
     
             $searchTerm = $request->input('search', null);
             $perPage = $request->input('per_page', 10);
-        
+    
             // Query the users table with necessary filters
             $query = User::with(['departments:id,department_name', 'divisions:id,division_name'])
-                ->select('id','avatar', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'age', 'gender', 'number', 'status')
+                ->select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'age', 'gender', 'number', 'status')
                 ->where('is_archived', '0')
+                ->whereHas('departments', function ($query) {
+                    $query->where('is_archived', '0'); // Ensure the department is not archived
+                })
+                ->whereHas('divisions', function ($query) {
+                    $query->where('is_archived', '0'); // Ensure the division is not archived
+                })
                 ->when($searchTerm, function ($query, $searchTerm) {
                     return $query->where(function ($activeQuery) use ($searchTerm) {
                         $activeQuery->where('first_name', 'like', '%' . $searchTerm . '%')
@@ -178,7 +176,7 @@ class UserController extends Controller
                     'isSuccess' => false,
                     'message' => 'No active Users found matching the criteria',
                 ];
-                
+    
                 $this->logAPICalls('getUserAccounts', $userEmail, $request->all(), $response);
     
                 return response()->json($response, 404);
@@ -233,6 +231,105 @@ class UserController extends Controller
             return response()->json($response, 500);
         }
     }
+
+
+    public function getUserAccountsArchive(Request $request)
+    {
+        try {
+            // Ensure the user is authenticated
+            if (!auth()->check()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized access.',
+                ], 401);
+            }
+    
+            $userEmail = auth()->user()->email; // Get the authenticated user's email
+    
+            $searchTerm = $request->input('search', null);
+            $perPage = $request->input('per_page', 10);
+    
+            // Query the users table with necessary filters
+            $query = User::with(['departments:id,department_name', 'divisions:id,division_name'])
+                ->select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'age', 'gender', 'number', 'status')
+                ->where('is_archived', '1')
+                ->whereHas('departments', function ($query) {
+                    $query->where('is_archived', '0'); // Ensure the department is not archived
+                })
+                ->whereHas('divisions', function ($query) {
+                    $query->where('is_archived', '0'); // Ensure the division is not archived
+                })
+                ->when($searchTerm, function ($query, $searchTerm) {
+                    return $query->where(function ($activeQuery) use ($searchTerm) {
+                        $activeQuery->where('first_name', 'like', '%' . $searchTerm . '%')
+                            ->orWhere('email', 'like', '%' . $searchTerm . '%')
+                            ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
+                    });
+                });
+    
+            $result = $query->paginate($perPage);
+    
+            if ($result->isEmpty()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'No Users Archived found',
+                ];
+    
+                $this->logAPICalls('getUserAccountsArchive', $userEmail, $request->all(), $response);
+    
+                return response()->json($response, 404);
+            }
+    
+            // Format the user data
+            $formattedUsers = $result->getCollection()->transform(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'role_name' => $user->role_name,
+                    'department_id' => $user->department_id,
+                    'department_name' => optional($user->departments)->department_name,
+                    'division_id' => $user->division_id,
+                    'division_name' => optional($user->divisions)->division_name,
+                    'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
+                    'is_archived' => $user->is_archived,
+                    'age' => $user->age, // Added age
+                    'gender' => $user->gender, // Added gender
+                    'number' => $user->number, // Added number
+                    'status' => $user->status
+                ];
+            });
+    
+            $response = [
+                'isSuccess' => true,
+                'message' => 'User accounts archived retrieved successfully.',
+                'user' => $formattedUsers,
+                'pagination' => [
+                    'total' => $result->total(),
+                    'per_page' => $result->perPage(),
+                    'current_page' => $result->currentPage(),
+                    'last_page' => $result->lastPage(),
+                ],
+            ];
+    
+            $this->logAPICalls('getUserAccountsArchive', $userEmail, $request->all(), $response);
+    
+            return response()->json($response, 200);
+    
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve user accounts.',
+                'error' => $e->getMessage(),
+            ];
+    
+            $this->logAPICalls('getUserAccountsArchive', auth()->user()->email ?? "Unknown", $request->all(), $response);
+    
+            return response()->json($response, 500);
+        }
+    }
+    
     
     
     /**
@@ -543,6 +640,47 @@ public function deleteUserAccount($id)
         // Log error audit
         AuditLogger::log('Error Deleting User Account', json_encode(['id' => $id]), $e->getMessage());
 
+        return response()->json($response, 500);
+    }
+}
+
+
+public function restoreUserAccount($id)
+{
+    try {
+        // Find user account
+        $userAccount = User::findOrFail($id);
+
+        // Store old data for audit logging
+        $oldData = $userAccount->only(['is_archived']);
+
+        // Archive the user account
+        $userAccount->update(['is_archived' => '0']);
+
+        // Prepare response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'User account successfully unarchive.',
+        ];
+
+        // Log audit - Store changes
+        AuditLogger::log(
+            'User Account Successfully Unarchive',
+            json_encode($oldData),
+            'Deleted'
+        );
+
+        // Log API call using email instead of ID
+        $this->logAPICalls('restoreUserAccount', $userAccount->email, [], $response);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        // Handle errors
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to delete the user account.',
+            'error' => $e->getMessage()
+        ];
         return response()->json($response, 500);
     }
 }

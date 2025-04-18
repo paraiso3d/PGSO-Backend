@@ -61,7 +61,9 @@ Route::controller(AuthController::class)->group(function () {
 Route::prefix('admin')->middleware('auth:sanctum')->controller(UserController::class)->group(function () {
     Route::post('user/create', 'createUserAccount');
     Route::post('user/update/{id}', 'updateUserAccount');
-    Route::get('users', 'getUserAccounts');  // Now requires authentication
+    Route::get('users', 'getUserAccounts'); 
+    Route::get('users/archive', 'getUserAccountsArchive');
+    Route::post('user/restore/{id}', 'restoreUserAccount');
     Route::post('user/delete/{id}', 'deleteUserAccount');
     Route::post('users/{id}/toggle-status', 'toggleUserStatus');
 });
@@ -76,6 +78,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('division/create', 'createDivision');
         Route::post('division/update/{id}', 'updateDivision');
         Route::get('divisions', 'getDivisions');
+        Route::get('divisions/archive', 'getDivisionsArchive');
+        Route::post('division/restore/{id}', 'restoreDivision');
         Route::post('division/delete/{id}', 'deleteDivision');
     });
 });
@@ -89,7 +93,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('category/create', 'createCategory');
         Route::post('category/update/{id}', 'updateCategory');
         Route::get('categories', 'getCategory');
+        Route::get('categories/archive', 'getCategoryArchive');
         Route::post('delete/category/{id}', 'deleteCategory');
+        Route::post('restore/category/{id}', 'restoreCategory');
+        
     });
 });
 
@@ -123,7 +130,10 @@ Route::prefix('admin')->middleware('auth:sanctum')->controller(DepartmentControl
     Route::post('department/create', 'createOffice');
     Route::post('department/update/{id}', 'updateOffice');
     Route::get('department', 'getOffices');
+    Route::get('department/archive', 'getOfficesArchive');
     Route::post('department/delete/{id}', 'deleteOffice');
+    Route::post('department/restore/{id}', 'restoreOffice');
+
 });
 
 /*

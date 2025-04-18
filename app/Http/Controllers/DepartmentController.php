@@ -169,52 +169,105 @@ class DepartmentController extends Controller
      * Get all college offices.
      */
     public function getOffices()
-{
-    try {
-        // Retrieve all departments that are not archived
-        $departments = Department::where('is_archived', 0)->get()->map(function ($department) {
-            // Decode division_id JSON, default to an empty array if null or invalid
-            $divisionIds = json_decode($department->division_id, true) ?? [];
-
-            // Fetch related division names only if $divisionIds is not empty
-            $divisions = !empty($divisionIds)
-                ? Division::whereIn('id', $divisionIds)->get(['id', 'division_name'])
-                : collect();
-
-            // Format the response for each department
-            return [
-                'id' => $department->id,
-                'department_name' => $department->department_name,
-                'acronym' => $department->acronym,
-                'divisions' => $divisions,
-                'created_at' => $department->created_at,
-                'updated_at' => $department->updated_at
+    {
+        try {
+            // Retrieve all departments that are not archived
+            $departments = Department::where('is_archived', 0)->get()->map(function ($department) {
+                // Decode division_id JSON, default to an empty array if null or invalid
+                $divisionIds = json_decode($department->division_id, true) ?? [];
+    
+                // Fetch related division names only if $divisionIds is not empty and divisions are not archived
+                $divisions = !empty($divisionIds)
+                    ? Division::whereIn('id', $divisionIds)
+                        ->where('is_archived', 0)  // Ensure only non-archived divisions are included
+                        ->get(['id', 'division_name'])
+                    : collect();
+    
+                // Format the response for each department
+                return [
+                    'id' => $department->id,
+                    'department_name' => $department->department_name,
+                    'acronym' => $department->acronym,
+                    'divisions' => $divisions,
+                    'created_at' => $department->created_at,
+                    'updated_at' => $department->updated_at
+                ];
+            });
+    
+            $response = [
+                'isSuccess' => true,
+                'message' => "Departments retrieved successfully.",
+                'departments' => $departments
             ];
-        });
-
-        $response = [
-            'isSuccess' => true,
-            'message' => "Departments retrieved successfully.",
-            'departments' => $departments
-        ];
-
-        // Log the API call
-        $this->logAPICalls('getOffices', "", [], [$response]);
-
-        return response()->json($response, 200);
-    } catch (Throwable $e) {
-        $response = [
-            'isSuccess' => false,
-            'message' => "Failed to retrieve departments.",
-            'error' => $e->getMessage()
-        ];
-
-        // Log the API call with the error
-        $this->logAPICalls('getOffices', "", [], [$response]);
-
-        return response()->json($response, 500);
+    
+            // Log the API call
+            $this->logAPICalls('getOffices', "", [], [$response]);
+    
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to retrieve departments.",
+                'error' => $e->getMessage()
+            ];
+    
+            // Log the API call with the error
+            $this->logAPICalls('getOffices', "", [], [$response]);
+    
+            return response()->json($response, 500);
+        }
     }
-}
+
+
+    public function getOfficesArchive()
+    {
+        try {
+            // Retrieve all departments that are not archived
+            $departments = Department::where('is_archived', 1)->get()->map(function ($department) {
+                // Decode division_id JSON, default to an empty array if null or invalid
+                $divisionIds = json_decode($department->division_id, true) ?? [];
+    
+                // Fetch related division names only if $divisionIds is not empty and divisions are not archived
+                $divisions = !empty($divisionIds)
+                    ? Division::whereIn('id', $divisionIds)
+                        ->where('is_archived', 0)  // Ensure only non-archived divisions are included
+                        ->get(['id', 'division_name'])
+                    : collect();
+    
+                // Format the response for each department
+                return [
+                    'id' => $department->id,
+                    'department_name' => $department->department_name,
+                    'acronym' => $department->acronym,
+                    'divisions' => $divisions,
+                    'created_at' => $department->created_at,
+                    'updated_at' => $department->updated_at
+                ];
+            });
+    
+            $response = [
+                'isSuccess' => true,
+                'message' => "Departments Archive retrieved successfully.",
+                'departments' => $departments
+            ];
+    
+            // Log the API call
+            $this->logAPICalls('getOfficesArchive', "", [], [$response]);
+    
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to retrieve departments.",
+                'error' => $e->getMessage()
+            ];
+    
+            // Log the API call with the error
+            $this->logAPICalls('getOfficesArchive', "", [], [$response]);
+    
+            return response()->json($response, 500);
+        }
+    }
 
 
 
@@ -240,7 +293,7 @@ class DepartmentController extends Controller
             if (!$collegeOffice) {
                 return response()->json([
                     'isSuccess' => false,
-                    'message' => "Office not found.",
+                    'message' => "Department not found.",
                 ], 404);
             }
     
@@ -262,17 +315,66 @@ class DepartmentController extends Controller
     
             return response()->json([
                 'isSuccess' => true,
-                'message' => "Office successfully deleted."
+                'message' => "Department successfully deleted."
             ], 200);
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to delete the Office.",
+                'message' => "Failed to delete the Department.",
                 'error' => $e->getMessage()
             ];
     
             $this->logAPICalls('deleteOffice', $user->email ?? 'unknown', [], [$response]);
             AuditLogger::log('Error Deleting Office', 'N/A', 'N/A', 'Error');
+    
+            return response()->json($response, 500);
+        }
+    }
+
+
+    public function restoreOffice(Request $request)
+    {
+        try {
+            // Get authenticated user
+            $user = auth()->user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
+            // Find the office
+            $collegeOffice = Department::find($request->id);
+    
+            if (!$collegeOffice) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => "Department not found.",
+                ], 404);
+            }
+    
+            // Store old data for logging
+            $oldData = $collegeOffice->toArray();
+    
+            // Soft delete (archive the office)
+            $collegeOffice->update(['is_archived' => "0"]);
+    
+            // Log API call and audit event
+            $this->logAPICalls('restoreOffice', $user->email, [], [['isSuccess' => true, 'message' => "Office successfully deleted."]]);
+            return response()->json([
+                'isSuccess' => true,
+                'message' => "Department successfully restored."
+            ], 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to restore the Department.",
+                'error' => $e->getMessage()
+            ];
+    
+            $this->logAPICalls('restoreOffice', $user->email ?? 'unknown', [], [$response]);
     
             return response()->json($response, 500);
         }

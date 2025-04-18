@@ -375,28 +375,31 @@ class DivisionController extends Controller
      * Get all college offices.
      */
     public function getDivisions()
-    {
-        try {
-            // Get authenticated user
-            $user = auth()->user();
-    
-            if (!$user) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'Unauthorized. Please log in.',
-                ], 401);
-            }
-    
-            // Fetch all divisions that are not archived
-            $divisions = Division::where('is_archived', 0)
-                ->get()
-                ->map(function ($division) {
-                    // Decode the JSON-encoded staff IDs
-                    $staffIds = json_decode($division->staff_id, true);
-    
-                    // Fetch staff details for the decoded IDs
-                    $staffDetails = !empty($staffIds)
-                        ? User::whereIn('id', $staffIds)->get(['id', 'first_name', 'last_name', 'email'])->map(function ($staff) {
+{
+    try {
+        // Get authenticated user
+        $user = auth()->user();
+
+        if (!$user) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Unauthorized. Please log in.',
+            ], 401);
+        }
+
+        // Fetch all divisions that are not archived
+        $divisions = Division::where('is_archived', 0)
+            ->get()
+            ->map(function ($division) {
+                // Decode the JSON-encoded staff IDs
+                $staffIds = json_decode($division->staff_id, true);
+
+                // Fetch staff details for the decoded IDs where staff is not archived
+                $staffDetails = !empty($staffIds)
+                    ? User::whereIn('id', $staffIds)
+                        ->where('is_archived', 0) // Ensure staff is not archived
+                        ->get(['id', 'first_name', 'last_name', 'email'])
+                        ->map(function ($staff) {
                             return [
                                 'id' => $staff->id,
                                 'first_name' => $staff->first_name,
@@ -404,44 +407,117 @@ class DivisionController extends Controller
                                 'email' => $staff->email, // Include email
                             ];
                         })->toArray()
-                        : [];
-    
-                    // Return the structured division data
-                    return [
-                        'id' => $division->id,
-                        'division_name' => $division->division_name,
-                        'office_location' => $division->office_location,
-                        'staff' => $staffDetails, // Include decoded staff details
-                        'created_at' => $division->created_at,
-                        'updated_at' => $division->updated_at
-                    ];
-                });
-    
-            // Build success response
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Divisions retrieved successfully.',
-                'divisions' => $divisions,
-            ];
-    
-            // Log API call with user's email
-            $this->logAPICalls('getDivisions', $user->email, [], [$response]);
-    
-            return response()->json($response, 200);
-    
-        } catch (Throwable $e) {
-            // Handle errors
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve divisions.',
-                'error' => $e->getMessage(),
-            ];
-    
-            $this->logAPICalls('getDivisions', $user->email ?? 'unknown', [], [$response]);
-    
-            return response()->json($response, 500);
-        }
+                    : [];
+
+                // Return the structured division data
+                return [
+                    'id' => $division->id,
+                    'division_name' => $division->division_name,
+                    'office_location' => $division->office_location,
+                    'staff' => $staffDetails, // Include decoded staff details
+                    'created_at' => $division->created_at,
+                    'updated_at' => $division->updated_at
+                ];
+            });
+
+        // Build success response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Divisions retrieved successfully.',
+            'divisions' => $divisions,
+        ];
+
+        // Log API call with user's email
+        $this->logAPICalls('getDivisions', $user->email, [], [$response]);
+
+        return response()->json($response, 200);
+
+    } catch (Throwable $e) {
+        // Handle errors
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve divisions.',
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('getDivisions', $user->email ?? 'unknown', [], [$response]);
+
+        return response()->json($response, 500);
     }
+}
+
+public function getDivisionsArchive()
+{
+    try {
+        // Get authenticated user
+        $user = auth()->user();
+
+        if (!$user) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Unauthorized. Please log in.',
+            ], 401);
+        }
+
+        // Fetch all divisions that are not archived
+        $divisions = Division::where('is_archived', 1)
+            ->get()
+            ->map(function ($division) {
+                // Decode the JSON-encoded staff IDs
+                $staffIds = json_decode($division->staff_id, true);
+
+                // Fetch staff details for the decoded IDs where staff is not archived
+                $staffDetails = !empty($staffIds)
+                    ? User::whereIn('id', $staffIds)
+                        ->where('is_archived', 0) // Ensure staff is not archived
+                        ->get(['id', 'first_name', 'last_name', 'email'])
+                        ->map(function ($staff) {
+                            return [
+                                'id' => $staff->id,
+                                'first_name' => $staff->first_name,
+                                'last_name' => $staff->last_name,
+                                'email' => $staff->email, // Include email
+                            ];
+                        })->toArray()
+                    : [];
+
+                // Return the structured division data
+                return [
+                    'id' => $division->id,
+                    'division_name' => $division->division_name,
+                    'office_location' => $division->office_location,
+                    'staff' => $staffDetails, // Include decoded staff details
+                    'created_at' => $division->created_at,
+                    'updated_at' => $division->updated_at
+                ];
+            });
+
+        // Build success response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Divisions Archive retrieved successfully.',
+            'divisions' => $divisions,
+        ];
+
+        // Log API call with user's email
+        $this->logAPICalls('getDivisionsArchive', $user->email, [], [$response]);
+
+        return response()->json($response, 200);
+
+    } catch (Throwable $e) {
+        // Handle errors
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve divisions.',
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('getDivisionsArchive', $user->email ?? 'unknown', [], [$response]);
+
+        return response()->json($response, 500);
+    }
+}
+
     
     
     
@@ -505,6 +581,66 @@ class DivisionController extends Controller
             ];
     
             $this->logAPICalls('deleteDivision', $user->email ?? 'unknown', ['division_id' => $id], [$response]);
+    
+            return response()->json($response, 500);
+        }
+    }
+
+
+    public function restoreDivision($id)
+    {
+        try {
+            // Get authenticated user
+            $user = auth()->user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
+            // Find division by ID
+            $division = Division::findOrFail($id);
+    
+            // Capture the original is_archived value before update
+            $beforeUpdate = ['is_archived' => $division->is_archived];
+    
+            $division->update(['is_archived' => 0]);
+    
+            // Capture the updated is_archived value after update
+            $afterUpdate = ['is_archived' => $division->is_archived];
+    
+            // Audit log only for the is_archived field
+            AuditLogger::log(
+                'deleteDivision',
+                json_encode($beforeUpdate),
+                'Deleted'   // After state
+            );
+    
+            // Success response
+            $response = [
+                'isSuccess' => true,
+                'message' => "Division successfully restored.",
+            ];
+    
+            // Log API call with authenticated user's email
+            $this->logAPICalls('restoreDivision', $user->email, ['division_id' => $division->id], [$response]);
+    
+            return response()->json($response, 200);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Division not found.',
+            ], 404);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => "Failed to restore the division.",
+                'error' => $e->getMessage(),
+            ];
+    
+            $this->logAPICalls('restoreDivision', $user->email ?? 'unknown', ['division_id' => $id], [$response]);
     
             return response()->json($response, 500);
         }

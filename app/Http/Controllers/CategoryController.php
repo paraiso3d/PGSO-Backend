@@ -221,6 +221,92 @@ public function getCategory(Request $request)
 
 
 
+public function getCategoryArchive(Request $request)
+{
+    try {
+        // Validate the request
+        $validated = $request->validate([
+            'per_page' => 'nullable|integer|min:1',
+            'search' => 'nullable|string',
+        ]);
+
+        // Build the query to fetch category data and load personnel relationship
+        $query = Category::with(['personnel:id,first_name,last_name'])
+            ->select('id', 'category_name', 'description', 'created_at', 'updated_at')
+            ->where('is_archived', '1'); // Only include active (non-archived) categories
+
+        // Add search functionality
+        if (!empty($validated['search'])) {
+            $query->where('category_name', 'like', '%' . $validated['search'] . '%');
+        }
+
+        // Paginate results
+        $perPage = $validated['per_page'] ?? 10;
+        $categories = $query->paginate($perPage);
+
+        // Check if any categories were found
+        if ($categories->isEmpty()) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'No categories found matching the criteria.',
+            ], 404);
+        }
+
+        // Format the response
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Categories retrieved successfully.',
+            'categories' => $categories->map(function ($category) {
+                return [
+                    'id' => $category->id,
+                    'category_name' => $category->category_name,
+                    'description' => $category->description,
+                    'created_at' => $category->created_at ? $category->created_at->format('Y-m-d H:i:s') : null,
+                    'updated_at' => $category->updated_at ? $category->updated_at->format('Y-m-d H:i:s') : null,
+                    'personnel' => $category->personnel->map(function ($personnel) {
+                        return [
+                            'id' => $personnel->id,
+                            'name' => $personnel->first_name . ' ' . $personnel->last_name,
+                            'is_team_lead' => $personnel->pivot->is_team_lead, // Access the pivot data
+                        ];
+                    }),
+                ];
+            }),
+            'pagination' => [
+                'total' => $categories->total(),
+                'per_page' => $categories->perPage(),
+                'current_page' => $categories->currentPage(),
+                'last_page' => $categories->lastPage(),
+            ],
+        ];
+
+        // Log the API call
+        $this->logAPICalls('getCategoryArchive', "", $request->all(), $response);
+
+        return response()->json($response, 200);
+    } catch (ValidationException $v) {
+        // Handle validation errors
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Validation failed.',
+            'errors' => $v->errors(),
+        ];
+        $this->logAPICalls('getCategoryArchive', "", $request->all(), $response);
+        return response()->json($response, 422);
+    } catch (Throwable $e) {
+        // Handle other exceptions
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve categories.',
+            'error' => $e->getMessage(),
+        ];
+        $this->logAPICalls('getCategoryArchive', "", $request->all(), $response);
+        return response()->json($response, 500);
+    }
+}
+
+
+
 
 
     /**
@@ -408,6 +494,52 @@ public function getCategory(Request $request)
             // Log Audit Trail for failure
             AuditLogger::log('Error Deleting Category', 'N/A', 'N/A');
 
+            return response()->json($response, 500);
+        }
+    }
+
+
+    public function restoreCategory($id)
+    {
+        try {
+            // Get authenticated user
+            $user = auth()->user();
+
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+
+            // Find the category
+            $category = Category::findOrFail($id);
+
+            // Store old data for audit log
+            $oldData = json_encode($category->toArray());
+
+            // Mark category as archived
+            $category->update(['is_archived' => "0"]);
+
+            // Prepare success response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'Category successfully restore.'
+            ];
+
+            // Log API call
+            $this->logAPICalls('restoreCategory', $user->email, [], $response);
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Prepare error response
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to restore the Category.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log API call
+            $this->logAPICalls('restoreCategory', $user->email ?? 'unknown', [], $response);
             return response()->json($response, 500);
         }
     }
