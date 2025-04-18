@@ -396,9 +396,9 @@ class RequestController extends Controller
     
             if ($result->isEmpty()) {
                 return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'No requests found matching the criteria.'
-                ], 404);
+                    'isSuccess' => true,
+                    'message' => 'No requests found.'
+                ], 200);
             }
     
             // Format response
