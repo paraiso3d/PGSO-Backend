@@ -126,10 +126,7 @@ class UserController extends Controller
             ], 500);
         }
     }
-    
-    
-
-    
+     
     
     
      /**
@@ -150,8 +147,8 @@ public function getUserAccounts(Request $request)
 
         $searchTerm = $request->input('search', null);
         $perPage = $request->input('per_page', 10);
-        $divisionId = $request->input('division_id');
         $departmentId = $request->input('department_id');
+        $divisionId = $request->input('division_id');
 
         $query = User::with(['departments:id,department_name', 'divisions:id,division_name'])
             ->select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'age', 'gender', 'number', 'status')
@@ -162,18 +159,18 @@ public function getUserAccounts(Request $request)
             ->whereHas('divisions', function ($query) {
                 $query->where('is_archived', '0');
             })
-            ->when($divisionId, function ($q) use ($divisionId) {
-                $q->where('division_id', $divisionId);
-            })
-            ->when($departmentId, function ($q) use ($departmentId) {
-                $q->where('department_id', $departmentId);
-            })
             ->when($searchTerm, function ($query, $searchTerm) {
                 return $query->where(function ($activeQuery) use ($searchTerm) {
                     $activeQuery->where('first_name', 'like', '%' . $searchTerm . '%')
                         ->orWhere('email', 'like', '%' . $searchTerm . '%')
                         ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
                 });
+            })
+            ->when($departmentId, function ($query, $departmentId) {
+                return $query->where('department_id', $departmentId);
+            })
+            ->when($divisionId, function ($query, $divisionId) {
+                return $query->where('division_id', $divisionId);
             });
 
         $result = $query->paginate($perPage);
@@ -185,7 +182,6 @@ public function getUserAccounts(Request $request)
             ];
 
             $this->logAPICalls('getUserAccounts', $userEmail, $request->all(), $response);
-
             return response()->json($response, 404);
         }
 
@@ -222,8 +218,8 @@ public function getUserAccounts(Request $request)
         ];
 
         $this->logAPICalls('getUserAccounts', $userEmail, $request->all(), $response);
-
         return response()->json($response, 200);
+
     } catch (Throwable $e) {
         $response = [
             'isSuccess' => false,
@@ -232,10 +228,10 @@ public function getUserAccounts(Request $request)
         ];
 
         $this->logAPICalls('getUserAccounts', auth()->user()->email ?? "Unknown", $request->all(), $response);
-
         return response()->json($response, 500);
     }
 }
+
     
     
     
