@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use Illuminate\Support\Facades\Storage;
 use App\Helpers\AuditLogger;
 use App\Models\Department;
@@ -26,37 +27,37 @@ class UserController extends Controller
     {
         try {
             $validator = User::validateUserAccount($request->all());
-    
+
             if ($validator->fails()) {
                 $response = [
                     'isSuccess' => false,
                     'message' => 'Validation failed.',
                     'errors' => $validator->errors()
                 ];
-    
+
                 AuditLogger::log('Failed User Creation - Validation Error');
                 return response()->json($response, 422);
             }
-    
+
             $division = Division::findOrFail($request->division_id);
             $department = $request->department_id ? Department::findOrFail($request->department_id) : null;
-    
+
             $profilePath = null;
             if ($request->hasFile('avatar')) {
                 $directoryPath = public_path('img/profile');
                 if (!file_exists($directoryPath)) {
                     mkdir($directoryPath, 0755, true);
                 }
-    
+
                 $file = $request->file('avatar');
                 $fileName = 'Profile-' . uniqid() . '.' . $file->getClientOriginalExtension();
                 $file->move($directoryPath, $fileName);
                 $profilePath = 'img/profile/' . $fileName;
             }
-    
+
             // Set default password
             $defaultPassword = '@Password1';
-    
+
             $userAccount = User::create([
                 'first_name' => $request->first_name,
                 'middle_initial' => $request->middle_initial ?? null,
@@ -68,11 +69,9 @@ class UserController extends Controller
                 'designation' => $request->designation,
                 'password' => Hash::make($defaultPassword),
                 'role_name' => $request->role_name,
-                'division_id' => $division->id,
-                'department_id' => $department ? $department->id : null,
                 'avatar' => $profilePath,
             ]);
-    
+
             // Send email with default password
             $emailBody = "Dear {$userAccount->first_name} {$userAccount->last_name},\n\n"
                 . "Your account has been created.\n\n"
@@ -80,14 +79,14 @@ class UserController extends Controller
                 . "Default Password: {$defaultPassword}\n\n"
                 . "Please log in and change your password as soon as possible.\n\n"
                 . "Thank you.";
-    
+
             Mail::raw($emailBody, function ($message) use ($userAccount) {
                 $message->to($userAccount->email)
-                        ->subject('Your New Account Credentials');
+                    ->subject('Your New Account Credentials');
             });
-    
+
             AuditLogger::log('Created New User Account', 'N/A', 'Active');
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'User account successfully created.',
@@ -107,9 +106,8 @@ class UserController extends Controller
                     'avatar' => $profilePath ? asset($profilePath) : null,
                 ],
             ];
-    
+
             return response()->json($response, 201);
-    
         } catch (ValidationException $v) {
             AuditLogger::log('Failed User Creation - Validation Exception');
             return response()->json([
@@ -126,117 +124,84 @@ class UserController extends Controller
             ], 500);
         }
     }
-     
-    
-    
-     /**
+
+
+
+    /**
      * Create a get user account.
      */
-public function getUserAccounts(Request $request)
-{
-    try {
-        // Ensure the user is authenticated
-        if (!auth()->check()) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => 'Unauthorized access.',
-            ], 401);
-        }
+    public function getUserAccounts(Request $request)
+    {
+        try {
+            // Ensure the user is authenticated
+            if (!auth()->check()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized access.',
+                ], 401);
+            }
 
-        $userEmail = auth()->user()->email;
+            $userEmail = auth()->user()->email;
 
-        $searchTerm = $request->input('search', null);
-        $perPage = $request->input('per_page', 10);
-        $departmentId = $request->input('department_id');
-        $divisionId = $request->input('division_id');
+            $searchTerm = $request->input('search', null);
+            $perPage = $request->input('per_page', 10);
 
-        $query = User::with(['departments:id,department_name', 'divisions:id,division_name'])
-            ->select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'age', 'gender', 'number', 'status')
-            ->where('is_archived', '0')
-            ->whereHas('departments', function ($query) {
-                $query->where('is_archived', '0');
-            })
-            ->whereHas('divisions', function ($query) {
-                $query->where('is_archived', '0');
-            })
-            ->when($searchTerm, function ($query, $searchTerm) {
-                return $query->where(function ($activeQuery) use ($searchTerm) {
-                    $activeQuery->where('first_name', 'like', '%' . $searchTerm . '%')
-                        ->orWhere('email', 'like', '%' . $searchTerm . '%')
-                        ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
-                });
-            })
-            ->when($departmentId, function ($query, $departmentId) {
-                return $query->where('department_id', $departmentId);
-            })
-            ->when($divisionId, function ($query, $divisionId) {
-                return $query->where('division_id', $divisionId);
+            $query = User::select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'role_name', 'age', 'gender', 'number', 'status')
+                ->where('is_archived', '0');
+
+            $result = $query->paginate($perPage);
+
+            if ($result->isEmpty()) {
+                $response = [
+                    'isSuccess' => false,
+                    'message' => 'No  Users found',
+                ];
+
+                $this->logAPICalls('getUserAccounts', $userEmail, $request->all(), $response);
+                return response()->json($response, 404);
+            }
+
+            $formattedUsers = $result->getCollection()->transform(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'role_name' => $user->role_name,
+                    'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
+                    'is_archived' => $user->is_archived,
+                    'age' => $user->age,
+                    'gender' => $user->gender,
+                    'number' => $user->number,
+                    'status' => $user->status
+                ];
             });
 
-        $result = $query->paginate($perPage);
-
-        if ($result->isEmpty()) {
             $response = [
-                'isSuccess' => false,
-                'message' => 'No active Users found matching the criteria',
+                'isSuccess' => true,
+                'message' => 'User accounts retrieved successfully.',
+                'user' => $formattedUsers,
+                'pagination' => [
+                    'total' => $result->total(),
+                    'per_page' => $result->perPage(),
+                    'current_page' => $result->currentPage(),
+                    'last_page' => $result->lastPage(),
+                ],
             ];
 
             $this->logAPICalls('getUserAccounts', $userEmail, $request->all(), $response);
-            return response()->json($response, 404);
-        }
-
-        $formattedUsers = $result->getCollection()->transform(function ($user) {
-            return [
-                'id' => $user->id,
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-                'email' => $user->email,
-                'role_name' => $user->role_name,
-                'department_id' => $user->department_id,
-                'department_name' => optional($user->departments)->department_name,
-                'division_id' => $user->division_id,
-                'division_name' => optional($user->divisions)->division_name,
-                'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
-                'is_archived' => $user->is_archived,
-                'age' => $user->age,
-                'gender' => $user->gender,
-                'number' => $user->number,
-                'status' => $user->status
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve user accounts.',
+                'error' => $e->getMessage(),
             ];
-        });
 
-        $response = [
-            'isSuccess' => true,
-            'message' => 'User accounts retrieved successfully.',
-            'user' => $formattedUsers,
-            'pagination' => [
-                'total' => $result->total(),
-                'per_page' => $result->perPage(),
-                'current_page' => $result->currentPage(),
-                'last_page' => $result->lastPage(),
-            ],
-        ];
-
-        $this->logAPICalls('getUserAccounts', $userEmail, $request->all(), $response);
-        return response()->json($response, 200);
-
-    } catch (Throwable $e) {
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to retrieve user accounts.',
-            'error' => $e->getMessage(),
-        ];
-
-        $this->logAPICalls('getUserAccounts', auth()->user()->email ?? "Unknown", $request->all(), $response);
-        return response()->json($response, 500);
+            $this->logAPICalls('getUserAccounts', auth()->user()->email ?? "Unknown", $request->all(), $response);
+            return response()->json($response, 500);
+        }
     }
-}
-
-    
-    
-    
-            // Format the user data
-
 
 
     public function getUserAccountsArchive(Request $request)
@@ -249,44 +214,27 @@ public function getUserAccounts(Request $request)
                     'message' => 'Unauthorized access.',
                 ], 401);
             }
-    
-            $userEmail = auth()->user()->email; // Get the authenticated user's email
-    
+
+            $userEmail = auth()->user()->email;
+
             $searchTerm = $request->input('search', null);
             $perPage = $request->input('per_page', 10);
-    
-            // Query the users table with necessary filters
-            $query = User::with(['departments:id,department_name', 'divisions:id,division_name'])
-                ->select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'department_id', 'role_name', 'division_id', 'age', 'gender', 'number', 'status')
-                ->where('is_archived', '1')
-                ->whereHas('departments', function ($query) {
-                    $query->where('is_archived', '0'); // Ensure the department is not archived
-                })
-                ->whereHas('divisions', function ($query) {
-                    $query->where('is_archived', '0'); // Ensure the division is not archived
-                })
-                ->when($searchTerm, function ($query, $searchTerm) {
-                    return $query->where(function ($activeQuery) use ($searchTerm) {
-                        $activeQuery->where('first_name', 'like', '%' . $searchTerm . '%')
-                            ->orWhere('email', 'like', '%' . $searchTerm . '%')
-                            ->orWhere('last_name', 'like', '%' . $searchTerm . '%');
-                    });
-                });
-    
+
+            $query = User::select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'role_name', 'age', 'gender', 'number', 'status')
+                ->where('is_archived', '1');
+
             $result = $query->paginate($perPage);
-    
+
             if ($result->isEmpty()) {
                 $response = [
                     'isSuccess' => false,
-                    'message' => 'No Users Archived found',
+                    'message' => 'No Users found',
                 ];
-    
+
                 $this->logAPICalls('getUserAccountsArchive', $userEmail, $request->all(), $response);
-    
                 return response()->json($response, 404);
             }
-    
-            // Format the user data
+
             $formattedUsers = $result->getCollection()->transform(function ($user) {
                 return [
                     'id' => $user->id,
@@ -294,22 +242,18 @@ public function getUserAccounts(Request $request)
                     'last_name' => $user->last_name,
                     'email' => $user->email,
                     'role_name' => $user->role_name,
-                    'department_id' => $user->department_id,
-                    'department_name' => optional($user->departments)->department_name,
-                    'division_id' => $user->division_id,
-                    'division_name' => optional($user->divisions)->division_name,
                     'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
                     'is_archived' => $user->is_archived,
-                    'age' => $user->age, // Added age
-                    'gender' => $user->gender, // Added gender
-                    'number' => $user->number, // Added number
+                    'age' => $user->age,
+                    'gender' => $user->gender,
+                    'number' => $user->number,
                     'status' => $user->status
                 ];
             });
-    
+
             $response = [
                 'isSuccess' => true,
-                'message' => 'User accounts archived retrieved successfully.',
+                'message' => 'User accounts archive retrieved successfully.',
                 'user' => $formattedUsers,
                 'pagination' => [
                     'total' => $result->total(),
@@ -318,26 +262,24 @@ public function getUserAccounts(Request $request)
                     'last_page' => $result->lastPage(),
                 ],
             ];
-    
+
             $this->logAPICalls('getUserAccountsArchive', $userEmail, $request->all(), $response);
-    
             return response()->json($response, 200);
-    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => 'Failed to retrieve user accounts.',
                 'error' => $e->getMessage(),
             ];
-    
+
             $this->logAPICalls('getUserAccountsArchive', auth()->user()->email ?? "Unknown", $request->all(), $response);
-    
             return response()->json($response, 500);
         }
     }
-    
-    
-    
+
+
+
+
     /**
      * Update an existing user account.
      */
@@ -442,11 +384,12 @@ public function getUserAccounts(Request $request)
         }
     }
 
+  
     public function changeProfile(Request $request)
     {
         try {
             $user = auth()->user();
-    
+
             // Validation
             $validator = Validator::make($request->all(), [
                 'first_name' => ['sometimes', 'string', 'max:255'],
@@ -467,7 +410,7 @@ public function getUserAccounts(Request $request)
             ], [
                 'password.regex' => 'Password must include at least one uppercase letter, one number, and one special character.',
             ]);
-    
+
             if ($validator->fails()) {
                 AuditLogger::log('Failed Profile Update - Validation Error', $user->email, 'N/A');
                 return response()->json([
@@ -476,7 +419,7 @@ public function getUserAccounts(Request $request)
                     'errors' => $validator->errors()
                 ], 422);
             }
-    
+
             // Verify current password
             if (!Hash::check($request->current_password, $user->password)) {
                 AuditLogger::log('Failed Profile Update - Incorrect Password', $user->email, 'Incorrect current password.');
@@ -485,42 +428,42 @@ public function getUserAccounts(Request $request)
                     'message' => 'Current password is incorrect.'
                 ], 403);
             }
-    
+
             $oldData = $user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'avatar']);
-    
+
             // Update fields
             $user->fill($request->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender']));
-    
+
             if ($request->filled('password')) {
                 $user->password = Hash::make($request->password);
             }
-    
+
             // Avatar upload
             if ($request->hasFile('avatar')) {
                 $file = $request->file('avatar');
                 $fileName = 'Profile-' . $user->id . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
                 $relativePath = 'img/profile/' . $fileName;
                 $absolutePath = public_path($relativePath);
-    
+
                 // Ensure directory exists
                 if (!file_exists(dirname($absolutePath))) {
                     mkdir(dirname($absolutePath), 0755, true);
                 }
-    
+
                 // Move file
                 $file->move(dirname($absolutePath), basename($absolutePath));
-    
+
                 // Delete old avatar if exists (in img/profile, not storage)
                 if ($user->avatar && file_exists(public_path($user->avatar))) {
                     unlink(public_path($user->avatar));
                 }
-    
+
                 // Save path (no 'storage/')
                 $user->avatar = $relativePath;
             }
-    
+
             $user->save();
-    
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'Profile updated successfully.',
@@ -535,11 +478,10 @@ public function getUserAccounts(Request $request)
                     'avatar' => $user->avatar ? asset($user->avatar) : null
                 ]
             ];
-    
+
             AuditLogger::log('Updated Profile', json_encode($oldData), json_encode($user->only(['first_name', 'last_name', 'email', 'number', 'age', 'gender', 'avatar'])));
-    
+
             return response()->json($response, 200);
-    
         } catch (Throwable $e) {
             AuditLogger::log('Error Updating Profile', $user->email ?? 'Unknown', $e->getMessage());
             return response()->json([
@@ -549,150 +491,150 @@ public function getUserAccounts(Request $request)
             ], 500);
         }
     }
-    
-    
 
-public function toggleUserStatus($id)
-{
-    try {
-        // Find the user account
-        $userAccount = User::findOrFail($id);
 
-        // Store the old status for audit logging
-        $oldData = $userAccount->only(['status']);
 
-        // Determine new status
-        $newStatus = $userAccount->status === 'Active' ? 'Inactive' : 'Active';
+    public function toggleUserStatus($id)
+    {
+        try {
+            // Find the user account
+            $userAccount = User::findOrFail($id);
 
-        // Update the user's status
-        $userAccount->update(['status' => $newStatus]);
+            // Store the old status for audit logging
+            $oldData = $userAccount->only(['status']);
 
-        // Prepare a response message
-        $action = $newStatus === 'Inactive' ? 'deactivated' : 'activated';
-        $response = [
-            'isSuccess' => true,
-            'message' => "User account has been successfully {$action}.",
-        ];
+            // Determine new status
+            $newStatus = $userAccount->status === 'Active' ? 'Inactive' : 'Active';
 
-        // Log audit
-        AuditLogger::log(
-            ucfirst($action) . ' User',
-            json_encode($oldData),
-            "Status changed to {$newStatus}"
-        );
+            // Update the user's status
+            $userAccount->update(['status' => $newStatus]);
 
-        // Log API call
-        $this->logAPICalls('toggleUserStatus', $userAccount->email, [], $response);
+            // Prepare a response message
+            $action = $newStatus === 'Inactive' ? 'deactivated' : 'activated';
+            $response = [
+                'isSuccess' => true,
+                'message' => "User account has been successfully {$action}.",
+            ];
 
-        return response()->json($response, 200);
-    } catch (Throwable $e) {
-        // Handle errors
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to change user status.',
-            'error' => $e->getMessage()
-        ];
+            // Log audit
+            AuditLogger::log(
+                ucfirst($action) . ' User',
+                json_encode($oldData),
+                "Status changed to {$newStatus}"
+            );
 
-        // Log error
-        AuditLogger::log(
-            'Error Changing User Status',
-            json_encode(['id' => $id]),
-            $e->getMessage()
-        );
+            // Log API call
+            $this->logAPICalls('toggleUserStatus', $userAccount->email, [], $response);
 
-        return response()->json($response, 500);
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle errors
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to change user status.',
+                'error' => $e->getMessage()
+            ];
+
+            // Log error
+            AuditLogger::log(
+                'Error Changing User Status',
+                json_encode(['id' => $id]),
+                $e->getMessage()
+            );
+
+            return response()->json($response, 500);
+        }
     }
-}
 
-    
 
-public function deleteUserAccount($id)
-{
-    try {
-        // Find user account
-        $userAccount = User::findOrFail($id);
 
-        // Store old data for audit logging
-        $oldData = $userAccount->only(['is_archived']);
+    public function deleteUserAccount($id)
+    {
+        try {
+            // Find user account
+            $userAccount = User::findOrFail($id);
 
-        // Archive the user account
-        $userAccount->update(['is_archived' => '1']);
+            // Store old data for audit logging
+            $oldData = $userAccount->only(['is_archived']);
 
-        // Prepare response
-        $response = [
-            'isSuccess' => true,
-            'message' => 'User account successfully deleted.',
-        ];
+            // Archive the user account
+            $userAccount->update(['is_archived' => '1']);
 
-        // Log audit - Store changes
-        AuditLogger::log(
-            'Delete User Account',
-            json_encode($oldData),
-            'Deleted'
-        );
+            // Prepare response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'User account successfully deleted.',
+            ];
 
-        // Log API call using email instead of ID
-        $this->logAPICalls('deleteUserAccount', $userAccount->email, [], $response);
+            // Log audit - Store changes
+            AuditLogger::log(
+                'Delete User Account',
+                json_encode($oldData),
+                'Deleted'
+            );
 
-        return response()->json($response, 200);
-    } catch (Throwable $e) {
-        // Handle errors
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to delete the user account.',
-            'error' => $e->getMessage()
-        ];
+            // Log API call using email instead of ID
+            $this->logAPICalls('deleteUserAccount', $userAccount->email, [], $response);
 
-        // Log error audit
-        AuditLogger::log('Error Deleting User Account', json_encode(['id' => $id]), $e->getMessage());
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle errors
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to delete the user account.',
+                'error' => $e->getMessage()
+            ];
 
-        return response()->json($response, 500);
+            // Log error audit
+            AuditLogger::log('Error Deleting User Account', json_encode(['id' => $id]), $e->getMessage());
+
+            return response()->json($response, 500);
+        }
     }
-}
 
 
-public function restoreUserAccount($id)
-{
-    try {
-        // Find user account
-        $userAccount = User::findOrFail($id);
+    public function restoreUserAccount($id)
+    {
+        try {
+            // Find user account
+            $userAccount = User::findOrFail($id);
 
-        // Store old data for audit logging
-        $oldData = $userAccount->only(['is_archived']);
+            // Store old data for audit logging
+            $oldData = $userAccount->only(['is_archived']);
 
-        // Archive the user account
-        $userAccount->update(['is_archived' => '0']);
+            // Archive the user account
+            $userAccount->update(['is_archived' => '0']);
 
-        // Prepare response
-        $response = [
-            'isSuccess' => true,
-            'message' => 'User account successfully unarchive.',
-        ];
+            // Prepare response
+            $response = [
+                'isSuccess' => true,
+                'message' => 'User account successfully unarchive.',
+            ];
 
-        // Log audit - Store changes
-        AuditLogger::log(
-            'User Account Successfully Unarchive',
-            json_encode($oldData),
-            'Deleted'
-        );
+            // Log audit - Store changes
+            AuditLogger::log(
+                'User Account Successfully Unarchive',
+                json_encode($oldData),
+                'Deleted'
+            );
 
-        // Log API call using email instead of ID
-        $this->logAPICalls('restoreUserAccount', $userAccount->email, [], $response);
+            // Log API call using email instead of ID
+            $this->logAPICalls('restoreUserAccount', $userAccount->email, [], $response);
 
-        return response()->json($response, 200);
-    } catch (Throwable $e) {
-        // Handle errors
-        $response = [
-            'isSuccess' => false,
-            'message' => 'Failed to delete the user account.',
-            'error' => $e->getMessage()
-        ];
-        return response()->json($response, 500);
+            return response()->json($response, 200);
+        } catch (Throwable $e) {
+            // Handle errors
+            $response = [
+                'isSuccess' => false,
+                'message' => 'Failed to delete the user account.',
+                'error' => $e->getMessage()
+            ];
+            return response()->json($response, 500);
+        }
     }
-}
 
 
-    
+
 
     public function getDropdownOptionsUsertype(Request $request)
     {
@@ -764,7 +706,7 @@ public function restoreUserAccount($id)
         }
     }
 
-    
+
 
 
     /**

@@ -178,10 +178,20 @@ class DepartmentController extends Controller
     
                 // Fetch related division names only if $divisionIds is not empty and divisions are not archived
                 $divisions = !empty($divisionIds)
-                    ? Division::whereIn('id', $divisionIds)
-                        ->where('is_archived', 0)  // Ensure only non-archived divisions are included
-                        ->get(['id', 'division_name'])
-                    : collect();
+                ? Division::whereIn('id', $divisionIds)
+                    ->where('is_archived', 0)
+                    ->get(['id', 'division_name', 'staff_id']) // staff_id as JSON array
+                : collect();
+            
+            // Collect all user IDs from JSON arrays
+            $staffIds = $divisions->flatMap(function ($div) {
+                $ids = json_decode($div->staff_id, true);
+                return is_array($ids) ? $ids : [];
+            })->filter()->unique();
+            
+            $staff = User::whereIn('id', $staffIds)
+                ->where('is_archived', 0)
+                ->get(['id', 'first_name', 'last_name', 'email']);
     
                 // Format the response for each department
                 return [
@@ -189,6 +199,7 @@ class DepartmentController extends Controller
                     'department_name' => $department->department_name,
                     'acronym' => $department->acronym,
                     'divisions' => $divisions,
+                    'staff' => $staff,
                     'created_at' => $department->created_at,
                     'updated_at' => $department->updated_at
                 ];
@@ -223,16 +234,26 @@ class DepartmentController extends Controller
     {
         try {
             // Retrieve all departments that are not archived
-            $departments = Department::where('is_archived', 1)->get()->map(function ($department) {
+            $departments = Department::where('is_archived', 0)->get()->map(function ($department) {
                 // Decode division_id JSON, default to an empty array if null or invalid
                 $divisionIds = json_decode($department->division_id, true) ?? [];
     
                 // Fetch related division names only if $divisionIds is not empty and divisions are not archived
                 $divisions = !empty($divisionIds)
-                    ? Division::whereIn('id', $divisionIds)
-                        ->where('is_archived', 0)  // Ensure only non-archived divisions are included
-                        ->get(['id', 'division_name'])
-                    : collect();
+                ? Division::whereIn('id', $divisionIds)
+                    ->where('is_archived', 0)
+                    ->get(['id', 'division_name', 'staff_id']) // staff_id as JSON array
+                : collect();
+            
+            // Collect all user IDs from JSON arrays
+            $staffIds = $divisions->flatMap(function ($div) {
+                $ids = json_decode($div->staff_id, true);
+                return is_array($ids) ? $ids : [];
+            })->filter()->unique();
+            
+            $staff = User::whereIn('id', $staffIds)
+                ->where('is_archived', 0)
+                ->get(['id', 'first_name', 'last_name', 'email']);
     
                 // Format the response for each department
                 return [
@@ -240,6 +261,7 @@ class DepartmentController extends Controller
                     'department_name' => $department->department_name,
                     'acronym' => $department->acronym,
                     'divisions' => $divisions,
+                    'staff' => $staff,
                     'created_at' => $department->created_at,
                     'updated_at' => $department->updated_at
                 ];
@@ -258,7 +280,7 @@ class DepartmentController extends Controller
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to retrieve departments.",
+                'message' => "Failed to retrieve archive",
                 'error' => $e->getMessage()
             ];
     
@@ -268,6 +290,7 @@ class DepartmentController extends Controller
             return response()->json($response, 500);
         }
     }
+
 
 
 
