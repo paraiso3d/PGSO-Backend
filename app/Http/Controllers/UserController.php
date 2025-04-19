@@ -226,78 +226,100 @@ class UserController extends Controller
 
 
 
-    public function getUserAccountsArchive(Request $request)
-    {
-        try {
-            // Ensure the user is authenticated
-            if (!auth()->check()) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'Unauthorized access.',
-                ], 401);
-            }
+public function getUserAccountsArchive(Request $request)
+{
+    try {
+        // Ensure the user is authenticated
+        if (!auth()->check()) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Unauthorized access.',
+            ], 401);
+        }
 
-            $userEmail = auth()->user()->email;
+        $userEmail = auth()->user()->email;
 
-            $searchTerm = $request->input('search', null);
-            $perPage = $request->input('per_page', 10);
+        $searchTerm = $request->input('search', null);
+        $perPage = $request->input('per_page', 10);
 
-            $query = User::select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'role_name', 'age', 'gender', 'number', 'status')
-                ->where('is_archived', '1');
+        // Get filters from request body
+        $status = $request->input('status');
+        $roleName = $request->input('role_name');
 
-            $result = $query->paginate($perPage);
+        $query = User::select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'role_name', 'age', 'gender', 'number', 'status')
+            ->where('is_archived', '1');
 
-            if ($result->isEmpty()) {
-                $response = [
-                    'isSuccess' => false,
-                    'message' => 'No Users found',
-                ];
+        // Apply filters if provided
+        if (!empty($status)) {
+            $query->where('status', $status);
+        }
 
-                $this->logAPICalls('getUserAccountsArchive', $userEmail, $request->all(), $response);
-                return response()->json($response, 404);
-            }
+        if (!empty($roleName)) {
+            $query->where('role_name', $roleName);
+        }
 
-            $formattedUsers = $result->getCollection()->transform(function ($user) {
-                return [
-                    'id' => $user->id,
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'email' => $user->email,
-                    'role_name' => $user->role_name,
-                    'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
-                    'is_archived' => $user->is_archived,
-                    'age' => $user->age,
-                    'gender' => $user->gender,
-                    'number' => $user->number,
-                    'status' => $user->status
-                ];
+        if (!empty($searchTerm)) {
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('first_name', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('last_name', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('email', 'like', '%' . $searchTerm . '%');
             });
+        }
 
+        $result = $query->paginate($perPage);
+
+        if ($result->isEmpty()) {
             $response = [
-                'isSuccess' => true,
-                'message' => 'User accounts archive retrieved successfully.',
-                'user' => $formattedUsers,
-                'pagination' => [
-                    'total' => $result->total(),
-                    'per_page' => $result->perPage(),
-                    'current_page' => $result->currentPage(),
-                    'last_page' => $result->lastPage(),
-                ],
+                'isSuccess' => false,
+                'message' => 'No Users found',
             ];
 
             $this->logAPICalls('getUserAccountsArchive', $userEmail, $request->all(), $response);
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve user accounts.',
-                'error' => $e->getMessage(),
-            ];
-
-            $this->logAPICalls('getUserAccountsArchive', auth()->user()->email ?? "Unknown", $request->all(), $response);
-            return response()->json($response, 500);
+            return response()->json($response, 404);
         }
+
+        $formattedUsers = $result->getCollection()->transform(function ($user) {
+            return [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'role_name' => $user->role_name,
+                'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
+                'is_archived' => $user->is_archived,
+                'age' => $user->age,
+                'gender' => $user->gender,
+                'number' => $user->number,
+                'status' => $user->status
+            ];
+        });
+
+        $response = [
+            'isSuccess' => true,
+            'message' => 'User accounts archive retrieved successfully.',
+            'user' => $formattedUsers,
+            'pagination' => [
+                'total' => $result->total(),
+                'per_page' => $result->perPage(),
+                'current_page' => $result->currentPage(),
+                'last_page' => $result->lastPage(),
+            ],
+        ];
+
+        $this->logAPICalls('getUserAccountsArchive', $userEmail, $request->all(), $response);
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve user accounts.',
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('getUserAccountsArchive', auth()->user()->email ?? "Unknown", $request->all(), $response);
+        return response()->json($response, 500);
     }
+}
+
 
 
 
