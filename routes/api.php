@@ -61,8 +61,8 @@ Route::controller(AuthController::class)->group(function () {
 Route::prefix('admin')->middleware('auth:sanctum')->controller(UserController::class)->group(function () {
     Route::post('user/create', 'createUserAccount');
     Route::post('user/update/{id}', 'updateUserAccount');
-    Route::get('users', 'getUserAccounts'); 
-    Route::get('users/archive', 'getUserAccountsArchive');
+    Route::post('users', 'getUserAccounts'); 
+    Route::post('users/archive', 'getUserAccountsArchive');
     Route::post('user/restore/{id}', 'restoreUserAccount');
     Route::post('user/delete/{id}', 'deleteUserAccount');
     Route::post('users/{id}/toggle-status', 'toggleUserStatus');
