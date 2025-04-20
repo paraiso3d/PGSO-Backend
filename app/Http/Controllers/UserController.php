@@ -143,8 +143,6 @@ class UserController extends Controller
 
         $searchTerm = $request->input('search');
         $perPage = $request->input('per_page', 10);
-
-
         $status = $request->input('status');
         $roleName = $request->input('role_name');
         $gender = $request->input('gender');
@@ -159,6 +157,7 @@ class UserController extends Controller
         if (!empty($roleName)) {
             $query->where('role_name', $roleName);
         }
+
         if (!empty($gender)) {
             $query->where('gender', $gender); 
         }
@@ -172,16 +171,6 @@ class UserController extends Controller
         }
 
         $result = $query->paginate($perPage);
-
-        if ($result->isEmpty()) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'No users found.',
-            ];
-
-            $this->logAPICalls('getUserAccounts', $userEmail, $request->all(), $response);
-            return response()->json($response, 404);
-        }
 
         $formattedUsers = $result->getCollection()->transform(function ($user) {
             return [
@@ -225,6 +214,7 @@ class UserController extends Controller
         return response()->json($response, 500);
     }
 }
+    
 
 
 
