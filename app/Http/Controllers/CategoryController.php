@@ -144,14 +144,23 @@ public function getCategory(Request $request)
             'search' => 'nullable|string',
         ]);
 
+        $search = $validated['search'] ?? null;
+
         // Build the query to fetch category data and load personnel relationship
         $query = Category::with(['personnel:id,first_name,last_name'])
             ->select('id', 'category_name', 'description', 'created_at', 'updated_at')
-            ->where('is_archived', '0'); // Only include active (non-archived) categories
+            ->where('is_archived', '0');
 
-        // Add search functionality
-        if (!empty($validated['search'])) {
-            $query->where('category_name', 'like', '%' . $validated['search'] . '%');
+        // Add enhanced search functionality
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('category_name', 'like', '%' . $search . '%')
+                  ->orWhere('description', 'like', '%' . $search . '%')
+                  ->orWhereHas('personnel', function ($personnelQuery) use ($search) {
+                      $personnelQuery->where('first_name', 'like', '%' . $search . '%')
+                                     ->orWhere('last_name', 'like', '%' . $search . '%');
+                  });
+            });
         }
 
         // Paginate results
@@ -181,7 +190,7 @@ public function getCategory(Request $request)
                         return [
                             'id' => $personnel->id,
                             'name' => $personnel->first_name . ' ' . $personnel->last_name,
-                            'is_team_lead' => $personnel->pivot->is_team_lead, // Access the pivot data
+                            'is_team_lead' => $personnel->pivot->is_team_lead,
                         ];
                     }),
                 ];
@@ -194,12 +203,10 @@ public function getCategory(Request $request)
             ],
         ];
 
-        // Log the API call
         $this->logAPICalls('getCategory', "", $request->all(), $response);
-
         return response()->json($response, 200);
+
     } catch (ValidationException $v) {
-        // Handle validation errors
         $response = [
             'isSuccess' => false,
             'message' => 'Validation failed.',
@@ -207,8 +214,8 @@ public function getCategory(Request $request)
         ];
         $this->logAPICalls('getCategory', "", $request->all(), $response);
         return response()->json($response, 422);
+
     } catch (Throwable $e) {
-        // Handle other exceptions
         $response = [
             'isSuccess' => false,
             'message' => 'Failed to retrieve categories.',
@@ -221,6 +228,7 @@ public function getCategory(Request $request)
 
 
 
+
 public function getCategoryArchive(Request $request)
 {
     try {
@@ -230,14 +238,23 @@ public function getCategoryArchive(Request $request)
             'search' => 'nullable|string',
         ]);
 
+        $search = $validated['search'] ?? null;
+
         // Build the query to fetch category data and load personnel relationship
         $query = Category::with(['personnel:id,first_name,last_name'])
             ->select('id', 'category_name', 'description', 'created_at', 'updated_at')
-            ->where('is_archived', '1'); // Only include active (non-archived) categories
+            ->where('is_archived', '1');
 
-        // Add search functionality
-        if (!empty($validated['search'])) {
-            $query->where('category_name', 'like', '%' . $validated['search'] . '%');
+        // Add enhanced search functionality
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('category_name', 'like', '%' . $search . '%')
+                  ->orWhere('description', 'like', '%' . $search . '%')
+                  ->orWhereHas('personnel', function ($personnelQuery) use ($search) {
+                      $personnelQuery->where('first_name', 'like', '%' . $search . '%')
+                                     ->orWhere('last_name', 'like', '%' . $search . '%');
+                  });
+            });
         }
 
         // Paginate results
@@ -267,7 +284,7 @@ public function getCategoryArchive(Request $request)
                         return [
                             'id' => $personnel->id,
                             'name' => $personnel->first_name . ' ' . $personnel->last_name,
-                            'is_team_lead' => $personnel->pivot->is_team_lead, // Access the pivot data
+                            'is_team_lead' => $personnel->pivot->is_team_lead,
                         ];
                     }),
                 ];
@@ -280,12 +297,10 @@ public function getCategoryArchive(Request $request)
             ],
         ];
 
-        // Log the API call
         $this->logAPICalls('getCategoryArchive', "", $request->all(), $response);
-
         return response()->json($response, 200);
+
     } catch (ValidationException $v) {
-        // Handle validation errors
         $response = [
             'isSuccess' => false,
             'message' => 'Validation failed.',
@@ -293,8 +308,8 @@ public function getCategoryArchive(Request $request)
         ];
         $this->logAPICalls('getCategoryArchive', "", $request->all(), $response);
         return response()->json($response, 422);
+
     } catch (Throwable $e) {
-        // Handle other exceptions
         $response = [
             'isSuccess' => false,
             'message' => 'Failed to retrieve categories.',

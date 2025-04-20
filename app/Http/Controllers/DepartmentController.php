@@ -36,13 +36,27 @@ class DepartmentController extends Controller
             'department_name' => ['required', 'string', 'unique:departments,department_name'],
             'acronym' => ['required', 'string'],
             'division_id' => ['required', 'array'],
-            'division_id.*' => ['integer']
+            'division_id.*' => ['integer'],
+            'head_id' => ['required', 'integer', 'exists:users,id'],
         ]);
+
+        // Check if the head_id belongs to a user with role_name "head"
+        $headUser = User::where('id', $request->head_id)
+                        ->where('role_name', 'head')
+                        ->first();
+
+        if (!$headUser) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'The selected head_id is invalid or not assigned the role "head".',
+            ], 422);
+        }
 
         $collegeOffice = Department::create([
             'department_name' => $request->department_name,
             'acronym' => $request->acronym,
             'division_id' => json_encode($request->division_id),
+            'head_id' => $request->head_id, // insert head_id here
         ]);
 
         $divisions = Division::whereIn('id', $request->division_id)->get(['id', 'division_name']);
@@ -53,7 +67,8 @@ class DepartmentController extends Controller
             'isSuccess' => true,
             'message' => "Department successfully created.",
             'department' => $collegeOffice,
-            'divisions' => $divisions
+            'divisions' => $divisions,
+            'head' => $headUser,
         ], 200);
 
     } catch (ValidationException $v) {
@@ -71,135 +86,191 @@ class DepartmentController extends Controller
     }
 }
 
-    
-    
+
     
     /**
      * Update an existing college office.
      */
-    public function updateOffice(Request $request, $id)
-    {
-        try {
-            // Get authenticated user
-            $user = auth()->user();
-    
-            if (!$user) {
+
+public function updateOffice(Request $request, $id)
+{
+    try {
+        // Get authenticated user
+        $user = auth()->user();
+
+        if (!$user) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Unauthorized. Please log in.',
+            ], 401);
+        }
+
+        // Find the office
+        $collegeOffice = Department::findOrFail($id);
+
+        // Validate the request data
+        $request->validate([
+            'department_name' => [
+                'sometimes', 'string', 
+                Rule::unique('departments', 'department_name')->ignore($id)
+            ],
+            'acronym' => ['sometimes', 'string'],
+            'division_id' => ['sometimes', 'array'],
+            'division_id.*' => ['integer'],
+            'head_id' => ['sometimes', 'integer', 'exists:users,id'],
+        ]);
+
+        // Check if head_id is provided and validate the role
+        if ($request->filled('head_id')) {
+            $headUser = User::where('id', $request->head_id)
+                            ->where('role_name', 'head')
+                            ->first();
+
+            if (!$headUser) {
                 return response()->json([
                     'isSuccess' => false,
-                    'message' => 'Unauthorized. Please log in.',
-                ], 401);
+                    'message' => 'The selected head is invalid or not assigned the role "head".',
+                ], 422);
             }
-    
-            // Find the office
-            $collegeOffice = Department::findOrFail($id);
-    
-            // Validate the request data
-            $request->validate([
-                'department_name' => [
-                    'sometimes', 'string', 
-                    Rule::unique('departments', 'department_name')->ignore($id) // Ensure uniqueness except for the current record
-                ],
-                'acronym' => ['sometimes', 'string'],
-                'division_id' => ['sometimes', 'array'], // Expect an array of division IDs
-                'division_id.*' => ['integer'], // Each element should be an integer
-            ]);
-    
-            // Store the old data before update
-            $oldData = $collegeOffice->toArray();
-    
-            // Update the office
-            $collegeOffice->update(array_filter([
-                'department_name' => $request->department_name,
-                'acronym' => $request->acronym,
-                'division_id' => $request->has('division_id') ? json_encode($request->division_id) : $collegeOffice->division_id,
-            ]));
-    
-            // Fetch updated divisions
-            $divisions = $request->has('division_id')
-                ? Division::whereIn('id', $request->division_id)->get(['id', 'division_name'])
-                : Division::whereIn('id', json_decode($collegeOffice->division_id, true))->get(['id', 'division_name']);
-    
-            // Prepare the response
-            $response = [
-                'isSuccess' => true,
-                'message' => "Office successfully updated.",
-                'department' => $collegeOffice,
-                'divisions' => $divisions,
-            ];
-    
-            // Log API call and audit event
-            $this->logAPICalls('updateOffice', $user->email, $request->all(), [$response]);
-    
-            AuditLogger::log(
-                'Updated Office', 
-                json_encode($oldData), // Log the old data before the update
-                json_encode($collegeOffice->toArray()), // Log the new data after the update
-                'Active'
-            );
-    
-            return response()->json($response, 200);
-        } catch (ValidationException $v) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Invalid input data.",
-                'error' => $v->errors(),
-            ];
-    
-            $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
-            AuditLogger::log('Failed Office Update - Validation Error', 'N/A', 'N/A');
-    
-            return response()->json($response, 422);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Failed to update the Office.",
-                'error' => $e->getMessage(),
-            ];
-    
-            $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
-            AuditLogger::log('Error Updating Office', 'N/A', 'N/A');
-    
-            return response()->json($response, 500);
         }
+
+        // Store the old data before update
+        $oldData = $collegeOffice->toArray();
+
+        // Prepare update data
+        $updateData = array_filter([
+            'department_name' => $request->department_name,
+            'acronym' => $request->acronym,
+            'division_id' => $request->has('division_id') ? json_encode($request->division_id) : null,
+            'head_id' => $request->head_id,
+        ], fn ($value) => !is_null($value));
+
+        // Update the office
+        $collegeOffice->update($updateData);
+
+        // Fetch updated divisions
+        $divisions = $request->has('division_id')
+            ? Division::whereIn('id', $request->division_id)->get(['id', 'division_name'])
+            : Division::whereIn('id', json_decode($collegeOffice->division_id, true))->get(['id', 'division_name']);
+
+        // Prepare the response
+        $response = [
+            'isSuccess' => true,
+            'message' => "Office successfully updated.",
+            'department' => $collegeOffice,
+            'divisions' => $divisions,
+        ];
+
+        // Log API call and audit event
+        $this->logAPICalls('updateOffice', $user->email, $request->all(), [$response]);
+
+        AuditLogger::log(
+            'Updated Office', 
+            json_encode($oldData),
+            json_encode($collegeOffice->toArray()),
+            'Active'
+        );
+
+        return response()->json($response, 200);
+    } catch (ValidationException $v) {
+        $response = [
+            'isSuccess' => false,
+            'message' => "Invalid input data.",
+            'error' => $v->errors(),
+        ];
+
+        $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
+        AuditLogger::log('Failed Office Update - Validation Error', 'N/A', 'N/A');
+
+        return response()->json($response, 422);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to update the Office.",
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
+        AuditLogger::log('Error Updating Office', 'N/A', 'N/A');
+
+        return response()->json($response, 500);
     }
+}
+
     
 
      
     /**
      * Get all college offices.
      */
-    public function getOffices()
+    public function getOffices(Request $request)
     {
         try {
-            // Retrieve all departments that are not archived
-            $departments = Department::where('is_archived', 0)->get()->map(function ($department) {
-                // Decode division_id JSON, default to an empty array if null or invalid
+            $perPage = $request->input('per_page', 10);
+            $page = $request->input('page', 1);
+            $search = $request->input('search');
+            $divisionId = $request->input('division_id');
+    
+            // Start query with join for head info
+            $query = Department::where('departments.is_archived', 0)
+                ->leftJoin('users as heads', 'departments.head_id', '=', 'heads.id')
+                ->select('departments.*', 'heads.first_name as head_first_name', 'heads.last_name as head_last_name');
+    
+            // Apply search filters
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('departments.department_name', 'like', "%$search%")
+                        ->orWhere('departments.acronym', 'like', "%$search%")
+                        ->orWhere('heads.first_name', 'like', "%$search%")
+                        ->orWhere('heads.last_name', 'like', "%$search%");
+                });
+            }
+    
+            // Apply division filter
+            if ($divisionId) {
+                $query->where(function ($q) use ($divisionId) {
+                    $q->whereJsonContains('departments.division_id', (int)$divisionId);
+                });
+            }
+    
+            // Paginate results
+            $paginatedDepartments = $query->paginate($perPage, ['*'], 'page', $page);
+    
+            // Transform result
+            $departments = collect($paginatedDepartments->items())->map(function ($department) {
                 $divisionIds = json_decode($department->division_id, true) ?? [];
     
-                // Fetch related division names only if $divisionIds is not empty and divisions are not archived
                 $divisions = !empty($divisionIds)
-                ? Division::whereIn('id', $divisionIds)
-                    ->where('is_archived', 0)
-                    ->get(['id', 'division_name', 'staff_id']) // staff_id as JSON array
-                : collect();
-            
-            // Collect all user IDs from JSON arrays
-            $staffIds = $divisions->flatMap(function ($div) {
-                $ids = json_decode($div->staff_id, true);
-                return is_array($ids) ? $ids : [];
-            })->filter()->unique();
-            
-            $staff = User::whereIn('id', $staffIds)
-                ->where('is_archived', 0)
-                ->get(['id', 'first_name', 'last_name', 'email']);
+                    ? Division::whereIn('id', $divisionIds)
+                        ->where('is_archived', 0)
+                        ->get(['id', 'division_name', 'staff_id'])
+                    : collect();
     
-                // Format the response for each department
+                $staffIds = $divisions->flatMap(function ($div) {
+                    $ids = json_decode($div->staff_id, true);
+                    return is_array($ids) ? $ids : [];
+                })->filter()->unique();
+    
+                $staff = User::whereIn('id', $staffIds)
+                    ->where('is_archived', 0)
+                    ->get(['id', 'first_name', 'last_name', 'email']);
+    
+                $head = null;
+                if ($department->head_id) {
+                    $head = [
+                        'id' => $department->head_id,
+                        'first_name' => $department->head_first_name,
+                        'last_name' => $department->head_last_name,
+                    ];
+                }
+    
                 return [
                     'id' => $department->id,
                     'department_name' => $department->department_name,
                     'acronym' => $department->acronym,
                     'divisions' => $divisions,
                     'staff' => $staff,
+                    'head' => $head,
                     'created_at' => $department->created_at,
                     'updated_at' => $department->updated_at
                 ];
@@ -208,11 +279,16 @@ class DepartmentController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Departments retrieved successfully.",
-                'departments' => $departments
+                'departments' => $departments,
+                'pagination' => [
+                    'current_page' => $paginatedDepartments->currentPage(),
+                    'last_page' => $paginatedDepartments->lastPage(),
+                    'per_page' => $paginatedDepartments->perPage(),
+                    'total' => $paginatedDepartments->total()
+                ]
             ];
     
-            // Log the API call
-            $this->logAPICalls('getOffices', "", [], [$response]);
+            $this->logAPICalls('getOffices', "", $request->all(), [$response]);
     
             return response()->json($response, 200);
         } catch (Throwable $e) {
@@ -222,74 +298,127 @@ class DepartmentController extends Controller
                 'error' => $e->getMessage()
             ];
     
-            // Log the API call with the error
-            $this->logAPICalls('getOffices', "", [], [$response]);
+            $this->logAPICalls('getOffices', "", $request->all(), [$response]);
     
             return response()->json($response, 500);
         }
     }
+    
+    
 
 
-    public function getOfficesArchive()
+    public function getOfficesArchive(Request $request)
     {
         try {
-            // Retrieve all departments that are not archived
-            $departments = Department::where('is_archived', 0)->get()->map(function ($department) {
-                // Decode division_id JSON, default to an empty array if null or invalid
+            $user = auth()->user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
+            $perPage = $request->input('per_page', 10);
+            $page = $request->input('page', 1);
+            $search = $request->input('search');
+            $filterDivisionId = $request->input('division_id'); // For division filtering
+    
+            // Base query with join to users table for head search
+            $query = Department::where('departments.is_archived', 1)
+                ->leftJoin('users as heads', 'departments.head_id', '=', 'heads.id')
+                ->select('departments.*', 'heads.first_name as head_first_name', 'heads.last_name as head_last_name');
+    
+            // Apply search if present
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('departments.department_name', 'like', "%$search%")
+                        ->orWhere('departments.acronym', 'like', "%$search%")
+                        ->orWhere('heads.first_name', 'like', "%$search%")
+                        ->orWhere('heads.last_name', 'like', "%$search%");
+                });
+            }
+    
+            // Filter by division_id if provided
+            if ($filterDivisionId) {
+                $query->whereRaw("JSON_CONTAINS(departments.division_id, '\"$filterDivisionId\"')");
+            }
+    
+            // Paginate the filtered + searched departments
+            $paginatedDepartments = $query->paginate($perPage, ['*'], 'page', $page);
+    
+            // Map the results
+            $departments = $paginatedDepartments->getCollection()->map(function ($department) {
                 $divisionIds = json_decode($department->division_id, true) ?? [];
     
-                // Fetch related division names only if $divisionIds is not empty and divisions are not archived
                 $divisions = !empty($divisionIds)
-                ? Division::whereIn('id', $divisionIds)
-                    ->where('is_archived', 0)
-                    ->get(['id', 'division_name', 'staff_id']) // staff_id as JSON array
-                : collect();
-            
-            // Collect all user IDs from JSON arrays
-            $staffIds = $divisions->flatMap(function ($div) {
-                $ids = json_decode($div->staff_id, true);
-                return is_array($ids) ? $ids : [];
-            })->filter()->unique();
-            
-            $staff = User::whereIn('id', $staffIds)
-                ->where('is_archived', 0)
-                ->get(['id', 'first_name', 'last_name', 'email']);
+                    ? Division::whereIn('id', $divisionIds)
+                        ->where('is_archived', 0)
+                        ->get(['id', 'division_name', 'staff_id'])
+                    : collect();
     
-                // Format the response for each department
+                $staffIds = $divisions->flatMap(function ($div) {
+                    $ids = json_decode($div->staff_id, true);
+                    return is_array($ids) ? $ids : [];
+                })->filter()->unique();
+    
+                $staff = User::whereIn('id', $staffIds)
+                    ->where('is_archived', 0)
+                    ->get(['id', 'first_name', 'last_name', 'email']);
+    
+                $head = null;
+                if ($department->head_id) {
+                    $head = [
+                        'id' => $department->head_id,
+                        'first_name' => $department->head_first_name,
+                        'last_name' => $department->head_last_name,
+                    ];
+                }
+    
                 return [
                     'id' => $department->id,
                     'department_name' => $department->department_name,
                     'acronym' => $department->acronym,
                     'divisions' => $divisions,
                     'staff' => $staff,
+                    'head' => $head,
                     'created_at' => $department->created_at,
                     'updated_at' => $department->updated_at
                 ];
             });
     
+            $paginatedDepartments->setCollection($departments);
+    
             $response = [
                 'isSuccess' => true,
-                'message' => "Departments Archive retrieved successfully.",
-                'departments' => $departments
+                'message' => "Departments archive retrieved successfully.",
+                'departments' => [
+                    'data' => $departments,
+                    'current_page' => $paginatedDepartments->currentPage(),
+                    'last_page' => $paginatedDepartments->lastPage(),
+                    'total' => $paginatedDepartments->total(),
+                    'per_page' => $paginatedDepartments->perPage(),
+                ],
             ];
     
-            // Log the API call
-            $this->logAPICalls('getOfficesArchive', "", [], [$response]);
+            $this->logAPICalls('getOfficesArchive', $user->email, $request->all(), [$response]);
     
             return response()->json($response, 200);
+    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
-                'message' => "Failed to retrieve archive",
+                'message' => "Failed to retrieve departments.",
                 'error' => $e->getMessage()
             ];
     
-            // Log the API call with the error
-            $this->logAPICalls('getOfficesArchive', "", [], [$response]);
+            $this->logAPICalls('getOfficesArchive', $user->email ?? 'unknown', $request->all(), [$response]);
     
             return response()->json($response, 500);
         }
     }
+    
+    
 
 
 

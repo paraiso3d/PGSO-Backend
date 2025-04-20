@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+use function PHPSTORM_META\map;
+
 class Division extends Model
 {
     use HasFactory;
@@ -17,8 +19,8 @@ class Division extends Model
         'division_name',
         'office_location',
         'staff_id',
+        'personnel_id',
         'is_archived',
-        'category_id',
     ];
 
     public function category()

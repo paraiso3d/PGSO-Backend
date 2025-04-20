@@ -147,6 +147,7 @@ class UserController extends Controller
 
         $status = $request->input('status');
         $roleName = $request->input('role_name');
+        $gender = $request->input('gender');
 
         $query = User::select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'role_name', 'age', 'gender', 'number', 'status')
             ->where('is_archived', 0);
@@ -157,6 +158,9 @@ class UserController extends Controller
 
         if (!empty($roleName)) {
             $query->where('role_name', $roleName);
+        }
+        if (!empty($gender)) {
+            $query->where('gender', $gender); 
         }
 
         if (!empty($searchTerm)) {
@@ -243,6 +247,8 @@ public function getUserAccountsArchive(Request $request)
         // Get filters from request body
         $status = $request->input('status');
         $roleName = $request->input('role_name');
+        $gender = $request->input('gender');
+
 
         $query = User::select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'role_name', 'age', 'gender', 'number', 'status')
             ->where('is_archived', '1');
@@ -255,6 +261,10 @@ public function getUserAccountsArchive(Request $request)
         if (!empty($roleName)) {
             $query->where('role_name', $roleName);
         }
+        if (!empty($gender)) {
+            $query->where('gender', $gender); 
+        }
+
 
         if (!empty($searchTerm)) {
             $query->where(function ($q) use ($searchTerm) {

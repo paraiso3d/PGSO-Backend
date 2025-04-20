@@ -10,13 +10,17 @@ class Department extends Model
     use HasFactory;
     protected $fillable = [
         'department_name',
-       'acronym',
-       'division_id',
+        'acronym',
+        'division_id',
+        'head_id',
         'is_archived'
     ];
     public function divisions()
-{
-    return $this->belongsToMany(Division::class, 'department_division');
-}
-
+    {
+        return $this->belongsToMany(Division::class, 'department_division');
+    }
+    public function head()
+    {
+        return $this->belongsTo(User::class, 'head_id');
+    }
 }

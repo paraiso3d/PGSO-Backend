@@ -77,8 +77,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::controller(DivisionController::class)->group(function () {
         Route::post('division/create', 'createDivision');
         Route::post('division/update/{id}', 'updateDivision');
-        Route::get('divisions', 'getDivisions');
-        Route::get('divisions/archive', 'getDivisionsArchive');
+        Route::post('divisions', 'getDivisions');
+        Route::post('divisions/archive', 'getDivisionsArchive');
         Route::post('division/restore/{id}', 'restoreDivision');
         Route::post('division/delete/{id}', 'deleteDivision');
     });
@@ -92,8 +92,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::controller(CategoryController::class)->group(function () {
         Route::post('category/create', 'createCategory');
         Route::post('category/update/{id}', 'updateCategory');
-        Route::get('categories', 'getCategory');
-        Route::get('categories/archive', 'getCategoryArchive');
+        Route::post('categories', 'getCategory');
+        Route::post('categories/archive', 'getCategoryArchive');
         Route::post('delete/category/{id}', 'deleteCategory');
         Route::post('restore/category/{id}', 'restoreCategory');
         
@@ -129,8 +129,8 @@ Route::prefix('admin')->controller(ManpowerController::class)->group(function ()
 Route::prefix('admin')->middleware('auth:sanctum')->controller(DepartmentController::class)->group(function () {
     Route::post('department/create', 'createOffice');
     Route::post('department/update/{id}', 'updateOffice');
-    Route::get('department', 'getOffices');
-    Route::get('department/archive', 'getOfficesArchive');
+    Route::post('department', 'getOffices');
+    Route::post('department/archive', 'getOfficesArchive');
     Route::post('department/delete/{id}', 'deleteOffice');
     Route::post('department/restore/{id}', 'restoreOffice');
 
