@@ -379,22 +379,23 @@ class RequestController extends Controller
                 case 'staff':
                     $query->where('requests.requested_by', $userId);
                     break;
-                case 'personnel':
-                    // If user is personnel, but also a team lead, let them access requests in their categories
-                    $isTeamLead = $request->user()->categories()->wherePivot('is_team_lead', true)->exists();
-    
-                    if ($isTeamLead) {
-                        $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
-                        $categoryIds = $categories->pluck('id');
-    
-                        // Fetch "To Assign" requests in the categories where the user is a team lead
-                        $query->whereIn('requests.category_id', $categoryIds)
-                              ->where('requests.status', 'To Assign');
-                    } else {
-                        // Default personnel behavior: only fetch requests related to the user
-                        $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)]);
-                    }
-                    break;
+                    case 'personnel':
+                        // If user is personnel, but also a team lead, let them access requests in their categories
+                        $isTeamLead = $request->user()->categories()->wherePivot('is_team_lead', true)->exists();
+                    
+                        if ($isTeamLead) {
+                            $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
+                            $categoryIds = $categories->pluck('id');
+                    
+                            // Fetch "To Assign" and "For Completion" requests in the categories where the user is a team lead
+                            $query->whereIn('requests.category_id', $categoryIds)
+                                  ->whereIn('requests.status', ['To Assign', 'For Completion', 'Completed']); // Use whereIn for multiple statuses
+                        } else {
+                            // Default personnel behavior: only fetch requests related to the user
+                            $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)]);
+                        }
+                        break;
+                    
                 case 'team_lead':
                     // Handle case if user is a team lead
                     $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
