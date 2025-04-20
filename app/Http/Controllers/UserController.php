@@ -109,14 +109,12 @@ class UserController extends Controller
 
             return response()->json($response, 201);
         } catch (ValidationException $v) {
-            AuditLogger::log('Failed User Creation - Validation Exception');
             return response()->json([
                 'isSuccess' => false,
                 'message' => 'Validation failed.',
                 'errors' => $v->errors(),
             ], 422);
         } catch (Throwable $e) {
-            AuditLogger::log('Error Creating User Account', null, $e->getMessage());
             return response()->json([
                 'isSuccess' => false,
                 'message' => 'An error occurred while creating the user account.',

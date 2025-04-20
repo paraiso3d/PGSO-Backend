@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+
+use Illuminate\Support\Facades\Mail;
 use App\Helpers\AuditLogger;
 use App\Models\Category;
 use App\Models\Department;
@@ -99,6 +101,16 @@ class RequestController extends Controller
             // 🔹 Audit Logging: Before = "N/A", After = "Pending"
             AuditLogger::log('createRequest', 'N/A', 'Pending');
 
+             // 🔹 Send email here
+             Mail::raw("Hello $firstName $lastName,\n\nYour request titled '{$newRequest->request_title}' has been successfully submitted with control number: $controlNo.\n\nThank you!", function ($message) use ($user, $filePath) {
+                $message->to($user->email)
+                        ->subject('Request Submitted')
+                        ->attach(public_path($filePath), [
+                            'as' => 'Request-' . basename($filePath),  // Optional: specify a custom filename for the attachment
+                            'mime' => 'application/octet-stream',    // Optional: specify MIME type
+                        ]);
+            });
+
             $response = [
                 'isSuccess' => true,
                 'message' => 'Request successfully created.',
@@ -195,6 +207,11 @@ class RequestController extends Controller
                 ],
             ];
 
+            Mail::raw("Hello {$user->first_name} {$user->last_name},\n\nYour request titled '{$requestRecord->request_title}' has been successfully accepted and is now in 'For Process' status.\n\nThank you!", function ($message) use ($user) {
+                $message->to($user->email)
+                        ->subject('Your Request Has Been Accepted');
+            });
+
             $this->logAPICalls('acceptRequest', $id, [], $response);
 
             return response()->json($response, 200);
@@ -273,6 +290,12 @@ class RequestController extends Controller
                 ],
             ];
 
+            Mail::raw("Hello {$user->first_name} {$user->last_name},\n\nYour request titled '{$requestRecord->request_title}' has been reject please review it first and send a new request.\n\nThank you!", function ($message) use ($user) {
+                $message->to($user->email)
+                        ->subject('Your Request Has Been Rejected');
+            });
+
+
             $this->logAPICalls('rejectRequest', $id, $request->all(), $response);
 
             return response()->json($response, 200);
@@ -317,13 +340,8 @@ class RequestController extends Controller
                 'users.id as requested_by_id',
                 'users.first_name',
                 'users.last_name',
-                'divisions.division_name',
-                'divisions.office_location',
-                'departments.department_name'
             )
             ->leftJoin('users', 'users.id', '=', 'requests.requested_by')
-            ->leftJoin('divisions', 'divisions.id', '=', 'users.division_id')
-            ->leftJoin('departments', 'departments.id', '=', 'users.department_id')
             ->where('requests.is_archived', '=', '0')
             ->when($searchTerm, function ($query, $searchTerm) {
                 return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
@@ -377,15 +395,15 @@ class RequestController extends Controller
                         $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)]);
                     }
                     break;
-                    case 'team_lead':
-                        // Handle case if user is a team lead
-                        $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
-                        if ($categories->isNotEmpty()) {
-                            $categoryIds = $categories->pluck('id');
-                            $query->whereIn('requests.category_id', $categoryIds)
-                                  ->where('requests.status', 'To Assign');
-                        }
-                        break;
+                case 'team_lead':
+                    // Handle case if user is a team lead
+                    $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
+                    if ($categories->isNotEmpty()) {
+                        $categoryIds = $categories->pluck('id');
+                        $query->whereIn('requests.category_id', $categoryIds)
+                              ->where('requests.status', 'To Assign');
+                    }
+                    break;
                 default:
                     $query->whereRaw('1 = 0');
                     break;
@@ -451,9 +469,6 @@ class RequestController extends Controller
                         'id' => $request->requested_by_id,
                         'first_name' => $request->first_name,
                         'last_name' => $request->last_name,
-                        'division' => $request->division_name,
-                        'office_location' => $request->office_location,
-                        'department' => $request->department_name,
                     ],
                     'date_requested' => $request->date_requested,
                     'date_completed' => $request->date_completed,
@@ -479,6 +494,7 @@ class RequestController extends Controller
             ], 500);
         }
     }
+    
     
 
 
@@ -575,20 +591,20 @@ class RequestController extends Controller
         try {
             $user = auth()->user();
             $requests = Requests::findOrFail($id);
-        
+    
             // Capture before state
             $before = [
                 'status' => $requests->status ?? 'N/A',
                 'category_id' => $requests->category_id ?? 'N/A',
                 'team_lead_id' => $requests->team_lead_id ?? null,
             ];
-        
+    
             // Validate input (only one team lead)
             $validatedData = $request->validate([
                 'category_id' => 'required|exists:categories,id',
                 'team_lead_id' => 'required|exists:users,id',
             ]);
-        
+    
             // Verify if the provided team lead is marked as is_team_lead in the category_personnel pivot
             $validTeamLead = DB::table('category_personnel')
                 ->join('users', 'category_personnel.personnel_id', '=', 'users.id')
@@ -596,32 +612,52 @@ class RequestController extends Controller
                 ->where('category_personnel.is_team_lead', 1)
                 ->where('users.id', $validatedData['team_lead_id'])
                 ->exists();
-        
+    
             if (!$validTeamLead) {
                 throw new Exception("The selected team lead is either invalid or not marked as a team lead in the selected category.");
             }
-        
+    
             // Update request with the single team lead
             $requests->update([
                 'status' => 'For Assign',
                 'category_id' => $validatedData['category_id'],
                 'team_lead_id' => $validatedData['team_lead_id'],
             ]);
-        
+    
             // Capture after state
             $after = [
                 'status' => $requests->status,
                 'category_id' => $requests->category_id,
                 'team_lead_id' => $validatedData['team_lead_id'],
             ];
-        
+    
             AuditLogger::log('assignTeamLead', 'Assigning Team Lead', 'To Assign');
-        
+    
             $fullName = trim("{$user->first_name} {$user->middle_initial} {$user->last_name}");
-        
+    
             // Fetch the team lead's details
             $teamLead = User::find($validatedData['team_lead_id']);
-        
+    
+            // Fetch the request sender's details
+            $sender = User::find($requests->requested_by);
+            $category = Category::find($validatedData['category_id']);
+    
+            // Send raw email to the request sender
+            if ($sender && $sender->email) {
+                Mail::raw(
+                    "Hi {$sender->first_name},\n\n" .
+                    "Your request titled \"{$requests->description}\" with Control No. {$requests->control_no} has been assigned a team lead.\n\n" .
+                    "Category: {$category->category_name}\n" .
+                    "Assigned Team Lead: {$teamLead->first_name} {$teamLead->last_name}\n" .
+                    "Status: {$requests->status}\n\n" .
+                    "Thank you!",
+                    function ($message) use ($sender) {
+                        $message->to($sender->email)
+                                ->subject('Team Lead Assigned to Your Request');
+                    }
+                );
+            }
+    
             $response = [
                 'isSuccess' => true,
                 'message' => 'Team lead assigned successfully. Status updated to "To Assign".',
@@ -629,7 +665,10 @@ class RequestController extends Controller
                 'status' => $requests->status,
                 'user_id' => $user->id,
                 'user' => $fullName,
-                'category' => ['id' => $validatedData['category_id']],
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->category_name,
+                ],
                 'team_lead' => [
                     'id' => $teamLead->id,
                     'first_name' => $teamLead->first_name,
@@ -637,17 +676,17 @@ class RequestController extends Controller
                     'status' => $teamLead->status,
                 ],
             ];
-        
+    
             $this->logAPICalls('assignTeamLead', $requests->id, $request->all(), $response);
             return response()->json($response, 200);
-        
+    
         } catch (Throwable $e) {
             $response = [
                 'isSuccess' => false,
                 'message' => "Failed to assign team lead to the request.",
                 'error' => $e->getMessage(),
             ];
-        
+    
             $this->logAPICalls('assignTeamLead', $id ?? '', $request->all(), $response);
             return response()->json($response, 500);
         }
@@ -756,6 +795,34 @@ class RequestController extends Controller
                     'last_name' => $teamLeadData->last_name,
                 ] : null,
             ];
+
+            $sender = User::find($requests->requested_by);
+
+                 // Get category name (if needed for better email context)
+                 $category = Category::find($requests->category_id);
+
+                // Prepare assigned personnel names
+                $assignedPersonnel = User::whereIn('id', $validatedData['personnel_ids'])->get();
+                $personnelList = $assignedPersonnel->map(function ($p) {
+                    return "{$p->first_name} {$p->last_name}";
+                })->implode(', ');
+
+                // Send email to requester
+                if ($sender && $sender->email) {
+                    Mail::raw(
+                        "Hi {$sender->first_name},\n\n" .
+                        "Your request titled \"{$requests->description}\" with Control No. {$requests->control_no} has been assessed.\n\n" .
+                        "Category: {$category->category_name}\n" .
+                        "Assigned Team Lead: " . ($teamLeadData ? "{$teamLeadData->first_name} {$teamLeadData->last_name}" : 'N/A') . "\n" .
+                        "Assigned Personnel: {$personnelList}\n" .
+                        "Status: {$requests->status}\n\n" .
+                        "Thank you!",
+                        function ($message) use ($sender) {
+                            $message->to($sender->email)
+                                    ->subject('Personnel Assigned to Your Request');
+                        }
+                    );
+                }
     
             $this->logAPICalls('assessRequest', $requests->id, $request->all(), $response);
             return response()->json($response, 200);
@@ -825,6 +892,50 @@ class RequestController extends Controller
                 User::whereIn('id', $personnelIds)->update(['status' => 'Active']);
             }
 
+           // Fetch the original requester
+            $sender = User::find($requestRecord->requested_by);
+
+            // Get the category for more context (optional)
+            $category = Category::find($requestRecord->category_id);
+
+            // Get assigned personnel names
+            $assignedPersonnel = User::whereIn('id', $personnelIds)->get();
+            $personnelList = $assignedPersonnel->map(function ($p) {
+                return "{$p->first_name} {$p->last_name}";
+            })->implode(', ');
+
+            // Get team lead
+            $teamLead = $requestRecord->team_lead_id ? User::find($requestRecord->team_lead_id) : null;
+
+            // Send email to requester
+            if ($sender && $sender->email) {
+                // Define the path to the image file
+                $imagePath = public_path($fileCompletionPath);
+
+                Mail::raw(
+                    "Hi {$sender->first_name},\n\n" .
+                    "Your request with Control No. {$requestRecord->control_no} has been marked as completed and is now awaiting your feedback.\n\n" .
+                    "Category: " . ($category ? $category->category_name : 'N/A') . "\n" .
+                    "Team Lead: " . ($teamLead ? "{$teamLead->first_name} {$teamLead->last_name}" : 'N/A') . "\n" .
+                    "Assigned Personnel: {$personnelList}\n\n" .
+                    "Please find the completion image attached below.\n\n" .
+                    "Thank you!",
+                    function ($message) use ($sender, $imagePath) {
+                        $message->to($sender->email)
+                                ->subject('Your Request Has Been Completed');
+                        
+                        // Attach the image file directly
+                        if (file_exists($imagePath)) {
+                            $message->attach($imagePath, [
+                                'as' => 'completion-file.jpg', // Customize the filename if needed
+                                'mime' => 'image/jpeg', // MIME type for the image
+                            ]);
+                        }
+                    }
+                );
+            }
+
+
 
             AuditLogger::log('submitCompletion', 'For Completion', 'For Feedback');
 
@@ -846,7 +957,11 @@ class RequestController extends Controller
                     ],
                     'personnel_updated' => $personnelIds,
                 ],
+                
             ], 200);
+
+
+            
         } catch (Throwable $e) {
             return response()->json([
                 'isSuccess' => false,

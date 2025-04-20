@@ -422,14 +422,5 @@ class DepartmentController extends Controller
         return true;
     }
 
-    /**
-     * Test method to verify API functionality.
-     */
-    public function test()
-    {
-        return response()->json([
-            'isSuccess' => true,
-            'message' => 'Test successful'
-        ], 200);
-    }
+
 }
