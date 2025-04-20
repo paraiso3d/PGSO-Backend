@@ -18,7 +18,7 @@ class DashboardController extends Controller
         $data = Category::withCount('requests')->get(); // Now the 'requests' method will work
     
         return response()->json([
-            'success' => true,
+            'isSuccess' => true,
             'categories' => $data
         ]);
     }
@@ -34,7 +34,7 @@ class DashboardController extends Controller
                      ->pluck('total', 'status');
 
         return response()->json([
-            'success' => true,
+            'isSuccess' => true,
             'requests_by_status' => $data
         ]);
     }
@@ -49,7 +49,7 @@ class DashboardController extends Controller
                      ->pluck('total', 'month');
 
         return response()->json([
-            'success' => true,
+            'isSuccess' => true,
             'monthly_requests' => $data
         ]);
     }
@@ -62,7 +62,7 @@ class DashboardController extends Controller
         $data = Category::withCount('personnel')->get();
     
         return response()->json([
-            'success' => true,
+            'isSuccess' => true,
             'manpower_by_category' => $data
         ]);
     }
@@ -74,7 +74,7 @@ class DashboardController extends Controller
     public function getDashboardSummary()
     {
         return response()->json([
-            'success' => true,
+            'isSuccess' => true,
             'total_requests_by_category' => Category::withCount('requests')->get(),
             'total_requests_by_status' => ServiceRequest::selectRaw("status, COUNT(*) as total")
                                                     ->groupBy('status')
