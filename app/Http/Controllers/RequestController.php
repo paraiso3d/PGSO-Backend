@@ -387,7 +387,7 @@ class RequestController extends Controller
                     $categoryIds = $categories->pluck('id');
 
                     $query->whereIn('requests.category_id', $categoryIds)
-                        ->whereIn('requests.status', ['To Assign', 'For Completion', 'Completed']);
+                        ->whereIn('requests.status', ['For Assign', 'For Completion', 'Completed']);
                 } else {
                     $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)]);
                 }
