@@ -46,11 +46,13 @@ class Category extends Model
         return $validator;
     }
    // In Category Model
-public function personnel()
-{
-    return $this->belongsToMany(User::class, 'category_personnel', 'category_id', 'personnel_id')
-                ->withPivot('is_team_lead');  // Ensure you're including 'is_team_lead'
-}
+   public function personnel()
+   {
+       return $this->belongsToMany(User::class, 'category_personnel', 'category_id', 'personnel_id')
+                   ->withPivot('is_team_lead')
+                   ->withTimestamps();
+   }
+   
 
     
     public function requests()

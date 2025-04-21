@@ -443,40 +443,49 @@ public function getCategoryArchive(Request $request)
         try {
             // Get authenticated user
             $user = auth()->user();
-
+    
             if (!$user) {
                 return response()->json([
                     'isSuccess' => false,
                     'message' => 'Unauthorized. Please log in.',
                 ], 401);
             }
-
+    
             // Find the category
             $category = Category::findOrFail($id);
-
+    
             // Store old data for audit log
             $oldData = json_encode($category->toArray());
-
+    
             // Mark category as archived
             $category->update(['is_archived' => "1"]);
-
+    
+            // Update pivot table: set is_team_lead and personnel_id to null
+            DB::table('category_personnel')
+                ->where('category_id', $category->id)
+                ->update([
+                    'is_team_lead' => null,
+                    'personnel_id' => null,
+                ]);
+    
             // Prepare success response
             $response = [
                 'isSuccess' => true,
-                'message' => 'Category successfully deleted.'
+                'message' => 'Category successfully deleted.',
             ];
-
+    
             // Log API call
             $this->logAPICalls('deleteCategory', $user->email, [], $response);
-
+    
             // Log Audit Trail
             AuditLogger::log(
                 'Deleted Category',
                 $oldData, // Old category data before deletion
                 'Deleted'
             );
-
+    
             return response()->json($response, 200);
+    
         } catch (Throwable $e) {
             // Prepare error response
             $response = [
@@ -484,12 +493,13 @@ public function getCategoryArchive(Request $request)
                 'message' => 'Failed to delete the Category.',
                 'error' => $e->getMessage()
             ];
-
+    
             // Log API call
             $this->logAPICalls('deleteCategory', $user->email ?? 'unknown', [], $response);
             return response()->json($response, 500);
         }
     }
+    
 
 
     public function restoreCategory($id)
