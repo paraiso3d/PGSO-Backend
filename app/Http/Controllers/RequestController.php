@@ -617,6 +617,15 @@ class RequestController extends Controller
             if (!$validTeamLead) {
                 throw new Exception("The selected team lead is either invalid or not marked as a team lead in the selected category.");
             }
+
+            $alreadyAssigned = Requests::where('team_lead_id', $validatedData['team_lead_id'])
+            ->where('id', '!=', $requests->id) // exclude current request
+            ->whereIn('status', ['For Assign', 'Ongoing', 'Pending']) // adjust statuses as needed
+            ->exists();
+
+if ($alreadyAssigned) {
+    throw new Exception("The selected team lead is already assigned to another active request.");
+}
     
             // Update request with the single team lead
             $requests->update([
@@ -624,6 +633,7 @@ class RequestController extends Controller
                 'category_id' => $validatedData['category_id'],
                 'team_lead_id' => $validatedData['team_lead_id'],
             ]);
+
     
             // Capture after state
             $after = [
@@ -1102,55 +1112,55 @@ class RequestController extends Controller
 
 
 
-    public function getCategoriesWithPersonnel()
-    {
-        try {
-            // Fetch categories with their associated personnel
-            $categoriesWithPersonnel = DB::table('categories')
-                ->select('categories.id', 'categories.category_name')
-                ->where('categories.is_archived', '0')
-                ->leftJoin('category_personnel', 'categories.id', '=', 'category_personnel.category_id')
-                ->leftJoin('users', 'category_personnel.personnel_id', '=', 'users.id')
-                ->select(
-                    'categories.id as category_id',
-                    'categories.category_name',
-                    'users.id as personnel_id',
-                    'users.first_name',
-                    'users.last_name',
-                )
-                ->get()
-                ->groupBy('category_id')
-                ->map(function ($category) {
-                    return [
-                        'id' => $category[0]->category_id,
-                        'category_name' => $category[0]->category_name,
-                        'personnel' => $category->map(function ($personnel) {
-                            return $personnel->personnel_id ? [
-                                'id' => $personnel->personnel_id,
-                                'name' => trim($personnel->first_name . ' ' . $personnel->last_name),
-                            ] : null;
-                        })->filter() // Remove null entries
-                    ];
-                })
-                ->values();
+    public function getCategoriesWithTeamLeads()
+{
+    try {
+        // Fetch from the pivot table and related user info
+        $categoriesWithTeamLeads = DB::table('category_personnel')
+            ->join('categories', 'category_personnel.category_id', '=', 'categories.id')
+            ->join('users', 'category_personnel.personnel_id', '=', 'users.id')
+            ->where('categories.is_archived', 0)
+            ->select(
+                'categories.id as category_id',
+                'categories.category_name',
+                'users.id as personnel_id',
+                'users.first_name',
+                'users.last_name',
+                'category_personnel.is_team_lead'
+            )
+            ->get()
+            ->groupBy('category_id')
+            ->map(function ($group) {
+                return [
+                    'id' => $group[0]->category_id,
+                    'category_name' => $group[0]->category_name,
+                    'personnel' => $group->map(function ($item) {
+                        return [
+                            'id' => $item->personnel_id,
+                            'name' => trim($item->first_name . ' ' . $item->last_name),
+                            'is_team_lead' => (bool) $item->is_team_lead,
+                        ];
+                    }),
+                ];
+            })
+            ->values();
 
-            $response = [
-                'isSuccess' => true,
-                'message' => 'Categories with personnel retrieved successfully.',
-                'categories' => $categoriesWithPersonnel
-            ];
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Categories with team lead info retrieved successfully.',
+            'categories' => $categoriesWithTeamLeads,
+        ];
 
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve categories and personnel.',
-                'error' => $e->getMessage()
-            ];
-
-            return response()->json($response, 500);
-        }
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve category personnel.',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
     //Dropdown Request Status
     public function getUsersByCategory(Request $request)
     {

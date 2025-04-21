@@ -474,10 +474,6 @@ public function updateOffice(Request $request, $id)
     }
     
     
-
-
-
-
     /**
      * Delete a college office.
      */
