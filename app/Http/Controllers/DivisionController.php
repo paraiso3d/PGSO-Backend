@@ -56,8 +56,11 @@ class DivisionController extends Controller
                 }
     
                 $alreadyAssignedStaff = Division::whereNotNull('staff_id')
-                    ->whereRaw("JSON_CONTAINS(staff_id, ?)", [json_encode($request->staff_id)])
-                    ->exists();
+                    ->where(function ($query) use ($request) {
+                        foreach ($request->staff_id as $staffId) {
+                            $query->orWhereRaw("JSON_CONTAINS(staff_id, ?)", [json_encode($staffId)]);
+                        }
+                    })->exists();
     
                 if ($alreadyAssignedStaff) {
                     AuditLogger::log('Failed Division Creation - Staff Already Assigned', 'N/A', 'N/A');
@@ -91,6 +94,21 @@ class DivisionController extends Controller
                     ], 400);
                 }
     
+                $alreadyAssignedPersonnel = Division::whereNotNull('personnel_id')
+                    ->where(function ($query) use ($request) {
+                        foreach ($request->personnel_id as $personnelId) {
+                            $query->orWhereRaw("JSON_CONTAINS(personnel_id, ?)", [json_encode($personnelId)]);
+                        }
+                    })->exists();
+    
+                if ($alreadyAssignedPersonnel) {
+                    AuditLogger::log('Failed Division Creation - Personnel Already Assigned', 'N/A', 'N/A');
+                    return response()->json([
+                        'isSuccess' => false,
+                        'message' => 'One or more selected personnel are already assigned to another division.',
+                    ], 400);
+                }
+    
                 $personnelDetails = $personnelUsers->map(function ($person) {
                     return [
                         'id' => $person->id,
@@ -105,7 +123,7 @@ class DivisionController extends Controller
                 'division_name' => $request->division_name,
                 'office_location' => $request->office_location,
                 'staff_id' => json_encode(array_column($staffDetails, 'id')),
-                'personnel_id' => json_encode(array_column($personnelDetails, 'id')), // new field
+                'personnel_id' => json_encode(array_column($personnelDetails, 'id')),
             ]);
     
             $response = [
@@ -148,6 +166,7 @@ class DivisionController extends Controller
             return response()->json($response, 500);
         }
     }
+    
     
     
     /**
@@ -592,64 +611,69 @@ class DivisionController extends Controller
      * Delete a college office.
      */
     public function deleteDivision($id)
-    {
-        try {
-            // Get authenticated user
-            $user = auth()->user();
-    
-            if (!$user) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'Unauthorized. Please log in.',
-                ], 401);
-            }
-    
-            // Find division by ID
-            $division = Division::findOrFail($id);
-    
-            // Capture the original is_archived value before update
-            $beforeUpdate = ['is_archived' => $division->is_archived];
-    
-            // Soft delete by setting is_archived to 1
-            $division->update(['is_archived' => 1]);
-    
-            // Capture the updated is_archived value after update
-            $afterUpdate = ['is_archived' => $division->is_archived];
-    
-            // Audit log only for the is_archived field
-            AuditLogger::log(
-                'deleteDivision',
-                json_encode($beforeUpdate),
-                'Deleted'   // After state
-            );
-    
-            // Success response
-            $response = [
-                'isSuccess' => true,
-                'message' => "Division successfully archived.",
-            ];
-    
-            // Log API call with authenticated user's email
-            $this->logAPICalls('deleteDivision', $user->email, ['division_id' => $division->id], [$response]);
-    
-            return response()->json($response, 200);
-        } catch (ModelNotFoundException $e) {
+{
+    try {
+        // Get authenticated user
+        $user = auth()->user();
+
+        if (!$user) {
             return response()->json([
                 'isSuccess' => false,
-                'message' => 'Division not found.',
-            ], 404);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Failed to archive the division.",
-                'error' => $e->getMessage(),
-            ];
-    
-            $this->logAPICalls('deleteDivision', $user->email ?? 'unknown', ['division_id' => $id], [$response]);
-    
-            return response()->json($response, 500);
+                'message' => 'Unauthorized. Please log in.',
+            ], 401);
         }
+
+        // Find division by ID
+        $division = Division::findOrFail($id);
+
+        // Capture the original is_archived value before update
+        $beforeUpdate = ['is_archived' => $division->is_archived];
+
+        // Soft delete by setting is_archived to 1
+        $division->update([
+            'is_archived' => 1,
+            'staff_id' => null,
+            'personnel_id' => null
+        ]);
+
+        // Capture the updated is_archived value after update
+        $afterUpdate = ['is_archived' => $division->is_archived];
+
+        // Audit log only for the is_archived field
+        AuditLogger::log(
+            'deleteDivision',
+            json_encode($beforeUpdate),
+            'Deleted'
+        );
+
+        // Success response
+        $response = [
+            'isSuccess' => true,
+            'message' => "Division successfully archived.",
+        ];
+
+        // Log API call with authenticated user's email
+        $this->logAPICalls('deleteDivision', $user->email, ['division_id' => $division->id], [$response]);
+
+        return response()->json($response, 200);
+    } catch (ModelNotFoundException $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Division not found.',
+        ], 404);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to archive the division.",
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('deleteDivision', $user->email ?? 'unknown', ['division_id' => $id], [$response]);
+
+        return response()->json($response, 500);
     }
+}
+
 
 
     public function restoreDivision($id)

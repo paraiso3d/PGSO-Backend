@@ -20,71 +20,98 @@ class DepartmentController extends Controller
      * Create a new college office.
      */
     public function createOffice(Request $request)
-{
-    try {
-        // Ensure user is authenticated
-        $user = Auth::user();
-
-        if (!$user) {
+    {
+        try {
+            // Ensure user is authenticated
+            $user = Auth::user();
+    
+            if (!$user) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized. Please log in.',
+                ], 401);
+            }
+    
+            // Basic validation rules
+            $request->validate([
+                'department_name' => ['required', 'string', 'unique:departments,department_name'],
+                'acronym' => ['required', 'string'],
+                'division_id' => ['required', 'array'],
+                'division_id.*' => ['integer'],
+                'head_id' => ['required', 'integer', 'exists:users,id'],
+            ]);
+    
+            // Check if the head_id belongs to a user with role_name "head"
+            $headUser = User::where('id', $request->head_id)
+                            ->where('role_name', 'head')
+                            ->first();
+    
+            if (!$headUser) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'The selected user is invalid.',
+                ], 422);
+            }
+    
+            // Ensure the head is not already assigned to a department
+            $existingHead = Department::where('head_id', $request->head_id)->first();
+            if ($existingHead) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'The selected head is already assigned to another department.',
+                ], 422);
+            }
+    
+            // Ensure none of the selected divisions are already assigned to other departments
+            $conflictingDivisions = Department::whereNotNull('division_id')
+                ->get()
+                ->filter(function ($department) use ($request) {
+                    $existingDivisions = json_decode($department->division_id, true);
+                    return array_intersect($existingDivisions, $request->division_id);
+                });
+    
+            if ($conflictingDivisions->isNotEmpty()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'One or more selected divisions are already assigned to another department.',
+                ], 422);
+            }
+    
+            // Create the new department
+            $collegeOffice = Department::create([
+                'department_name' => $request->department_name,
+                'acronym' => $request->acronym,
+                'division_id' => json_encode($request->division_id),
+                'head_id' => $request->head_id,
+            ]);
+    
+            $divisions = Division::whereIn('id', $request->division_id)->get(['id', 'division_name']);
+    
+            AuditLogger::log('Created Office', 'N/A', 'Created Department: ' . $collegeOffice->department_name);
+    
+            return response()->json([
+                'isSuccess' => true,
+                'message' => "Department successfully created.",
+                'department' => $collegeOffice,
+                'divisions' => $divisions,
+                'head' => $headUser,
+            ], 200);
+    
+        } catch (ValidationException $v) {
             return response()->json([
                 'isSuccess' => false,
-                'message' => 'Unauthorized. Please log in.',
-            ], 401);
-        }
-
-        $request->validate([
-            'department_name' => ['required', 'string', 'unique:departments,department_name'],
-            'acronym' => ['required', 'string'],
-            'division_id' => ['required', 'array'],
-            'division_id.*' => ['integer'],
-            'head_id' => ['required', 'integer', 'exists:users,id'],
-        ]);
-
-        // Check if the head_id belongs to a user with role_name "head"
-        $headUser = User::where('id', $request->head_id)
-                        ->where('role_name', 'head')
-                        ->first();
-
-        if (!$headUser) {
+                'message' => "Invalid input data.",
+                'error' => $v->errors()
+            ], 400);
+        } catch (Throwable $e) {
             return response()->json([
                 'isSuccess' => false,
-                'message' => 'The selected head_id is invalid or not assigned the role "head".',
-            ], 422);
+                'message' => "Failed to create the Office.",
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        $collegeOffice = Department::create([
-            'department_name' => $request->department_name,
-            'acronym' => $request->acronym,
-            'division_id' => json_encode($request->division_id),
-            'head_id' => $request->head_id, // insert head_id here
-        ]);
-
-        $divisions = Division::whereIn('id', $request->division_id)->get(['id', 'division_name']);
-
-        AuditLogger::log('Created Office', 'N/A', 'Created Department: '.$collegeOffice->department_name);
-
-        return response()->json([
-            'isSuccess' => true,
-            'message' => "Department successfully created.",
-            'department' => $collegeOffice,
-            'divisions' => $divisions,
-            'head' => $headUser,
-        ], 200);
-
-    } catch (ValidationException $v) {
-        return response()->json([
-            'isSuccess' => false,
-            'message' => "Invalid input data.",
-            'error' => $v->errors()
-        ], 400);
-    } catch (Throwable $e) {
-        return response()->json([
-            'isSuccess' => false,
-            'message' => "Failed to create the Office.",
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
+    
 
 
     
@@ -425,61 +452,64 @@ public function updateOffice(Request $request, $id)
      * Delete a college office.
      */
     public function deleteOffice(Request $request)
-    {
-        try {
-            // Get authenticated user
-            $user = auth()->user();
-    
-            if (!$user) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'Unauthorized. Please log in.',
-                ], 401);
-            }
-    
-            // Find the office
-            $collegeOffice = Department::find($request->id);
-    
-            if (!$collegeOffice) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => "Department not found.",
-                ], 404);
-            }
-    
-            // Store old data for logging
-            $oldData = $collegeOffice->toArray();
-    
-            // Soft delete (archive the office)
-            $collegeOffice->update(['is_archived' => "1"]);
-    
-            // Log API call and audit event
-            $this->logAPICalls('deleteOffice', $user->email, [], [['isSuccess' => true, 'message' => "Office successfully deleted."]]);
-    
-            AuditLogger::log(
-                'Deleted Office', 
-                json_encode($oldData), // Log old data before deletion
-                'Deleted', 
-                'Inactive'
-            );
-    
+{
+    try {
+        // Get authenticated user
+        $user = auth()->user();
+
+        if (!$user) {
             return response()->json([
-                'isSuccess' => true,
-                'message' => "Department successfully deleted."
-            ], 200);
-        } catch (Throwable $e) {
-            $response = [
                 'isSuccess' => false,
-                'message' => "Failed to delete the Department.",
-                'error' => $e->getMessage()
-            ];
-    
-            $this->logAPICalls('deleteOffice', $user->email ?? 'unknown', [], [$response]);
-            AuditLogger::log('Error Deleting Office', 'N/A', 'N/A', 'Error');
-    
-            return response()->json($response, 500);
+                'message' => 'Unauthorized. Please log in.',
+            ], 401);
         }
+
+        // Find the office
+        $collegeOffice = Department::find($request->id);
+
+        if (!$collegeOffice) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => "Department not found.",
+            ], 404);
+        }
+
+        // Store old data for logging
+        $oldData = $collegeOffice->toArray();
+
+        // Soft delete (archive the office) and nullify head_id and division_id
+        $collegeOffice->update([
+            'is_archived' => 1,
+            'head_id' => null,
+            'division_id' => null
+        ]);
+
+        // Log API call and audit event
+        $this->logAPICalls('deleteOffice', $user->email, [], [['isSuccess' => true, 'message' => "Office successfully deleted."]]);
+
+        AuditLogger::log(
+            'Deleted Office',
+            json_encode($oldData), // Log old data before deletion
+            'Deleted',
+            'Inactive'
+        );
+
+        return response()->json([
+            'isSuccess' => true,
+            'message' => "Department successfully deleted."
+        ], 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to delete the Department.",
+            'error' => $e->getMessage()
+        ];
+
+        $this->logAPICalls('deleteOffice', $user->email ?? 'unknown', [], [$response]);
+
+        return response()->json($response, 500);
     }
+}
 
 
     public function restoreOffice(Request $request)
