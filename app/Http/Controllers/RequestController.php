@@ -620,7 +620,6 @@ class RequestController extends Controller
 
             $alreadyAssigned = Requests::where('team_lead_id', $validatedData['team_lead_id'])
             ->where('id', '!=', $requests->id) // exclude current request
-            ->whereIn('status', ['For Assign', 'Ongoing', 'Pending']) // adjust statuses as needed
             ->exists();
 
 if ($alreadyAssigned) {
