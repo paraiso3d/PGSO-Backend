@@ -450,7 +450,6 @@ class RequestController extends Controller
                 'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
                 'category_id' => $request->category_id,
                 'category_name' => $request->category_id,
-                'division_location' => $divisionLocation,
                 'team_lead' => $teamLeadInfo ? [
                     'id' => $teamLeadInfo->id,
                     'first_name' => $teamLeadInfo->first_name,
