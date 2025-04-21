@@ -29,7 +29,7 @@ class AuthController extends Controller
     
             if ($user) {
                 // Check if the user is archived or inactive
-                if ($user->is_archived == 1 || $user->status != 'Active') {
+                if ($user->is_archived == 1) {
                     return $this->sendError('Your account is not active or has been archived.');
                 }
     
