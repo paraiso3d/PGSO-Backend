@@ -25,8 +25,6 @@ class User extends Authenticatable
         'last_name',
         'email',
         'password',
-        'division_id',
-        'department_id',
         'role_name',
         'status',
         'avatar',
@@ -56,8 +54,6 @@ class User extends Authenticatable
             'last_name' => ['required', 'string', 'alpha_spaces'],
             'email' => ['required', 'email', 'unique:users,email'],
             'role_name' => ['required', 'string'],
-            'department_id' => ['required', 'exists:departments,id'],
-            'division_id' => ['required', 'exists:divisions,id'],
             'password' => [
                 'string',
                 'min:8',

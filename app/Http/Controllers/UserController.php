@@ -39,9 +39,6 @@ class UserController extends Controller
                 return response()->json($response, 422);
             }
 
-            $division = Division::findOrFail($request->division_id);
-            $department = $request->department_id ? Department::findOrFail($request->department_id) : null;
-
             $profilePath = null;
             if ($request->hasFile('avatar')) {
                 $directoryPath = public_path('img/profile');
