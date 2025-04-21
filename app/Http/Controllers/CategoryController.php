@@ -116,7 +116,6 @@ class CategoryController extends Controller
             'errors' => $v->errors()
         ];
         $this->logAPICalls('createCategory', $user->email ?? 'unknown', $request->all(), [$response]);
-        AuditLogger::log('Failed Category Creation - Validation Error', 'N/A', 'N/A');
         return response()->json($response, 422);
 
     } catch (Throwable $e) {
@@ -126,7 +125,6 @@ class CategoryController extends Controller
             'error' => $e->getMessage()
         ];
         $this->logAPICalls('createCategory', $user->email ?? 'unknown', $request->all(), [$response]);
-        AuditLogger::log('Error Creating Category', 'N/A', 'N/A');
         return response()->json($response, 500);
     }
 }
@@ -422,7 +420,6 @@ public function getCategoryArchive(Request $request)
                 'errors' => $v->errors(),
             ];
             $this->logAPICalls('updateCategory', $user->email ?? 'unknown', $request->all(), [$response]);
-            AuditLogger::log('Failed Category Update - Validation Error', 'N/A', 'N/A');
             return response()->json($response, 422);
     
         } catch (Throwable $e) {
@@ -432,7 +429,6 @@ public function getCategoryArchive(Request $request)
                 'error' => $e->getMessage(),
             ];
             $this->logAPICalls('updateCategory', $user->email ?? 'unknown', $request->all(), [$response]);
-            AuditLogger::log('Error Updating Category', 'N/A', 'N/A');
             return response()->json($response, 500);
         }
     }
@@ -491,10 +487,6 @@ public function getCategoryArchive(Request $request)
 
             // Log API call
             $this->logAPICalls('deleteCategory', $user->email ?? 'unknown', [], $response);
-
-            // Log Audit Trail for failure
-            AuditLogger::log('Error Deleting Category', 'N/A', 'N/A');
-
             return response()->json($response, 500);
         }
     }

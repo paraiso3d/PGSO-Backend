@@ -180,7 +180,6 @@ public function updateOffice(Request $request, $id)
         ];
 
         $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
-        AuditLogger::log('Failed Office Update - Validation Error', 'N/A', 'N/A');
 
         return response()->json($response, 422);
     } catch (Throwable $e) {
@@ -191,7 +190,6 @@ public function updateOffice(Request $request, $id)
         ];
 
         $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
-        AuditLogger::log('Error Updating Office', 'N/A', 'N/A');
 
         return response()->json($response, 500);
     }
