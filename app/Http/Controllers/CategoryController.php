@@ -407,7 +407,7 @@ public function getCategoryArchive(Request $request)
             AuditLogger::log(
                 'Updated Category',
                 $oldData,
-                json_encode($category->toArray()),
+                'test',
                 'Active'
             );
     
