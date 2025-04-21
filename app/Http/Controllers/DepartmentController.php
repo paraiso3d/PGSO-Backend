@@ -161,6 +161,18 @@ public function updateOffice(Request $request, $id)
             }
         }
 
+        $isHeadAssigned = Department::where('id', '!=', $id)
+        ->where('head_id', $request->head_id)
+        ->exists();
+
+    if ($isHeadAssigned) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'The selected head is already assigned to another department.',
+        ], 422);
+    }
+}
+
          // Validate that no other department is using the same division_id
          if ($request->has('division_id')) {
             $duplicateDivisions = Department::where('id', '!=', $id)
