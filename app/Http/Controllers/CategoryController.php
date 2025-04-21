@@ -167,13 +167,7 @@ public function getCategory(Request $request)
         $perPage = $validated['per_page'] ?? 10;
         $categories = $query->paginate($perPage);
 
-        // Check if any categories were found
-        if ($categories->isEmpty()) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => 'No categories found matching the criteria.',
-            ], 404);
-        }
+        
 
         // Format the response
         $response = [
@@ -260,14 +254,6 @@ public function getCategoryArchive(Request $request)
         // Paginate results
         $perPage = $validated['per_page'] ?? 10;
         $categories = $query->paginate($perPage);
-
-        // Check if any categories were found
-        if ($categories->isEmpty()) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => 'No categories found matching the criteria.',
-            ], 404);
-        }
 
         // Format the response
         $response = [
