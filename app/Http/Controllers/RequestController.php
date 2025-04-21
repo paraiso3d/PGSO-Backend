@@ -312,189 +312,190 @@ class RequestController extends Controller
         }
     }
 
-    public function getRequests(Request $request)
-    {
-        try {
-            $userId = $request->user()->id;
-            $role = $request->user()->role_name;
-    
-            // Pagination settings
-            $perPage = $request->input('per_page', 10);
-            $searchTerm = $request->input('search', null);
-    
-            // Initialize query
-            $query = Requests::select(
-                'requests.id',
-                'requests.control_no',
-                'requests.request_title',
-                'requests.description',
-                'requests.file_path',
-                'requests.file_completion',
-                'requests.category_id',
-                'requests.feedback',
-                'requests.rating',
-                'requests.status',
-                'requests.date_requested',
-                'requests.date_completed',
-                'requests.personnel_ids',
-                'users.id as requested_by_id',
-                'users.first_name',
-                'users.last_name',
-            )
-            ->leftJoin('users', 'users.id', '=', 'requests.requested_by')
-            ->where('requests.is_archived', '=', '0')
-            ->when($searchTerm, function ($query, $searchTerm) {
-                return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
-            });
-    
-            // Apply filters
-            if ($request->has('type')) {
-                if ($request->type === 'Returned') {
-                    $query->where('requests.status', 'Returned');
-                } elseif ($request->type === 'For Overtime') {
-                    $query->where('requests.overtime', '>', 0);
-                }
+   public function getRequests(Request $request)
+{
+    try {
+        $userId = $request->user()->id;
+        $role = $request->user()->role_name;
+
+        // Pagination settings
+        $perPage = $request->input('per_page', 10);
+        $searchTerm = $request->input('search', null);
+
+        // Initialize query
+        $query = Requests::select(
+            'requests.id',
+            'requests.control_no',
+            'requests.request_title',
+            'requests.description',
+            'requests.file_path',
+            'requests.file_completion',
+            'requests.category_id',
+            'requests.feedback',
+            'requests.rating',
+            'requests.status',
+            'requests.date_requested',
+            'requests.date_completed',
+            'requests.personnel_ids',
+            'users.id as requested_by_id',
+            'users.first_name',
+            'users.last_name'
+        )
+        ->leftJoin('users', 'users.id', '=', 'requests.requested_by')
+        ->where('requests.is_archived', '=', '0')
+        ->when($searchTerm, function ($query, $searchTerm) {
+            return $query->where('requests.control_no', 'like', '%' . $searchTerm . '%');
+        });
+
+        // Apply filters
+        if ($request->has('type')) {
+            if ($request->type === 'Returned') {
+                $query->where('requests.status', 'Returned');
+            } elseif ($request->type === 'For Overtime') {
+                $query->where('requests.overtime', '>', 0);
             }
-    
-            $query->when($request->filled('location'), function ($query) use ($request) {
-                $query->where('requests.location_name', $request->location);
-            })
-            ->when($request->filled('status'), function ($query) use ($request) {
-                $query->where('requests.status', $request->status);
-            })
-            ->when($request->filled('category'), function ($query) use ($request) {
-                $query->where('requests.category_id', $request->category);
-            })
-            ->when($request->filled('year'), function ($query) use ($request) {
-                $query->where('requests.fiscal_year', $request->year);
-            });
-    
-            // Role-based filtering
-            switch ($role) {
-                case 'admin':
-                    break;
-                case 'head':
-                    $query->whereIn('requests.status', ['Pending']);
-                    break;
-                case 'staff':
-                    $query->where('requests.requested_by', $userId);
-                    break;
-                    case 'personnel':
-                        // If user is personnel, but also a team lead, let them access requests in their categories
-                        $isTeamLead = $request->user()->categories()->wherePivot('is_team_lead', true)->exists();
-                    
-                        if ($isTeamLead) {
-                            $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
-                            $categoryIds = $categories->pluck('id');
-                    
-                            // Fetch "To Assign" and "For Completion" requests in the categories where the user is a team lead
-                            $query->whereIn('requests.category_id', $categoryIds)
-                                  ->whereIn('requests.status', ['To Assign', 'For Completion', 'Completed']); // Use whereIn for multiple statuses
-                        } else {
-                            // Default personnel behavior: only fetch requests related to the user
-                            $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)]);
-                        }
-                        break;
-                    
-                case 'team_lead':
-                    // Handle case if user is a team lead
+        }
+
+        $query->when($request->filled('location'), function ($query) use ($request) {
+            $query->where('requests.location_name', $request->location);
+        })
+        ->when($request->filled('status'), function ($query) use ($request) {
+            $query->where('requests.status', $request->status);
+        })
+        ->when($request->filled('category'), function ($query) use ($request) {
+            $query->where('requests.category_id', $request->category);
+        })
+        ->when($request->filled('year'), function ($query) use ($request) {
+            $query->where('requests.fiscal_year', $request->year);
+        });
+
+        // Role-based filtering
+        switch ($role) {
+            case 'admin':
+                break;
+            case 'head':
+                $query->whereIn('requests.status', ['Pending']);
+                break;
+            case 'staff':
+                $query->where('requests.requested_by', $userId);
+                break;
+            case 'personnel':
+                $isTeamLead = $request->user()->categories()->wherePivot('is_team_lead', true)->exists();
+
+                if ($isTeamLead) {
                     $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
-                    if ($categories->isNotEmpty()) {
-                        $categoryIds = $categories->pluck('id');
-                        $query->whereIn('requests.category_id', $categoryIds)
-                              ->where('requests.status', 'To Assign');
-                    }
-                    break;
-                default:
-                    $query->whereRaw('1 = 0');
-                    break;
-            }
-    
-            // Execute query with pagination
-            $result = $query->paginate($perPage);
-    
-            if ($result->isEmpty()) {
-                return response()->json([
-                    'isSuccess' => true,
-                    'message' => 'No requests found.'
-                ], 200);
-            }
-    
-            // Format response
-            $formattedRequests = $result->getCollection()->transform(function ($request) {
-                $personnelIds = json_decode($request->personnel_ids, true) ?? [];
-                $personnelInfo = User::whereIn('id', $personnelIds)
-                    ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
-                    ->get();
-    
-                // Fetch team lead information
-                $teamLeadInfo = null;
-                if ($request->category_id) {
-                    $category = Category::find($request->category_id);
-                    if ($category) {
-                        $teamLeadId = $category->personnel()->wherePivot('is_team_lead', true)->first()->id ?? null;
-                        if ($teamLeadId) {
-                            $teamLeadInfo = User::find($teamLeadId);
-                        }
-                    }
+                    $categoryIds = $categories->pluck('id');
+
+                    $query->whereIn('requests.category_id', $categoryIds)
+                        ->whereIn('requests.status', ['To Assign', 'For Completion', 'Completed']);
+                } else {
+                    $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)]);
                 }
-    
-                return [
-                    'id' => $request->id,
-                    'control_no' => $request->control_no,
-                    'request_title' => $request->request_title,
-                    'description' => $request->description,
-                    'file_path' => $request->file_path,
-                    'file_url' => $request->file_path ? asset($request->file_path) : null,
-                    'file_completion' => $request->file_completion,
-                    'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
-                    'category_id' => $request->category_id,
-                    'category_name' => $request->category_id
-                        ? DB::table('categories')->where('id', $request->category_id)->value('category_name')
-                        : null,
-                        'team_lead' => $teamLeadInfo ? [
-                            'id' => $teamLeadInfo->id,
-                            'first_name' => $teamLeadInfo->first_name,
-                            'last_name' => $teamLeadInfo->last_name,
-                        ] : null, // Null if no team lead is assigned
-                    'personnel' => $personnelInfo->map(function ($personnel) {
-                        return [
-                            'id' => $personnel->id,
-                            'name' => $personnel->name,
-                        ];
-                    }),
-                    'feedback' => $request->feedback,
-                    'rating' => $request->rating,
-                    'status' => $request->status,
-                    'requested_by' => [
-                        'id' => $request->requested_by_id,
-                        'first_name' => $request->first_name,
-                        'last_name' => $request->last_name,
-                    ],
-                    'date_requested' => $request->date_requested,
-                    'date_completed' => $request->date_completed,
-                ];
-            });
-    
+                break;
+            case 'team_lead':
+                $categories = $request->user()->categories()->wherePivot('is_team_lead', true)->get();
+                if ($categories->isNotEmpty()) {
+                    $categoryIds = $categories->pluck('id');
+                    $query->whereIn('requests.category_id', $categoryIds)
+                        ->where('requests.status', 'To Assign');
+                }
+                break;
+            default:
+                $query->whereRaw('1 = 0');
+                break;
+        }
+
+        // Execute query with pagination
+        $result = $query->paginate($perPage);
+
+        if ($result->isEmpty()) {
             return response()->json([
                 'isSuccess' => true,
-                'message' => 'Requests retrieved successfully.',
-                'requests' => $formattedRequests,
-                'pagination' => [
-                    'total' => $result->total(),
-                    'per_page' => $result->perPage(),
-                    'current_page' => $result->currentPage(),
-                    'last_page' => $result->lastPage(),
-                ],
+                'message' => 'No requests found.'
             ], 200);
-        } catch (Throwable $e) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve requests.',
-                'error' => $e->getMessage(),
-            ], 500);
         }
+
+        // Format response
+        $formattedRequests = $result->getCollection()->transform(function ($request) {
+            $personnelIds = json_decode($request->personnel_ids, true) ?? [];
+            $personnelInfo = User::whereIn('id', $personnelIds)
+                ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
+                ->get();
+
+            // Fetch team lead information
+            $teamLeadInfo = null;
+            if ($request->category_id) {
+                $category = Category::find($request->category_id);
+                if ($category) {
+                    $teamLeadId = $category->personnel()->wherePivot('is_team_lead', true)->first()->id ?? null;
+                    if ($teamLeadId) {
+                        $teamLeadInfo = User::find($teamLeadId);
+                    }
+                }
+            }
+
+            // Fetch division location using whereJsonContains
+            $divisionLocation = DB::table('divisions')
+                ->whereJsonContains('staff_id', $request->requested_by_id)
+                ->value('office_location');
+
+            return [
+                'id' => $request->id,
+                'control_no' => $request->control_no,
+                'request_title' => $request->request_title,
+                'description' => $request->description,
+                'file_path' => $request->file_path,
+                'file_url' => $request->file_path ? asset($request->file_path) : null,
+                'file_completion' => $request->file_completion,
+                'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
+                'category_id' => $request->category_id,
+                'category_name' => $request->category_id,
+                'division_location' => $divisionLocation,
+                'team_lead' => $teamLeadInfo ? [
+                    'id' => $teamLeadInfo->id,
+                    'first_name' => $teamLeadInfo->first_name,
+                    'last_name' => $teamLeadInfo->last_name,
+                ] : null,
+                'personnel' => $personnelInfo->map(function ($personnel) {
+                    return [
+                        'id' => $personnel->id,
+                        'name' => $personnel->name,
+                    ];
+                }),
+                'feedback' => $request->feedback,
+                'rating' => $request->rating,
+                'status' => $request->status,
+                'requested_by' => [
+                    'id' => $request->requested_by_id,
+                    'first_name' => $request->first_name,
+                    'last_name' => $request->last_name,
+                    'division_location' => $divisionLocation
+                ],
+                'date_requested' => $request->date_requested,
+                'date_completed' => $request->date_completed,
+            ];
+        });
+
+        return response()->json([
+            'isSuccess' => true,
+            'message' => 'Requests retrieved successfully.',
+            'requests' => $formattedRequests,
+            'pagination' => [
+                'total' => $result->total(),
+                'per_page' => $result->perPage(),
+                'current_page' => $result->currentPage(),
+                'last_page' => $result->lastPage(),
+            ],
+        ], 200);
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve requests.',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
     
     
 
