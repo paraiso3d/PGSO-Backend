@@ -161,6 +161,24 @@ public function updateOffice(Request $request, $id)
             }
         }
 
+         // Validate that no other department is using the same division_id
+         if ($request->has('division_id')) {
+            $duplicateDivisions = Department::where('id', '!=', $id)
+                ->whereNotNull('division_id')
+                ->get()
+                ->filter(function ($dept) use ($request) {
+                    $existingDivisions = json_decode($dept->division_id, true);
+                    return count(array_intersect($existingDivisions, $request->division_id)) > 0;
+                });
+
+            if ($duplicateDivisions->isNotEmpty()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'One or more of the selected divisions are already assigned to another department.',
+                ], 422);
+            }
+        }
+
         // Store the old data before update
         $oldData = $collegeOffice->toArray();
 
