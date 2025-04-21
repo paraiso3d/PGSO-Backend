@@ -619,8 +619,10 @@ class RequestController extends Controller
             }
 
             $alreadyAssigned = Requests::where('team_lead_id', $validatedData['team_lead_id'])
-            ->where('id', '!=', $requests->id) // exclude current request
-            ->exists();
+    ->where('id', '!=', $requests->id)
+    ->whereNotIn('status', ['Completed', 'Cancelled']) // only check active ones
+    ->where('is_archived', 0) // optional, if you're using archive flags
+    ->exists();
 
 if ($alreadyAssigned) {
     throw new Exception("The selected team lead is already assigned to another active request.");
