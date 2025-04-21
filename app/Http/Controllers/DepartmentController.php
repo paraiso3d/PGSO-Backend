@@ -119,7 +119,7 @@ class DepartmentController extends Controller
      * Update an existing college office.
      */
 
-public function updateOffice(Request $request, $id)
+ppublic function updateOffice(Request $request, $id)
 {
     try {
         // Get authenticated user
@@ -135,19 +135,19 @@ public function updateOffice(Request $request, $id)
         // Find the office
         $collegeOffice = Department::findOrFail($id);
 
-        // Validate the request data
+        // Validate basic inputs
         $request->validate([
             'department_name' => [
-                'sometimes', 'string', 
+                'sometimes', 'string',
                 Rule::unique('departments', 'department_name')->ignore($id)
             ],
             'acronym' => ['sometimes', 'string'],
             'division_id' => ['sometimes', 'array'],
-            'division_id.*' => ['integer'],
+            'division_id.*' => ['integer', 'distinct'],
             'head_id' => ['sometimes', 'integer', 'exists:users,id'],
         ]);
 
-        // Check if head_id is provided and validate the role
+        // Validate that head_id exists and has role "head"
         if ($request->filled('head_id')) {
             $headUser = User::where('id', $request->head_id)
                             ->where('role_name', 'head')
@@ -161,7 +161,25 @@ public function updateOffice(Request $request, $id)
             }
         }
 
-        // Store the old data before update
+        // Validate that no other department is using the same division_id
+        if ($request->has('division_id')) {
+            $duplicateDivisions = Department::where('id', '!=', $id)
+                ->whereNotNull('division_id')
+                ->get()
+                ->filter(function ($dept) use ($request) {
+                    $existingDivisions = json_decode($dept->division_id, true);
+                    return count(array_intersect($existingDivisions, $request->division_id)) > 0;
+                });
+
+            if ($duplicateDivisions->isNotEmpty()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'One or more of the selected divisions are already assigned to another department.',
+                ], 422);
+            }
+        }
+
+        // Store old data
         $oldData = $collegeOffice->toArray();
 
         // Prepare update data
@@ -172,15 +190,14 @@ public function updateOffice(Request $request, $id)
             'head_id' => $request->head_id,
         ], fn ($value) => !is_null($value));
 
-        // Update the office
+        // Update the department
         $collegeOffice->update($updateData);
 
-        // Fetch updated divisions
+        // Get updated divisions
         $divisions = $request->has('division_id')
             ? Division::whereIn('id', $request->division_id)->get(['id', 'division_name'])
             : Division::whereIn('id', json_decode($collegeOffice->division_id, true))->get(['id', 'division_name']);
 
-        // Prepare the response
         $response = [
             'isSuccess' => true,
             'message' => "Office successfully updated.",
@@ -188,11 +205,11 @@ public function updateOffice(Request $request, $id)
             'divisions' => $divisions,
         ];
 
-        // Log API call and audit event
+        // Log actions
         $this->logAPICalls('updateOffice', $user->email, $request->all(), [$response]);
 
         AuditLogger::log(
-            'Updated Office', 
+            'Updated Office',
             json_encode($oldData),
             json_encode($collegeOffice->toArray()),
             'Active'
@@ -220,7 +237,6 @@ public function updateOffice(Request $request, $id)
 
         return response()->json($response, 500);
     }
-}
 
     
 
