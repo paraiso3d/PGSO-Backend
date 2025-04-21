@@ -358,6 +358,55 @@ public function updateOffice(Request $request, $id)
             return response()->json($response, 500);
         }
     }
+
+
+    public function getStaffsPersonnelForHead()
+{
+    try {
+        $authId = auth()->id();
+
+        // Find the department for the authenticated head
+        $department = Department::where('head_id', $authId)->first();
+
+        if (!$department) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'No department found for this user.'
+            ], 404);
+        }
+
+        $divisionIds = json_decode($department->division_id, true) ?? [];
+
+        // Fetch divisions tied to this department
+        $divisions = Division::whereIn('id', $divisionIds)
+            ->where('is_archived', 0)
+            ->get(['id', 'division_name', 'staff_id']);
+
+        // Get all unique staff IDs from divisions
+        $staffIds = $divisions->flatMap(function ($division) {
+            $ids = json_decode($division->staff_id, true);
+            return is_array($ids) ? $ids : [];
+        })->filter()->unique();
+
+        // Fetch the staff/personnel info
+        $staff = User::whereIn('id', $staffIds)
+            ->where('is_archived', 0)
+            ->get(['id', 'first_name', 'last_name', 'email']);
+
+        return response()->json([
+            'isSuccess' => true,
+            'message' => 'Staff and personnel fetched successfully.',
+            'staff' => $staff
+        ], 200);
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Error fetching personnel.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
     
     
 

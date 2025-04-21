@@ -232,7 +232,7 @@ Route::prefix('dropdown')->group(function () {
     Route::get('offices', [UserController::class, 'getDropdownOptionsUseroffice']);
     Route::get('category', [DivisionController::class, 'getdropdownCategories']);
     Route::get('supervisor', [DivisionController::class, 'dropdownSupervisor']);
-    Route::get('categories', [RequestController::class, 'getCategoriesWithTeamLeads']);
+    Route::get('categories', [RequestController::class, 'getCategoriesWithPersonnel']);
     Route::get('personnel', [RequestController::class, 'getUsersByCategory']);
     Route::get('teamleaders', [CategoryController::class, 'getdropdownteamleader']);
     Route::get('locations', [RequestController::class, 'getDropdownOptionsRequestslocation']);
