@@ -119,7 +119,7 @@ class DepartmentController extends Controller
      * Update an existing college office.
      */
 
-ppublic function updateOffice(Request $request, $id)
+public function updateOffice(Request $request, $id)
 {
     try {
         // Get authenticated user
