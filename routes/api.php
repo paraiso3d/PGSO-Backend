@@ -171,6 +171,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('assess/{id}', [RequestController::class, 'assessRequest']);
         Route::post('completion/{id}', [RequestController::class, 'submitCompletion']);
         Route::post('feedback/{id}', [RequestController::class, 'submitFeedback']);
+        Route::get('head/reports', [RequestController::class, 'getAcceptedRequestsByHead']);
+        Route::get('accomplishment', [RequestController::class, 'getAccomplishmentReport']);
         Route::get('list', [RequestController::class, 'getRequests']);
         Route::get('list/{id}', [RequestController::class, 'getRequestById']);
 

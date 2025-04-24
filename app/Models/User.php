@@ -28,8 +28,6 @@ class User extends Authenticatable
         'role_name',
         'status',
         'avatar',
-        'age',
-        'gender',
         'number',
         'is_archived'
     ];
@@ -59,8 +57,6 @@ class User extends Authenticatable
                 'min:8',
                 'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'
             ],
-            'age' => ['required', 'integer', 'min:1', 'max:100'], // 
-            'gender' => ['required', 'in:Male,Female'], //
             'number' => ['required', 'string', 'unique:users,number', 'regex:/^\d{11,15}$/'], 
             'is_archived' => ['nullable', 'in:A,I'],
             'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'] 

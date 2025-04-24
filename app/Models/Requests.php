@@ -31,6 +31,8 @@ class Requests extends Model
         'date_requested',
         'date_completed',
         'is_archived',
+        'head_approval_status',
+        'head_approved_by'
     ];
 
     public static function generateControlNo()

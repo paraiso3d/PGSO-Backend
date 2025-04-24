@@ -60,10 +60,7 @@ class UserController extends Controller
                 'middle_initial' => $request->middle_initial ?? null,
                 'last_name' => $request->last_name,
                 'number' => $request->number,
-                'age' => $request->age,
-                'gender' => $request->gender,
                 'email' => $request->email,
-                'designation' => $request->designation,
                 'password' => Hash::make($defaultPassword),
                 'role_name' => $request->role_name,
                 'avatar' => $profilePath,
@@ -93,8 +90,6 @@ class UserController extends Controller
                     'middle_initial' => $userAccount->middle_initial,
                     'last_name' => $userAccount->last_name,
                     'number' => $userAccount->number,
-                    'age' => $userAccount->age,
-                    'gender' => $userAccount->gender,
                     'email' => $userAccount->email,
                     'designation' => $userAccount->designation,
                     'role_name' => $userAccount->role_name,
@@ -144,7 +139,7 @@ class UserController extends Controller
         $roleName = $request->input('role_name');
         $gender = $request->input('gender');
 
-        $query = User::select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'role_name', 'age', 'gender', 'number', 'status')
+        $query = User::select('id', 'avatar', 'first_name', 'last_name', 'email', 'is_archived', 'role_name', 'number', 'status')
             ->where('is_archived', 0);
 
         if (!empty($status)) {
@@ -178,8 +173,6 @@ class UserController extends Controller
                 'role_name' => $user->role_name,
                 'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
                 'is_archived' => $user->is_archived,
-                'age' => $user->age,
-                'gender' => $user->gender,
                 'number' => $user->number,
                 'status' => $user->status
             ];
@@ -443,8 +436,6 @@ public function getUserAccountsArchive(Request $request)
                     'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'
                 ],
                 'number' => ['sometimes', 'string', Rule::unique('users')->ignore($user->id)],
-                'age' => ['sometimes', 'integer', 'min:1', 'max:100'],
-                'gender' => ['sometimes', 'in:Male,Female'],
                 'avatar' => ['sometimes', 'nullable', 'file', 'mimes:jpeg,png,jpg,pdf,docx', 'max:2048']
             ], [
                 'password.regex' => 'Password must include at least one uppercase letter, one number, and one special character.',
@@ -512,8 +503,6 @@ public function getUserAccountsArchive(Request $request)
                     'last_name' => $user->last_name,
                     'email' => $user->email,
                     'number' => $user->number,
-                    'age' => $user->age,
-                    'gender' => $user->gender,
                     'avatar' => $user->avatar ? asset($user->avatar) : null
                 ]
             ];

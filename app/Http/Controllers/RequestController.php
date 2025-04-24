@@ -171,6 +171,9 @@ class RequestController extends Controller
             $requestRecord->status = 'For Process';
             $requestRecord->note = null;
             $requestRecord->save();
+            $requestRecord->head_approval_status = 'accepted';
+            $requestRecord->head_approved_by = auth()->id();
+            $requestRecord->save();
 
             // Capture after state for audit logging
             $after = [
@@ -374,7 +377,29 @@ class RequestController extends Controller
             case 'admin':
                 break;
             case 'head':
-                $query->whereIn('requests.status', ['Pending']);
+                $divisionIds = collect(DB::table('departments')
+                ->where('head_id', $userId)
+                ->pluck('division_id'))
+                ->flatMap(function ($json) {
+                    $decoded = json_decode($json, true);
+                    return is_array($decoded) ? $decoded : [];
+                });
+            
+            Log::info('Head '.$userId.' has divisions:', $divisionIds->toArray());
+            
+            $staffIds = collect(DB::table('divisions')
+                ->whereIn('id', $divisionIds)
+                ->pluck('staff_id'))
+                ->flatMap(function ($json) {
+                    $decoded = json_decode($json, true);
+                    return is_array($decoded) ? $decoded : [];
+                });
+            
+            Log::info('Head '.$userId.' has staff:', $staffIds->toArray());
+
+                $query->whereIn('requests.requested_by', $staffIds)
+                ->whereIn('requests.status', ['Pending', 'For Assign', 'For Completion', 'Completed']);
+
                 break;
             case 'staff':
                 $query->where('requests.requested_by', $userId);
@@ -498,94 +523,158 @@ class RequestController extends Controller
     
     
 
-
-
-
-
-    // Method to delete (archive) a request
-    public function getRequestById(Request $request, $id)
+    public function getAcceptedRequestsByHead(Request $request)
     {
         try {
-            // Find the request by ID with category and user join
-            $requestDetails = Requests::select(
-                'requests.id',
-                'requests.control_no',
-                'requests.request_title',
-                'requests.requested_by',
-                'users.first_name as requested_by_first_name',
-                'users.last_name as requested_by_last_name',
-                'users.email as requested_by_email', // Include email
-                'requests.description',
-                'requests.file_path',
-                'requests.file_completion', // Include completion file path
-                'requests.category_id',
-                'categories.category_name', // Fetch category name directly
-                'requests.feedback',
-                'requests.status',
-                'requests.date_requested',
-                'requests.date_completed', // Include date completed
-                DB::raw("DATE_FORMAT(requests.updated_at, '%Y-%m-%d') as updated_at")
-            )
-                ->leftJoin('users', 'users.id', '=', 'requests.requested_by') // Join with users table to fetch user details
+            $userId = auth()->id();
+    
+            // Fetch accepted requests by the head
+            $requests = DB::table('requests')
+                ->join('users', 'users.id', '=', 'requests.requested_by')
                 ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
-                ->where('requests.id', $id)
-                ->where('requests.is_archived', '=', '0') // Filter out archived requests
-                ->first();
-
-            // Check if the request exists
-            if (!$requestDetails) {
-                $response = [
-                    'isSuccess' => false,
-                    'message' => 'Request not found.',
-                ];
-                $this->logAPICalls('getRequestById', $id, [], $response);
-
-                return response()->json($response, 404);
+                ->where('requests.head_approval_status', 'accepted')
+                ->where('requests.head_approved_by', $userId)
+                ->select(
+                    'requests.id',
+                    'requests.control_no',
+                    'requests.request_title',
+                    'requests.description',
+                    'requests.file_path',
+                    'requests.file_completion',
+                    'requests.category_id',
+                    'requests.feedback',
+                    'requests.rating',
+                    'requests.status',
+                    'requests.date_requested',
+                    'requests.date_completed',
+                    'requests.personnel_ids',
+                    'users.id as requested_by_id',
+                    'users.first_name as requested_by_first_name',
+                    'users.last_name as requested_by_last_name',
+                    'categories.category_name'
+                )
+                ->get();
+    
+            if ($requests->isEmpty()) {
+                return response()->json([
+                    'isSuccess' => true,
+                    'message' => 'No accepted requests found.',
+                ], 200);
             }
-
-            // Format the response
-            $formattedRequest = [
-                'id' => $requestDetails->id,
-                'control_no' => $requestDetails->control_no,
-                'request_title' => $requestDetails->request_title,
-                'requested_by' => $requestDetails->requested_by,
-                'requested_by_name' => $requestDetails->requested_by_first_name . ' ' . $requestDetails->requested_by_last_name,
-                'requested_by_email' => $requestDetails->requested_by_email, // Add requested by email
-                'description' => $requestDetails->description,
-                'category_id' => $requestDetails->category_id,
-                'category_name' => $requestDetails->category_name, // Include category name
-                'feedback' => $requestDetails->feedback,
-                'status' => $requestDetails->status,
-                'file_path' => $requestDetails->file_path,
-                'file_url' => $requestDetails->file_path ? asset($requestDetails->file_path) : null,
-                'file_completion' => $requestDetails->file_completion, // Add completion file
-                'file_completion_url' => $requestDetails->file_completion ? asset($requestDetails->file_completion) : null, // Add completion file URL
-                'date_requested' => $requestDetails->date_requested,
-                'date_completed' => $requestDetails->date_completed, // Include date completed
-                'updated_at' => $requestDetails->updated_at,
-            ];
-
-            // Successful response
-            $response = [
+    
+            // Format the response data for each request
+            $formattedRequests = $requests->map(function ($request) use ($userId) {
+                $personnelIds = json_decode($request->personnel_ids, true) ?? [];
+                $personnelInfo = User::whereIn('id', $personnelIds)
+                    ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
+                    ->get();
+    
+                return [
+                    'id' => $request->id,
+                    'control_no' => $request->control_no,
+                    'request_title' => $request->request_title,
+                    'description' => $request->description,
+                    'file_path' => $request->file_path,
+                    'file_url' => $request->file_path ? asset($request->file_path) : null,
+                    'file_completion' => $request->file_completion,
+                    'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
+                    'category_id' => $request->category_id,
+                    'category_name' => $request->category_name,
+                    'personnel' => $personnelInfo->map(function ($personnel) {
+                        return [
+                            'id' => $personnel->id,
+                            'name' => $personnel->name,
+                        ];
+                    }),
+                    'feedback' => $request->feedback,
+                    'rating' => $request->rating,
+                    'status' => $request->status,
+                    'requested_by' => [
+                        'id' => $request->requested_by_id,
+                        'first_name' => $request->requested_by_first_name,
+                        'last_name' => $request->requested_by_last_name,
+                    ],
+                    'date_requested' => $request->date_requested,
+                    'date_completed' => $request->date_completed,
+                ];
+            });
+    
+            return response()->json([
                 'isSuccess' => true,
-                'message' => 'Request retrieved successfully.',
-                'request' => $formattedRequest,
-            ];
-            $this->logAPICalls('getRequestById', $id, [], $response);
-
-            return response()->json($response, 200);
+                'message' => 'Accepted requests retrieved successfully.',
+                'requests' => $formattedRequests,
+            ], 200);
         } catch (Throwable $e) {
-            // Error handling
-            $response = [
+            return response()->json([
                 'isSuccess' => false,
-                'message' => 'Failed to retrieve request.',
+                'message' => 'Failed to retrieve accepted requests.',
                 'error' => $e->getMessage(),
-            ];
-            $this->logAPICalls('getRequestById', $id, [], $response);
-
-            return response()->json($response, 500);
+            ], 500);
         }
     }
+    
+    
+    public function getAccomplishmentReport(Request $request)
+    {
+        try {
+            $userId = auth()->id();
+    
+            $requests = DB::table('requests')
+                ->join('users', 'users.id', '=', 'requests.requested_by')
+                ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
+                ->where('requests.team_lead_id', $userId)
+                ->select(
+                    'requests.id',
+                    'requests.control_no',
+                    'requests.request_title',
+                    'requests.description',
+                    'requests.file_path',
+                    'requests.file_completion',
+                    'requests.category_id',
+                    'requests.feedback',
+                    'requests.rating',
+                    'requests.status',
+                    'requests.date_requested',
+                    'requests.date_completed',
+                    'requests.personnel_ids',
+                    'users.id as requested_by_id',
+                    'users.first_name as requested_by_first_name',
+                    'users.last_name as requested_by_last_name',
+                    'categories.category_name'
+                )
+                ->get();
+    
+            // Attach personnel details using json_decode
+            $requests->transform(function ($request) {
+                $personnelIds = json_decode($request->personnel_ids, true) ?? [];
+    
+                $personnel = DB::table('users')
+                    ->whereIn('id', $personnelIds)
+                    ->select('id', 'first_name', 'last_name', 'email') // Add other fields if needed
+                    ->get();
+    
+                $request->personnel_details = $personnel;
+                return $request;
+            });
+    
+            return response()->json([
+                'isSuccess' => true,
+                'message' => 'Accomplishment reports successfully retrieve.',
+                'data' => $requests
+            ], 200);
+    
+        } catch (\Throwable $e) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve accomplishment reports.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    
+    
+    
 
     public function assignTeamLead(Request $request, $id)
     {
@@ -705,7 +794,6 @@ if ($alreadyAssigned) {
     }
     
     
-
 
 
     public function assessRequest(Request $request, $id)
@@ -856,11 +944,6 @@ if ($alreadyAssigned) {
 
 
     
-
-
-
-
-
 
     public function submitCompletion(Request $request, $id)
     {
