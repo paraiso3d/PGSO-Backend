@@ -20,96 +20,97 @@ class DepartmentController extends Controller
      * Create a new college office.
      */
     public function createOffice(Request $request)
-    {
-        try {
-            // Ensure user is authenticated
-            $user = Auth::user();
+{
+    try {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Unauthorized. Please log in.',
+            ], 401);
+        }
+
+        $request->validate([
+            'department_name' => ['required', 'string', 'unique:departments,department_name'],
+            'division_id' => ['required', 'array'],
+            'division_id.*' => ['integer'],
+            'head_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $headUser = User::where('id', $request->head_id)
+            ->where('role_name', 'head')
+            ->first();
+
+        if (!$headUser) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'The selected user is invalid.',
+            ], 422);
+        }
+
+        $existingHead = Department::where('head_id', $request->head_id)->first();
+        if ($existingHead) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'The selected head is already assigned to another department.',
+            ], 422);
+        }
+
+        $conflictingDivisions = Department::whereNotNull('division_id')
+            ->get()
+            ->filter(function ($department) use ($request) {
+                $existingDivisions = json_decode($department->division_id, true);
+                return array_intersect($existingDivisions, $request->division_id);
+            });
+
+        if ($conflictingDivisions->isNotEmpty()) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'One or more selected divisions are already assigned to another department.',
+            ], 422);
+        }
+
+        // Generate acronym from department name
+        $words = preg_split("/[\s,]+/", $request->department_name);
+        $acronym = strtoupper(implode('', array_map(fn($word) => $word[0], $words)));
+
+        // Create the new department with acronym
+        $collegeOffice = Department::create([
+            'department_name' => $request->department_name,
+            'division_id' => json_encode($request->division_id),
+            'head_id' => $request->head_id,
+            'acronym' => $acronym,
+        ]);
+
+        $divisions = Division::whereIn('id', $request->division_id)->get(['id', 'division_name']);
+
+        AuditLogger::log('Created Office', 'N/A', 'Created Department: ' . $collegeOffice->department_name);
+
+        return response()->json([
+            'isSuccess' => true,
+            'message' => "Department successfully created.",
+            'department' => $collegeOffice,
+            'divisions' => $divisions,
+            'head' => $headUser,
+        ], 200);
+
+    } catch (ValidationException $v) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => "Invalid input data.",
+            'error' => $v->errors()
+        ], 400);
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => "Failed to create the Office.",
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
     
-            if (!$user) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'Unauthorized. Please log in.',
-                ], 401);
-            }
-    
-            // Basic validation rules
-            $request->validate([
-                'department_name' => ['required', 'string', 'unique:departments,department_name'],
-                'division_id' => ['required', 'array'],
-                'division_id.*' => ['integer'],
-                'head_id' => ['required', 'integer', 'exists:users,id'],
-            ]);
-    
-            // Check if the head_id belongs to a user with role_name "head"
-            $headUser = User::where('id', $request->head_id)
-                            ->where('role_name', 'head')
-                            ->first();
-    
-            if (!$headUser) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'The selected user is invalid.',
-                ], 422);
-            }
-    
-            // Ensure the head is not already assigned to a department
-            $existingHead = Department::where('head_id', $request->head_id)->first();
-            if ($existingHead) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'The selected head is already assigned to another department.',
-                ], 422);
-            }
-    
-            // Ensure none of the selected divisions are already assigned to other departments
-            $conflictingDivisions = Department::whereNotNull('division_id')
-                ->get()
-                ->filter(function ($department) use ($request) {
-                    $existingDivisions = json_decode($department->division_id, true);
-                    return array_intersect($existingDivisions, $request->division_id);
-                });
-    
-            if ($conflictingDivisions->isNotEmpty()) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'One or more selected divisions are already assigned to another department.',
-                ], 422);
-            }
-    
-            // Create the new department
-            $collegeOffice = Department::create([
-                'department_name' => $request->department_name,
-                'division_id' => json_encode($request->division_id),
-                'head_id' => $request->head_id,
-            ]);
-    
-            $divisions = Division::whereIn('id', $request->division_id)->get(['id', 'division_name']);
-    
-            AuditLogger::log('Created Office', 'N/A', 'Created Department: ' . $collegeOffice->department_name);
-    
-            return response()->json([
-                'isSuccess' => true,
-                'message' => "Department successfully created.",
-                'department' => $collegeOffice,
-                'divisions' => $divisions,
-                'head' => $headUser,
-            ], 200);
-    
-        } catch (ValidationException $v) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => "Invalid input data.",
-                'error' => $v->errors()
-            ], 400);
-        } catch (Throwable $e) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => "Failed to create the Office.",
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-    
+            
 
 
     
@@ -119,134 +120,153 @@ class DepartmentController extends Controller
 
 public function updateOffice(Request $request, $id)
 {
-    try {
-        // Get authenticated user
-        $user = auth()->user();
+    try {
+        // Get authenticated user
+        $user = auth()->user();
 
-        if (!$user) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => 'Unauthorized. Please log in.',
-            ], 401);
-        }
+        if (!$user) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Unauthorized. Please log in.',
+            ], 401);
+        }
 
-        // Find the office
-        $collegeOffice = Department::findOrFail($id);
+        // Find the office
+        $collegeOffice = Department::findOrFail($id);
 
-        // Validate the request data
-        $request->validate([
-            'department_name' => [
-                'sometimes', 'string', 
-                Rule::unique('departments', 'department_name')->ignore($id)
-            ],
-            'division_id' => ['sometimes', 'array'],
-            'division_id.*' => ['integer'],
-            'head_id' => ['sometimes', 'integer', 'exists:users,id'],
-        ]);
+        // Validate the request data
+        $request->validate([
+            'department_name' => [
+                'sometimes', 'string',
+                Rule::unique('departments', 'department_name')->ignore($id)
+            ],
+            'division_id' => ['sometimes', 'array'],
+            'division_id.*' => ['integer'],
+            'head_id' => ['sometimes', 'integer', 'exists:users,id'],
+        ]);
 
-        // Check if head_id is provided and validate the role
-        if ($request->filled('head_id')) {
-            $headUser = User::where('id', $request->head_id)
-                            ->where('role_name', 'head')
-                            ->first();
+        // Validate head_id role
+        if ($request->filled('head_id')) {
+            $headUser = User::where('id', $request->head_id)
+                            ->where('role_name', 'head')
+                            ->first();
 
-            if (!$headUser) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'The selected head is invalid or not assigned the role "head".',
-                ], 422);
-            }
-        }
+            if (!$headUser) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'The selected head is invalid or not assigned the role "head".',
+                ], 422);
+            }
+        }
 
-        $isHeadAssigned = Department::where('id', '!=', $id)
-        ->where('head_id', $request->head_id)
-        ->exists();
+        // Ensure head is not assigned to another department
+        $isHeadAssigned = Department::where('id', '!=', $id)
+            ->where('head_id', $request->head_id)
+            ->exists();
 
-    if ($isHeadAssigned) {
-        return response()->json([
-            'isSuccess' => false,
-            'message' => 'The selected head is already assigned to another department.',
-        ], 422);
-    }
+        if ($isHeadAssigned) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'The selected head is already assigned to another department.',
+            ], 422);
+        }
 
+        // Check for duplicate division assignments
+        if ($request->has('division_id')) {
+            $duplicateDivisions = Department::where('id', '!=', $id)
+                ->whereNotNull('division_id')
+                ->get()
+                ->filter(function ($dept) use ($request) {
+                    $existingDivisions = json_decode($dept->division_id, true);
+                    return count(array_intersect($existingDivisions, $request->division_id)) > 0;
+                });
 
-         // Validate that no other department is using the same division_id
-         if ($request->has('division_id')) {
-            $duplicateDivisions = Department::where('id', '!=', $id)
-                ->whereNotNull('division_id')
-                ->get()
-                ->filter(function ($dept) use ($request) {
-                    $existingDivisions = json_decode($dept->division_id, true);
-                    return count(array_intersect($existingDivisions, $request->division_id)) > 0;
-                });
+            if ($duplicateDivisions->isNotEmpty()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'One or more of the selected divisions are already assigned to another department.',
+                ], 422);
+            }
+        }
 
-            if ($duplicateDivisions->isNotEmpty()) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'One or more of the selected divisions are already assigned to another department.',
-                ], 422);
-            }
-        }
+        // Store old data
+        $oldData = $collegeOffice->toArray();
 
-        // Store the old data before update
-        $oldData = $collegeOffice->toArray();
+        // Build concatenated department name
+        $departmentName = $request->department_name;
 
-        // Prepare update data
-        $updateData = array_filter([
-            'department_name' => $request->department_name,
-            'division_id' => $request->has('division_id') ? json_encode($request->division_id) : null,
-            'head_id' => $request->head_id,
-        ], fn ($value) => !is_null($value));
+        if ($request->has('division_id')) {
+            $divisionNames = Division::whereIn('id', $request->division_id)->pluck('division_name')->toArray();
+            $joinedDivisions = implode(', ', $divisionNames);
+            $departmentName .= ' - ' . $joinedDivisions;
+        }
 
-        // Update the office
-        $collegeOffice->update($updateData);
+        if ($request->filled('head_id')) {
+            $head = User::find($request->head_id);
+            if ($head) {
+                $departmentName .= ' (' . $head->first_name . ' ' . $head->last_name . ')';
+            }
+        }
 
-        // Fetch updated divisions
-        $divisions = $request->has('division_id')
-            ? Division::whereIn('id', $request->division_id)->get(['id', 'division_name'])
-            : Division::whereIn('id', json_decode($collegeOffice->division_id, true))->get(['id', 'division_name']);
+        // Prepare data to update
+        $updateData = array_filter([
+            'department_name' => $departmentName,
+            'division_id' => $request->has('division_id') ? json_encode($request->division_id) : null,
+            'head_id' => $request->head_id,
+        ], fn ($value) => !is_null($value));
 
-        // Prepare the response
-        $response = [
-            'isSuccess' => true,
-            'message' => "Office successfully updated.",
-            'department' => $collegeOffice,
-            'divisions' => $divisions,
-        ];
+        // Update the department
+        $collegeOffice->update($updateData);
 
-        // Log API call and audit event
-        $this->logAPICalls('updateOffice', $user->email, $request->all(), [$response]);
+        // Get updated divisions
+        $divisions = $request->has('division_id')
+            ? Division::whereIn('id', $request->division_id)->get(['id', 'division_name'])
+            : Division::whereIn('id', json_decode($collegeOffice->division_id, true))->get(['id', 'division_name']);
 
-        AuditLogger::log(
-            'Updated Office', 
-            json_encode($oldData),
-            json_encode($collegeOffice->toArray()),
-            'Active'
-        );
+        // Response payload
+        $response = [
+            'isSuccess' => true,
+            'message' => "Office successfully updated.",
+            'department' => $collegeOffice,
+            'divisions' => $divisions,
+        ];
 
-        return response()->json($response, 200);
-    } catch (ValidationException $v) {
-        $response = [
-            'isSuccess' => false,
-            'message' => "Invalid input data.",
-            'error' => $v->errors(),
-        ];
+        // Logging
+        $this->logAPICalls('updateOffice', $user->email, $request->all(), [$response]);
 
-        $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
+        AuditLogger::log(
+            'Updated Office',
+            json_encode($oldData),
+            json_encode($collegeOffice->toArray()),
+            'Active'
+        );
 
-        return response()->json($response, 422);
-    } catch (Throwable $e) {
-        $response = [
-            'isSuccess' => false,
-            'message' => "Failed to update the Office.",
-            'error' => $e->getMessage(),
-        ];
+        return response()->json($response, 200);
 
-        $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
+    } catch (ValidationException $v) {
+        $response = [
+            'isSuccess' => false,
+            'message' => "Invalid input data.",
+            'error' => $v->errors(),
+        ];
 
-        return response()->json($response, 500);
-    }
+        $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
+
+        return response()->json($response, 422);
+
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to update the Office.",
+            'error' => $e->getMessage(),
+        ];
+
+        $this->logAPICalls('updateOffice', $user->email ?? 'unknown', $request->all(), [$response]);
+
+        return response()->json($response, 500);
+    }
 }
+    
 
     
 
@@ -271,6 +291,7 @@ public function updateOffice(Request $request, $id)
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('departments.department_name', 'like', "%$search%")
+                        ->orWhere('departments.acronym', 'like', "%$search%")
                         ->orWhere('heads.first_name', 'like', "%$search%")
                         ->orWhere('heads.last_name', 'like', "%$search%");
                 });
@@ -317,6 +338,7 @@ public function updateOffice(Request $request, $id)
                 return [
                     'id' => $department->id,
                     'department_name' => $department->department_name,
+                    'acronym' => $department->acronym,
                     'divisions' => $divisions,
                     'staff' => $staff,
                     'head' => $head,
