@@ -273,19 +273,104 @@ public function updateOffice(Request $request, $id)
      
     /**
      * Get all college offices.
-     */
-    public function getOffices(Request $request)
-    {
-        try {
-            $perPage = $request->input('per_page', 10);
-            $page = $request->input('page', 1);
-            $search = $request->input('search');
-            $divisionId = $request->input('division_id');
-    
-            // Start query with join for head info
-            $query = Department::where('departments.is_archived', 0)
-                ->leftJoin('users as heads', 'departments.head_id', '=', 'heads.id')
-                ->select('departments.*', 'heads.first_name as head_first_name', 'heads.last_name as head_last_name');
+     */;
+public function getOffices(Request $request)
+{
+    try {
+        $perPage = $request->input('per_page', 10);
+        $page = $request->input('page', 1);
+        $search = $request->input('search');
+        $divisionId = $request->input('division_id');
+
+        $query = Department::where('departments.is_archived', 0)
+            ->leftJoin('users as heads', 'departments.head_id', '=', 'heads.id')
+            ->select('departments.*', 'heads.first_name as head_first_name', 'heads.last_name as head_last_name');
+
+        // Add search filters for department_name, head names, and acronym
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('departments.department_name', 'like', "%$search%")
+                  ->orWhere('departments.acronym', 'like', "%$search%")
+                  ->orWhere('heads.first_name', 'like', "%$search%")
+                  ->orWhere('heads.last_name', 'like', "%$search%");
+            });
+        }
+
+        // Filter by division
+        if ($divisionId) {
+            $query->where(function ($q) use ($divisionId) {
+                $q->whereJsonContains('departments.division_id', (int)$divisionId);
+            });
+        }
+
+        $paginatedDepartments = $query->paginate($perPage, ['*'], 'page', $page);
+
+        $departments = collect($paginatedDepartments->items())->map(function ($department) {
+            $divisionIds = json_decode($department->division_id, true) ?? [];
+
+            $divisions = !empty($divisionIds)
+                ? Division::whereIn('id', $divisionIds)
+                    ->where('is_archived', 0)
+                    ->get(['id', 'division_name', 'staff_id'])
+                : collect();
+
+            $staffIds = $divisions->flatMap(function ($div) {
+                $ids = json_decode($div->staff_id, true);
+                return is_array($ids) ? $ids : [];
+            })->filter()->unique();
+
+            $staff = User::whereIn('id', $staffIds)
+                ->where('is_archived', 0)
+                ->get(['id', 'first_name', 'last_name', 'email']);
+
+            $head = null;
+            if ($department->head_id) {
+                $head = [
+                    'id' => $department->head_id,
+                    'first_name' => $department->head_first_name,
+                    'last_name' => $department->head_last_name,
+                ];
+            }
+
+            return [
+                'id' => $department->id,
+                'department_name' => $department->department_name,
+                'acronym' => $department->acronym,
+                'divisions' => $divisions,
+                'staff' => $staff,
+                'head' => $head,
+                'created_at' => $department->created_at,
+                'updated_at' => $department->updated_at
+            ];
+        });
+
+        $response = [
+            'isSuccess' => true,
+            'message' => "Departments retrieved successfully.",
+            'departments' => $departments,
+            'pagination' => [
+                'current_page' => $paginatedDepartments->currentPage(),
+                'last_page' => $paginatedDepartments->lastPage(),
+                'per_page' => $paginatedDepartments->perPage(),
+                'total' => $paginatedDepartments->total()
+            ]
+        ];
+
+        $this->logAPICalls('getOffices', "", $request->all(), [$response]);
+
+        return response()->json($response, 200);
+    } catch (Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => "Failed to retrieve departments.",
+            'error' => $e->getMessage()
+        ];
+
+        $this->logAPICalls('getOffices', "", $request->all(), [$response]);
+
+        return response()->json($response, 500);
+    }
+}
     
             // Apply search filters
             if ($search) {
@@ -311,69 +396,7 @@ public function updateOffice(Request $request, $id)
             $departments = collect($paginatedDepartments->items())->map(function ($department) {
                 $divisionIds = json_decode($department->division_id, true) ?? [];
     
-                $divisions = !empty($divisionIds)
-                    ? Division::whereIn('id', $divisionIds)
-                        ->where('is_archived', 0)
-                        ->get(['id', 'division_name', 'staff_id'])
-                    : collect();
-    
-                $staffIds = $divisions->flatMap(function ($div) {
-                    $ids = json_decode($div->staff_id, true);
-                    return is_array($ids) ? $ids : [];
-                })->filter()->unique();
-    
-                $staff = User::whereIn('id', $staffIds)
-                    ->where('is_archived', 0)
-                    ->get(['id', 'first_name', 'last_name', 'email']);
-    
-                $head = null;
-                if ($department->head_id) {
-                    $head = [
-                        'id' => $department->head_id,
-                        'first_name' => $department->head_first_name,
-                        'last_name' => $department->head_last_name,
-                    ];
-                }
-    
-                return [
-                    'id' => $department->id,
-                    'department_name' => $department->department_name,
-                    'acronym' => $department->acronym,
-                    'divisions' => $divisions,
-                    'staff' => $staff,
-                    'head' => $head,
-                    'created_at' => $department->created_at,
-                    'updated_at' => $department->updated_at
-                ];
-            });
-    
-            $response = [
-                'isSuccess' => true,
-                'message' => "Departments retrieved successfully.",
-                'departments' => $departments,
-                'pagination' => [
-                    'current_page' => $paginatedDepartments->currentPage(),
-                    'last_page' => $paginatedDepartments->lastPage(),
-                    'per_page' => $paginatedDepartments->perPage(),
-                    'total' => $paginatedDepartments->total()
-                ]
-            ];
-    
-            $this->logAPICalls('getOffices', "", $request->all(), [$response]);
-    
-            return response()->json($response, 200);
-        } catch (Throwable $e) {
-            $response = [
-                'isSuccess' => false,
-                'message' => "Failed to retrieve departments.",
-                'error' => $e->getMessage()
-            ];
-    
-            $this->logAPICalls('getOffices', "", $request->all(), [$response]);
-    
-            return response()->json($response, 500);
-        }
-    }
+
 
 
     public function getStaffsPersonnelForHead()
