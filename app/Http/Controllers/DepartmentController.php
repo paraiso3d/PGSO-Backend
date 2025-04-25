@@ -35,7 +35,6 @@ class DepartmentController extends Controller
             // Basic validation rules
             $request->validate([
                 'department_name' => ['required', 'string', 'unique:departments,department_name'],
-                'acronym' => ['required', 'string'],
                 'division_id' => ['required', 'array'],
                 'division_id.*' => ['integer'],
                 'head_id' => ['required', 'integer', 'exists:users,id'],
@@ -80,7 +79,6 @@ class DepartmentController extends Controller
             // Create the new department
             $collegeOffice = Department::create([
                 'department_name' => $request->department_name,
-                'acronym' => $request->acronym,
                 'division_id' => json_encode($request->division_id),
                 'head_id' => $request->head_id,
             ]);
@@ -141,7 +139,6 @@ public function updateOffice(Request $request, $id)
                 'sometimes', 'string', 
                 Rule::unique('departments', 'department_name')->ignore($id)
             ],
-            'acronym' => ['sometimes', 'string'],
             'division_id' => ['sometimes', 'array'],
             'division_id.*' => ['integer'],
             'head_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -197,7 +194,6 @@ public function updateOffice(Request $request, $id)
         // Prepare update data
         $updateData = array_filter([
             'department_name' => $request->department_name,
-            'acronym' => $request->acronym,
             'division_id' => $request->has('division_id') ? json_encode($request->division_id) : null,
             'head_id' => $request->head_id,
         ], fn ($value) => !is_null($value));
@@ -275,7 +271,6 @@ public function updateOffice(Request $request, $id)
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('departments.department_name', 'like', "%$search%")
-                        ->orWhere('departments.acronym', 'like', "%$search%")
                         ->orWhere('heads.first_name', 'like', "%$search%")
                         ->orWhere('heads.last_name', 'like', "%$search%");
                 });
@@ -322,7 +317,6 @@ public function updateOffice(Request $request, $id)
                 return [
                     'id' => $department->id,
                     'department_name' => $department->department_name,
-                    'acronym' => $department->acronym,
                     'divisions' => $divisions,
                     'staff' => $staff,
                     'head' => $head,
