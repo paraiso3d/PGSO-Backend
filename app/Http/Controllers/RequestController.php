@@ -1066,7 +1066,7 @@ if ($alreadyAssigned) {
         }
     }
 
-    public function     (Request $request, $id)
+    public function reviewrequest(Request $request, $id)
 {
     try {
         // Find the request record
