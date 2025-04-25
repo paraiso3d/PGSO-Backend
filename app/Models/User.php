@@ -89,7 +89,7 @@ class User extends Authenticatable
 public function categories()
 {
     return $this->belongsToMany(Category::class, 'category_personnel', 'personnel_id', 'category_id')
-                ->withPivot('is_team_lead');  // Ensure you're including 'is_team_lead'
+                ->withPivot('is_team_lead');
 }
 
 public function isTeamLeadForCategory($categoryId)

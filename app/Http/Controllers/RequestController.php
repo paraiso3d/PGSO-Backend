@@ -412,9 +412,10 @@ class RequestController extends Controller
                     $categoryIds = $categories->pluck('id');
 
                     $query->whereIn('requests.category_id', $categoryIds)
-                        ->whereIn('requests.status', ['For Assign', 'For Completion', 'Completed']);
+                        ->whereIn('requests.status', ['For Assign', 'For Completion', 'For Review', 'Completed']);
                 } else {
-                    $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)]);
+                    $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)])
+                    ->whereIn('requests.status', ['For Completion']);
                 }
                 break;
             case 'team_lead':
@@ -943,7 +944,6 @@ if ($alreadyAssigned) {
     
 
 
-    
 
     public function submitCompletion(Request $request, $id)
     {
@@ -977,7 +977,7 @@ if ($alreadyAssigned) {
 
 
             $requestRecord->file_completion = $fileCompletionPath;
-            $requestRecord->status = 'For Feedback';
+            $requestRecord->status = 'For Review';
             $requestRecord->date_completed = now();
             $requestRecord->save();
 
@@ -1009,7 +1009,7 @@ if ($alreadyAssigned) {
 
                 Mail::raw(
                     "Hi {$sender->first_name},\n\n" .
-                    "Your request with Control No. {$requestRecord->control_no} has been marked as completed and is now awaiting your feedback.\n\n" .
+                    "Your request with Control No. {$requestRecord->control_no} has been marked as for Review.\n\n" .
                     "Category: " . ($category ? $category->category_name : 'N/A') . "\n" .
                     "Team Lead: " . ($teamLead ? "{$teamLead->first_name} {$teamLead->last_name}" : 'N/A') . "\n" .
                     "Assigned Personnel: {$personnelList}\n\n" .
@@ -1065,6 +1065,80 @@ if ($alreadyAssigned) {
             ], 500);
         }
     }
+
+    public function     (Request $request, $id)
+{
+    try {
+        // Find the request record
+        $requestRecord = Requests::findOrFail($id);
+        $user = auth()->user();
+
+        // Check if the user is a team lead for this request's category
+        $isTeamLead = $user->categories()
+            ->wherePivot('is_team_lead', true)
+            ->where('categories.id', $requestRecord->category_id)
+            ->exists();
+
+        if (!$isTeamLead) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Unauthorized. Only the team lead can review this request.'
+            ], 403);
+        }
+
+        // Store previous data for audit logging
+        $previousData = $requestRecord->toArray();
+
+        // Update the status to "For Feedback"
+        $requestRecord->status = 'For Feedback';
+        $requestRecord->save();
+
+        // Notify the requester
+        $requester = User::find($requestRecord->requested_by);
+        $category = Category::find($requestRecord->category_id);
+
+        if ($requester && $requester->email) {
+            Mail::raw(
+                "Hi {$requester->first_name},\n\n" .
+                "Your request with Control No. {$requestRecord->control_no} has been reviewed by the Team Lead and is now marked as 'For Feedback'.\n\n" .
+                "Category: " . ($category ? $category->category_name : 'N/A') . "\n" .
+                "Reviewed by: {$user->first_name} {$user->last_name}\n\n" .
+                "Please check the system for more details.\n\n" .
+                "Thank you!",
+                function ($message) use ($requester) {
+                    $message->to($requester->email)
+                            ->subject('Request Reviewed and Awaiting Feedback');
+                }
+            );
+        }
+
+        // Log the review action
+        AuditLogger::log('reviewRequest', $previousData['status'], 'For Feedback');
+
+        return response()->json([
+            'isSuccess' => true,
+            'message' => 'Request reviewed and moved to For Feedback.',
+            'request' => [
+                'id' => $requestRecord->id,
+                'control_no' => $requestRecord->control_no,
+                'status' => $requestRecord->status,
+                'reviewed_by' => [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                ],
+            ],
+        ], 200);
+
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Failed to review the request.',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
 
 
     public function submitFeedback(Request $request, $id)

@@ -130,6 +130,7 @@ Route::prefix('admin')->middleware('auth:sanctum')->controller(DepartmentControl
     Route::post('department/create', 'createOffice');
     Route::post('department/update/{id}', 'updateOffice');
     Route::post('department', 'getOffices');
+    Route::post('department/staff', 'getStaffsPersonnelForHead');
     Route::post('department/archive', 'getOfficesArchive');
     Route::post('department/delete/{id}', 'deleteOffice');
     Route::post('department/restore/{id}', 'restoreOffice');
@@ -169,6 +170,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('reject/{id}', [RequestController::class, 'rejectRequest']);
         Route::post('assign/{id}', [RequestController::class, 'assignTeamLead']);
         Route::post('assess/{id}', [RequestController::class, 'assessRequest']);
+        Route::post('review/{id}', [RequestController::class, 'reviewrequest']);
         Route::post('completion/{id}', [RequestController::class, 'submitCompletion']);
         Route::post('feedback/{id}', [RequestController::class, 'submitFeedback']);
         Route::get('head/reports', [RequestController::class, 'getAcceptedRequestsByHead']);
