@@ -372,29 +372,7 @@ public function getOffices(Request $request)
     }
 }
     
-            // Apply search filters
-            if ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('departments.department_name', 'like', "%$search%")
-                        ->orWhere('departments.acronym', 'like', "%$search%")
-                        ->orWhere('heads.first_name', 'like', "%$search%")
-                        ->orWhere('heads.last_name', 'like', "%$search%");
-                });
-            }
-    
-            // Apply division filter
-            if ($divisionId) {
-                $query->where(function ($q) use ($divisionId) {
-                    $q->whereJsonContains('departments.division_id', (int)$divisionId);
-                });
-            }
-    
-            // Paginate results
-            $paginatedDepartments = $query->paginate($perPage, ['*'], 'page', $page);
-    
-            // Transform result
-            $departments = collect($paginatedDepartments->items())->map(function ($department) {
-                $divisionIds = json_decode($department->division_id, true) ?? [];
+
     
 
 
