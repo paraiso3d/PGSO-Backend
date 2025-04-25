@@ -150,10 +150,6 @@ class UserController extends Controller
             $query->where('role_name', $roleName);
         }
 
-        if (!empty($gender)) {
-            $query->where('gender', $gender); 
-        }
-
         if (!empty($searchTerm)) {
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('first_name', 'like', '%' . $searchTerm . '%')
