@@ -283,9 +283,6 @@ class DepartmentController extends Controller
      }
      
      
-    
-
-    
 
      
     /**
@@ -407,51 +404,76 @@ class DepartmentController extends Controller
 
 
     public function getStaffsPersonnelForHead()
-{
-    try {
-        $authId = auth()->id();
-
-        // Find the department for the authenticated head
-        $department = Department::where('head_id', $authId)->first();
-
-        if (!$department) {
+    {
+        try {
+            $authId = auth()->id();
+    
+            // Find the department for the authenticated head
+            $department = Department::where('head_id', $authId)->first();
+    
+            if (!$department) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'No department found for this user.'
+                ], 404);
+            }
+    
+            $divisionIds = json_decode($department->division_id, true) ?? [];
+    
+            // Fetch divisions tied to this department
+            $divisions = Division::whereIn('id', $divisionIds)
+                ->where('is_archived', 0)
+                ->get(['id', 'division_name', 'office_location', 'staff_id']);
+    
+            // Prepare a mapping: staff_id => division info
+            $staffDivisionMap = [];
+            foreach ($divisions as $division) {
+                $staffIds = json_decode($division->staff_id, true) ?? [];
+                foreach ($staffIds as $staffId) {
+                    $staffDivisionMap[$staffId] = [
+                        'division_id' => $division->id,
+                        'division_name' => $division->division_name,
+                        'office_location' => $division->office_location,
+                    ];
+                }
+            }
+    
+            // Get all unique staff IDs
+            $staffIds = array_keys($staffDivisionMap);
+    
+            // Fetch the staff/personnel info
+            $staff = User::whereIn('id', $staffIds)
+                ->where('is_archived', 0)
+                ->get(['id', 'first_name', 'last_name', 'email'])
+                ->map(function ($user) use ($staffDivisionMap) {
+                    return [
+                        'id' => $user->id,
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                        'email' => $user->email,
+                        'division' => $staffDivisionMap[$user->id] ?? null,
+                    ];
+                });
+    
+            return response()->json([
+                'isSuccess' => true,
+                'message' => 'Staff and personnel fetched successfully.',
+                'department' => [
+                    'id' => $department->id,
+                    'department_name' => $department->department_name, // assuming you have this column
+                ],
+                'staff' => $staff
+            ], 200);
+        } catch (Throwable $e) {
             return response()->json([
                 'isSuccess' => false,
-                'message' => 'No department found for this user.'
-            ], 404);
+                'message' => 'Error fetching personnel.',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        $divisionIds = json_decode($department->division_id, true) ?? [];
-
-        // Fetch divisions tied to this department
-        $divisions = Division::whereIn('id', $divisionIds)
-            ->where('is_archived', 0)
-            ->get(['id', 'division_name', 'staff_id']);
-
-        // Get all unique staff IDs from divisions
-        $staffIds = $divisions->flatMap(function ($division) {
-            $ids = json_decode($division->staff_id, true);
-            return is_array($ids) ? $ids : [];
-        })->filter()->unique();
-
-        // Fetch the staff/personnel info
-        $staff = User::whereIn('id', $staffIds)
-            ->where('is_archived', 0)
-            ->get(['id', 'first_name', 'last_name', 'email']);
-
-        return response()->json([
-            'isSuccess' => true,
-            'message' => 'Staff and personnel fetched successfully.',
-            'staff' => $staff
-        ], 200);
-    } catch (Throwable $e) {
-        return response()->json([
-            'isSuccess' => false,
-            'message' => 'Error fetching personnel.',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
+    
+
 
     
     
