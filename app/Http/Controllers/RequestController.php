@@ -621,29 +621,32 @@ class RequestController extends Controller
             $userId = auth()->id();
     
             $requests = DB::table('requests')
-                ->join('users', 'users.id', '=', 'requests.requested_by')
-                ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
-                ->where('requests.team_lead_id', $userId)
-                ->select(
-                    'requests.id',
-                    'requests.control_no',
-                    'requests.request_title',
-                    'requests.description',
-                    'requests.file_path',
-                    'requests.file_completion',
-                    'requests.category_id',
-                    'requests.feedback',
-                    'requests.rating',
-                    'requests.status',
-                    'requests.date_requested',
-                    'requests.date_completed',
-                    'requests.personnel_ids',
-                    'users.id as requested_by_id',
-                    'users.first_name as requested_by_first_name',
-                    'users.last_name as requested_by_last_name',
-                    'categories.category_name'
-                )
-                ->get();
+            ->join('users', 'users.id', '=', 'requests.requested_by')
+            ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
+            ->where(function ($query) use ($userId) {
+                $query->where('requests.team_lead_id', $userId)
+                      ->orWhereJsonContains('requests.personnel_ids', $userId);
+            })
+            ->select(
+                'requests.id',
+                'requests.control_no',
+                'requests.request_title',
+                'requests.description',
+                'requests.file_path',
+                'requests.file_completion',
+                'requests.category_id',
+                'requests.feedback',
+                'requests.rating',
+                'requests.status',
+                'requests.date_requested',
+                'requests.date_completed',
+                'requests.personnel_ids',
+                'users.id as requested_by_id',
+                'users.first_name as requested_by_first_name',
+                'users.last_name as requested_by_last_name',
+                'categories.category_name'
+            )
+            ->get();
     
             // Attach personnel details using json_decode
             $formattedRequests = $requests->map(function ($request) {
