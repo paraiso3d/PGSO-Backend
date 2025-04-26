@@ -646,22 +646,48 @@ class RequestController extends Controller
                 ->get();
     
             // Attach personnel details using json_decode
-            $requests->transform(function ($request) {
+            $formattedRequests = $requests->map(function ($request) {
                 $personnelIds = json_decode($request->personnel_ids, true) ?? [];
-    
                 $personnel = DB::table('users')
                     ->whereIn('id', $personnelIds)
-                    ->select('id', 'first_name', 'last_name', 'email') // Add other fields if needed
+                    ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"), 'email')
                     ->get();
     
-                $request->personnel_details = $personnel;
-                return $request;
+                return [
+                    'id' => $request->id,
+                    'control_no' => $request->control_no,
+                    'request_title' => $request->request_title,
+                    'description' => $request->description,
+                    'file_path' => $request->file_path,
+                    'file_url' => $request->file_path ? asset($request->file_path) : null,
+                    'file_completion' => $request->file_completion,
+                    'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
+                    'category_id' => $request->category_id,
+                    'category_name' => $request->category_name,
+                    'personnel' => $personnel->map(function ($p) {
+                        return [
+                            'id' => $p->id,
+                            'name' => $p->name,
+                            'email' => $p->email,
+                        ];
+                    }),
+                    'feedback' => $request->feedback,
+                    'rating' => $request->rating,
+                    'status' => $request->status,
+                    'requested_by' => [
+                        'id' => $request->requested_by_id,
+                        'first_name' => $request->requested_by_first_name,
+                        'last_name' => $request->requested_by_last_name,
+                    ],
+                    'date_requested' => $request->date_requested,
+                    'date_completed' => $request->date_completed,
+                ];
             });
     
             return response()->json([
                 'isSuccess' => true,
                 'message' => 'Accomplishment reports successfully retrieve.',
-                'data' => $requests
+                'data' => $formattedRequests
             ], 200);
     
         } catch (\Throwable $e) {
