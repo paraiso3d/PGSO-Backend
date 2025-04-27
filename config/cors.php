@@ -19,7 +19,7 @@ return [
     'allowed_methods' => ['*'], // allow all HTTP methods (GET, POST, etc.)
 
     'allowed_origins' => [
-        'http://localhost:3000', // <- allow only your frontend
+        '*', // <- allow only your frontend
     ],
 
     'allowed_origins_patterns' => [],
