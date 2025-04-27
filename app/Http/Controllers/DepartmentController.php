@@ -472,6 +472,49 @@ class DepartmentController extends Controller
             ], 500);
         }
     }
+
+    public function getDivisionsForHead()
+{
+    try {
+        $authId = auth()->id();
+
+        // Find the department for the authenticated head
+        $department = Department::where('head_id', $authId)->first();
+
+        if (!$department) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'No department found for this user.'
+            ], 404);
+        }
+
+        $divisionIds = json_decode($department->division_id, true) ?? [];
+
+        // Fetch divisions tied to this department
+        $divisions = Division::whereIn('id', $divisionIds)
+            ->where('is_archived', 0)
+            ->get(['id', 'division_name', 'office_location']);
+
+        return response()->json([
+            'isSuccess' => true,
+            'message' => 'Divisions fetched successfully.',
+            'department' => [
+                'id' => $department->id,
+                'department_name' => $department->department_name,
+            ],
+            'divisions' => $divisions
+        ], 200);
+
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Error fetching divisions.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
     
 
 

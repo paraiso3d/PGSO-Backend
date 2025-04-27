@@ -131,6 +131,7 @@ Route::prefix('admin')->middleware('auth:sanctum')->controller(DepartmentControl
     Route::post('department/update/{id}', 'updateOffice');
     Route::post('department', 'getOffices');
     Route::post('department/staff', 'getStaffsPersonnelForHead');
+    Route::post('department/division', 'getDivisionsForHead');
     Route::post('department/archive', 'getOfficesArchive');
     Route::post('department/delete/{id}', 'deleteOffice');
     Route::post('department/restore/{id}', 'restoreOffice');
