@@ -9,27 +9,24 @@ return [
     |
     */
 
-    // You want to allow CORS not only for APIs, but also for public images
     'paths' => [
         'api/*',
         'sanctum/csrf-cookie',
-        'public/img/*', // <- add this if your route is public/img/*
+        'public/img/*',
     ],
 
-    'allowed_methods' => ['*'], // allow all HTTP methods (GET, POST, etc.)
+    'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        '*', // <- allow only your frontend
-    ],
+    'allowed_origins' => ['*'], // or ['http://localhost:3000'] if you want it specific
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['*'], // allow all headers
+    'allowed_headers' => ['*'],
 
     'exposed_headers' => [],
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    'supports_credentials' => false, // fixed typo here
 
 ];
