@@ -133,7 +133,7 @@ class DepartmentController extends Controller
      
              $collegeOffice = Department::findOrFail($id);
      
-             // Add acronym to validation rules
+             // Validate inputs
              $request->validate([
                  'department_name' => [
                      'sometimes', 'string',
@@ -141,7 +141,7 @@ class DepartmentController extends Controller
                  ],
                  'acronym' => [
                      'sometimes', 'string',
-                     Rule::unique('departments', 'acronym')->ignore($id)  // Ensure acronym is unique
+                     Rule::unique('departments', 'acronym')->ignore($id)
                  ],
                  'division_id' => ['sometimes', 'array'],
                  'division_id.*' => ['integer'],
@@ -190,31 +190,20 @@ class DepartmentController extends Controller
              }
      
              $oldData = $collegeOffice->toArray();
+     
+             // Handle department_name and acronym
              $departmentName = $request->department_name ?? $collegeOffice->department_name;
      
-             // Automatically generate acronym if department_name changes
              if ($departmentName !== $collegeOffice->department_name) {
                  $acronym = $this->generateAcronym($departmentName);
              } else {
-                 $acronym = $request->acronym ?? $collegeOffice->acronym; // Ensure acronym is updated if provided
+                 $acronym = $request->acronym ?? $collegeOffice->acronym;
              }
      
-             if ($request->has('division_id')) {
-                 $divisionNames = Division::whereIn('id', $request->division_id)->pluck('division_name')->toArray();
-                 $departmentName .= ' - ' . implode(', ', $divisionNames);
-             }
-     
-             if ($request->filled('head_id')) {
-                 $head = User::find($request->head_id);
-                 if ($head) {
-                     $departmentName .= ' (' . $head->first_name . ' ' . $head->last_name . ')';
-                 }
-             }
-     
-             // Update the department with the acronym included
+             // Update data
              $updateData = array_filter([
                  'department_name' => $departmentName,
-                 'acronym' => $acronym,  // Include acronym in update
+                 'acronym' => $acronym,
                  'division_id' => $request->has('division_id') ? json_encode($request->division_id) : null,
                  'head_id' => $request->head_id,
              ], fn($value) => !is_null($value));
@@ -266,6 +255,7 @@ class DepartmentController extends Controller
              return response()->json($response, 500);
          }
      }
+     
      
      // Helper method to generate acronym
      protected function generateAcronym($departmentName)
