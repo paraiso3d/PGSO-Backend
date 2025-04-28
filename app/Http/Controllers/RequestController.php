@@ -494,6 +494,7 @@ class RequestController extends Controller
                     'id' => $request->requested_by_id,
                     'first_name' => $request->first_name,
                     'last_name' => $request->last_name,
+                    'full_name' => trim($request->first_name . ' ' . $request->last_name),
                     'division_location' => $divisionLocation
                 ],
                 'date_requested' => $request->date_requested,
