@@ -465,6 +465,19 @@ class RequestController extends Controller
                 ->whereJsonContains('staff_id', $request->requested_by_id)
                 ->value('office_location');
 
+                $division = DB::table('divisions')
+                ->whereJsonContains('staff_id', $request->requested_by_id)
+                ->select('id','division_name')
+                ->first();
+
+                $department = null;
+                if ($division) {
+                    $department = DB::table('departments')
+                        ->whereJsonContains('division_id', $division->id)
+                        ->select('department_name', 'acronym')
+                        ->first();
+                }
+
             return [
                 'id' => $request->id,
                 'control_no' => $request->control_no,
@@ -495,6 +508,8 @@ class RequestController extends Controller
                     'first_name' => $request->first_name,
                     'last_name' => $request->last_name,
                     'full_name' => trim($request->first_name . ' ' . $request->last_name),
+                    'division' => $division ? $division->division_name : null,
+                    'department' => $department ? $department->department_name : null,
                     'division_location' => $divisionLocation
                 ],
                 'date_requested' => $request->date_requested,
