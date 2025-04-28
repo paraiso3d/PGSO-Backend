@@ -573,7 +573,6 @@ public function getAcceptedRequestsByHead()
         $formattedRequests = $requests->map(function ($request) {
             $personnelIds = json_decode($request->personnel_ids, true) ?? [];
 
-            $teamLead = null;
             if ($request->team_lead_id) {
                 $teamLead = DB::table('users')
                     ->where('id', $request->team_lead_id)
@@ -583,6 +582,7 @@ public function getAcceptedRequestsByHead()
                         'email'
                     )
                     ->first();
+            }
 
             // Get personnel details
             $personnel = DB::table('users')
@@ -642,6 +642,7 @@ public function getAcceptedRequestsByHead()
                 'date_completed' => $request->date_completed,
             ];
         });
+    
 
         return response()->json([
             'isSuccess' => true,
