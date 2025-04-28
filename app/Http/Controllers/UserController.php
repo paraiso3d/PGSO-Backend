@@ -197,6 +197,105 @@ class UserController extends Controller
             ], 500);
         }
     }
+
+
+    public function updateStaffUser(Request $request, $id)
+    {
+        try {
+            // Basic auth check (optional, Laravel usually handles it via middleware)
+            if (!auth()->check()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized access.'
+                ], 401);
+            }
+    
+            // Validate input
+            $validator = Validator::make($request->all(), [
+                'first_name' => 'sometimes|string|max:255',
+                'last_name' => 'sometimes|string|max:255',
+                'number' => ['sometimes', 'string', 'regex:/^\d{11,15}$/', Rule::unique('users')->ignore($id)],
+                'email' => ['sometimes', 'email', Rule::unique('users')->ignore($id)],
+            ]);
+    
+            if ($validator->fails()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+    
+            // Find staff user
+            $user = User::findOrFail($id);
+    
+            // Update fields if present
+            $user->update($request->only(['first_name', 'last_name', 'number', 'email']));
+    
+            return response()->json([
+                'isSuccess' => true,
+                'message' => 'Staff user updated successfully.',
+                'user' => $user
+            ], 200);
+    
+        } catch (\Throwable $e) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'An error occurred while updating the staff user.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    
+
+
+    public function deleteStaffUser($id)
+    {
+        try {
+            // Basic auth check
+            if (!auth()->check()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Unauthorized access.'
+                ], 401);
+            }
+    
+            // Find the staff user
+            $user = User::findOrFail($id);
+    
+            // Remove this staff user from any division staff_id
+            $divisions = Division::where('staff_id', 'LIKE', "%$id%")->get();
+    
+            foreach ($divisions as $division) {
+                $staffIds = json_decode($division->staff_id, true) ?? [];
+                $staffIds = array_filter($staffIds, function ($staffId) use ($id) {
+                    return $staffId != $id;
+                });
+    
+                $division->staff_id = json_encode(array_values($staffIds)); // reindex
+                $division->save();
+            }
+    
+            // Optionally, you can soft-delete or hard-delete the user
+            $user->delete();
+    
+            return response()->json([
+                'isSuccess' => true,
+                'message' => 'Staff user deleted successfully and removed from divisions.',
+            ], 200);
+    
+        } catch (\Throwable $e) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'An error occurred while deleting the staff user.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    
+
+
+
     
 
 

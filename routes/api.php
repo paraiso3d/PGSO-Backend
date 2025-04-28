@@ -69,6 +69,8 @@ Route::prefix('admin')->middleware('auth:sanctum')->controller(UserController::c
 });
     Route::middleware('auth:sanctum')->post('users/changeprofile', [UserController::class, 'changeProfile']);
     Route::middleware('auth:sanctum')->post('create/staff', [UserController::class, 'createStaffUser']);
+    Route::middleware('auth:sanctum')->post('update/staff/{id}', [UserController::class, 'updateStaffUser']);
+    Route::middleware('auth:sanctum')->post('remove/staff/{id}', [UserController::class, 'deleteStaffUser']);
 
 /*
 |--------------------Division API-----------------------
