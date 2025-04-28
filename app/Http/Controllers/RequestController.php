@@ -616,11 +616,6 @@ public function getAcceptedRequestsByHead()
                 'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
                 'category_id' => $request->category_id,
                 'category_name' => $request->category_name,
-                'team_lead' => $teamLead ? [
-                    'id' => $teamLead->id,
-                    'full_name' => $teamLead->full_name,
-                    'email' => $teamLead->email,
-                ] : null,
                 'personnel' => $personnel->map(function ($p) {
                     return [
                         'id' => $p->id,
@@ -628,6 +623,11 @@ public function getAcceptedRequestsByHead()
                         'email' => $p->email,
                     ];
                 }),
+                'team_lead' => $teamLead ? [
+                    'id' => $teamLead->id,
+                    'full_name' => $teamLead->full_name,
+                    'email' => $teamLead->email,
+                ] : null,
                 'feedback' => $request->feedback,
                 'rating' => $request->rating,
                 'status' => $request->status,
@@ -749,11 +749,6 @@ public function getAccomplishmentReport(Request $request)
                     'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
                     'category_id' => $request->category_id,
                     'category_name' => $request->category_name,
-                    'team_lead' => $teamLead ? [
-                        'id' => $teamLead->id,
-                        'full_name' => $teamLead->full_name,
-                        'email' => $teamLead->email,
-                    ] : null,
                     'personnel' => $personnel->map(function ($p) {
                         return [
                             'id' => $p->id,
@@ -762,6 +757,12 @@ public function getAccomplishmentReport(Request $request)
                             
                         ];
                     }),
+                    'team_lead' => $teamLead ? [
+                        'id' => $teamLead->id,
+                        'full_name' => $teamLead->full_name,
+                        'email' => $teamLead->email,
+                    ] : null,
+                    
                     'feedback' => $request->feedback,
                     'rating' => $request->rating,
                     'status' => $request->status,
