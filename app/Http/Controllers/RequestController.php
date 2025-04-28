@@ -546,6 +546,7 @@ public function getAcceptedRequestsByHead()
                 'requests.feedback',
                 'requests.rating',
                 'requests.status',
+                'requests.team_lead_id',
                 'requests.date_requested',
                 'requests.date_completed',
                 'requests.personnel_ids',
@@ -571,6 +572,17 @@ public function getAcceptedRequestsByHead()
         // Format the response data for each request
         $formattedRequests = $requests->map(function ($request) {
             $personnelIds = json_decode($request->personnel_ids, true) ?? [];
+
+            $teamLead = null;
+            if ($request->team_lead_id) {
+                $teamLead = DB::table('users')
+                    ->where('id', $request->team_lead_id)
+                    ->select(
+                        'id',
+                        DB::raw("CONCAT(first_name, ' ', last_name) as full_name"),
+                        'email'
+                    )
+                    ->first();
 
             // Get personnel details
             $personnel = DB::table('users')
@@ -604,6 +616,11 @@ public function getAcceptedRequestsByHead()
                 'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
                 'category_id' => $request->category_id,
                 'category_name' => $request->category_name,
+                'team_lead' => $teamLead ? [
+                    'id' => $teamLead->id,
+                    'full_name' => $teamLead->full_name,
+                    'email' => $teamLead->email,
+                ] : null,
                 'personnel' => $personnel->map(function ($p) {
                     return [
                         'id' => $p->id,
@@ -620,6 +637,7 @@ public function getAcceptedRequestsByHead()
                     'division' => $division ? $division->division_name : null,
                     'department' => $department ? $department->department_name : null,
                 ],
+                
                 'date_requested' => $request->date_requested,
                 'date_completed' => $request->date_completed,
             ];
@@ -662,6 +680,7 @@ public function getAccomplishmentReport(Request $request)
                     'requests.feedback',
                     'requests.rating',
                     'requests.status',
+                    'requests.team_lead_id',
                     'requests.date_requested',
                     'requests.date_completed',
                     'requests.personnel_ids',
@@ -670,6 +689,7 @@ public function getAccomplishmentReport(Request $request)
                     'users.last_name as requested_by_last_name',
                     DB::raw("CONCAT(users.first_name, ' ', users.last_name) as requested_by_full_name"),
                     'categories.category_name'
+                    
                 );
     
             // If not admin, filter requests
@@ -684,11 +704,24 @@ public function getAccomplishmentReport(Request $request)
     
             $formattedRequests = $requests->map(function ($request) {
                 $personnelIds = json_decode($request->personnel_ids, true) ?? [];
+
+                $teamLead = null;
+                if ($request->team_lead_id) {
+                    $teamLead = DB::table('users')
+                        ->where('id', $request->team_lead_id)
+                        ->select(
+                            'id',
+                            DB::raw("CONCAT(first_name, ' ', last_name) as full_name"),
+                            'email'
+                        )
+                        ->first();
+}
     
                 $personnel = DB::table('users')
                     ->whereIn('id', $personnelIds)
                     ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"), 'email')
                     ->get();
+                    
     
                 // Find the division based on the staff_id
                 $division = DB::table('divisions')
@@ -716,11 +749,17 @@ public function getAccomplishmentReport(Request $request)
                     'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
                     'category_id' => $request->category_id,
                     'category_name' => $request->category_name,
+                    'team_lead' => $teamLead ? [
+                        'id' => $teamLead->id,
+                        'full_name' => $teamLead->full_name,
+                        'email' => $teamLead->email,
+                    ] : null,
                     'personnel' => $personnel->map(function ($p) {
                         return [
                             'id' => $p->id,
                             'name' => $p->name,
                             'email' => $p->email,
+                            
                         ];
                     }),
                     'feedback' => $request->feedback,
