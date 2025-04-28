@@ -117,6 +117,90 @@ class UserController extends Controller
 
 
 
+    public function createStaffUser(Request $request)
+    {
+        try {
+            // Validate the incoming request
+            $validator = Validator::make($request->all(), [
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'number' => ['required', 'string', 'unique:users,number', 'regex:/^\d{11,15}$/'],
+                'email' => 'required|email|unique:users,email',
+                'division_id' => 'required|exists:divisions,id',
+            ]);
+    
+            if ($validator->fails()) {
+                return response()->json([
+                    'isSuccess' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+    
+            // Set default password
+            $defaultPassword = '@Password1';
+    
+            // Create the new staff user
+            $userAccount = User::create([
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'number' => $request-> number,
+                'email' => $request->email,
+                'password' => Hash::make($defaultPassword),
+                'role_name' => 'staff',  // Automatically assigning the 'Staff' role
+            ]);
+    
+            // Get the division
+            $division = Division::find($request->division_id);
+    
+            // Add the new staff ID to the division's staff_id field, preserving existing staff IDs
+            $currentStaffIds = json_decode($division->staff_id, true) ?: []; // decode or set empty array if null
+            if (!in_array($userAccount->id, $currentStaffIds)) {
+                $currentStaffIds[] = $userAccount->id;  // Add the new staff ID to the array
+            }
+    
+            // Save the updated staff_id as a JSON-encoded field
+            $division->staff_id = json_encode($currentStaffIds);
+            $division->save();
+    
+            // Send email with default password
+            $emailBody = "Dear {$userAccount->first_name} {$userAccount->last_name},\n\n"
+                . "Your account has been created.\n\n"
+                . "Login Email: {$userAccount->email}\n"
+                . "Default Password: {$defaultPassword}\n\n"
+                . "Please log in and change your password as soon as possible.\n\n"
+                . "Thank you.";
+    
+            Mail::raw($emailBody, function ($message) use ($userAccount) {
+                $message->to($userAccount->email)
+                    ->subject('Your New Account Credentials');
+            });
+    
+            return response()->json([
+                'isSuccess' => true,
+                'message' => 'Staff user account successfully created.',
+                'user' => [
+                    'id' => $userAccount->id,
+                    'first_name' => $userAccount->first_name,
+                    'last_name' => $userAccount->last_name,
+                    'email' => $userAccount->email,
+                    'role_name' => $userAccount->role_name,
+                    'division_id' => $request->division_id, // Send the division ID
+                ],
+            ], 201);
+    
+        } catch (\Throwable $e) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'An error occurred while creating the staff user account.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    
+
+
+
     /**
      * Create a get user account.
      */

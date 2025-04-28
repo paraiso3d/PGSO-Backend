@@ -68,6 +68,7 @@ Route::prefix('admin')->middleware('auth:sanctum')->controller(UserController::c
     Route::post('users/{id}/toggle-status', 'toggleUserStatus');
 });
     Route::middleware('auth:sanctum')->post('users/changeprofile', [UserController::class, 'changeProfile']);
+    Route::middleware('auth:sanctum')->post('create/staff', [UserController::class, 'createStaffUser']);
 
 /*
 |--------------------Division API-----------------------
@@ -132,6 +133,7 @@ Route::prefix('admin')->middleware('auth:sanctum')->controller(DepartmentControl
     Route::post('department', 'getOffices');
     Route::post('department/staff', 'getStaffsPersonnelForHead');
     Route::post('department/division', 'getDivisionsForHead');
+    Route::get('department/dropdown/division', 'getdropdowndivisions');
     Route::post('department/archive', 'getOfficesArchive');
     Route::post('department/delete/{id}', 'deleteOffice');
     Route::post('department/restore/{id}', 'restoreOffice');
@@ -148,6 +150,8 @@ Route::prefix('admin')->controller(UserTypeController::class)->group(function ()
     Route::get('user-types', 'getUserTypes');
     Route::post('user-type/delete/{id}', 'deleteUserType');
 });
+
+
 
 
 Route::middleware('auth:sanctum')->group(function () {

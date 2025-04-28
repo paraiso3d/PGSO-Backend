@@ -521,112 +521,19 @@ class RequestController extends Controller
     }
 }
 
-    
+
     
 
-    public function getAcceptedRequestsByHead(Request $request)
-    {
-        try {
-            $userId = auth()->id();
-    
-            // Fetch accepted requests by the head
-            $requests = DB::table('requests')
-                ->join('users', 'users.id', '=', 'requests.requested_by')
-                ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
-                ->where('requests.head_approval_status', 'accepted')
-                ->where('requests.head_approved_by', $userId)
-                ->select(
-                    'requests.id',
-                    'requests.control_no',
-                    'requests.request_title',
-                    'requests.description',
-                    'requests.file_path',
-                    'requests.file_completion',
-                    'requests.category_id',
-                    'requests.feedback',
-                    'requests.rating',
-                    'requests.status',
-                    'requests.date_requested',
-                    'requests.date_completed',
-                    'requests.personnel_ids',
-                    'users.id as requested_by_id',
-                    'users.first_name as requested_by_first_name',
-                    'users.last_name as requested_by_last_name',
-                    'categories.category_name'
-                )
-                ->get();
-    
-            if ($requests->isEmpty()) {
-                return response()->json([
-                    'isSuccess' => true,
-                    'message' => 'No accepted requests found.',
-                ], 200);
-            }
-    
-            // Format the response data for each request
-            $formattedRequests = $requests->map(function ($request) use ($userId) {
-                $personnelIds = json_decode($request->personnel_ids, true) ?? [];
-                $personnelInfo = User::whereIn('id', $personnelIds)
-                    ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
-                    ->get();
-    
-                return [
-                    'id' => $request->id,
-                    'control_no' => $request->control_no,
-                    'request_title' => $request->request_title,
-                    'description' => $request->description,
-                    'file_path' => $request->file_path,
-                    'file_url' => $request->file_path ? asset($request->file_path) : null,
-                    'file_completion' => $request->file_completion,
-                    'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
-                    'category_id' => $request->category_id,
-                    'category_name' => $request->category_name,
-                    'personnel' => $personnelInfo->map(function ($personnel) {
-                        return [
-                            'id' => $personnel->id,
-                            'name' => $personnel->name,
-                        ];
-                    }),
-                    'feedback' => $request->feedback,
-                    'rating' => $request->rating,
-                    'status' => $request->status,
-                    'requested_by' => [
-                        'id' => $request->requested_by_id,
-                        'first_name' => $request->requested_by_first_name,
-                        'last_name' => $request->requested_by_last_name,
-                    ],
-                    'date_requested' => $request->date_requested,
-                    'date_completed' => $request->date_completed,
-                ];
-            });
-    
-            return response()->json([
-                'isSuccess' => true,
-                'message' => 'Accepted requests retrieved successfully.',
-                'requests' => $formattedRequests,
-            ], 200);
-        } catch (Throwable $e) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => 'Failed to retrieve accepted requests.',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-    
-    
-    public function getAccomplishmentReport(Request $request)
-    {
-        try {
-            $userId = auth()->id();
-    
-            $requests = DB::table('requests')
+public function getAcceptedRequestsByHead()
+{
+    try {
+        $userId = auth()->id();
+        $user = auth()->user();
+
+        // Fetch accepted requests by the head and also include department and division details
+        $requestsQuery = DB::table('requests')
             ->join('users', 'users.id', '=', 'requests.requested_by')
             ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
-            ->where(function ($query) use ($userId) {
-                $query->where('requests.team_lead_id', $userId)
-                      ->orWhereJsonContains('requests.personnel_ids', $userId);
-            })
             ->select(
                 'requests.id',
                 'requests.control_no',
@@ -644,17 +551,158 @@ class RequestController extends Controller
                 'users.id as requested_by_id',
                 'users.first_name as requested_by_first_name',
                 'users.last_name as requested_by_last_name',
+                DB::raw("CONCAT(users.first_name, ' ', users.last_name) as requested_by_full_name"),
                 'categories.category_name'
             )
-            ->get();
+            ->where('requests.head_approval_status', 'accepted')
+            ->where('requests.head_approved_by', $userId);
+
+        // Execute the query
+        $requests = $requestsQuery->get();
+
+        if ($requests->isEmpty()) {
+            return response()->json([
+                'isSuccess' => true,
+                'message' => 'No accepted requests found.',
+            ], 200);
+        }
+
+        // Format the response data for each request
+        $formattedRequests = $requests->map(function ($request) {
+            $personnelIds = json_decode($request->personnel_ids, true) ?? [];
+
+            // Get personnel details
+            $personnel = DB::table('users')
+                ->whereIn('id', $personnelIds)
+                ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"), 'email')
+                ->get();
+
+            // Find the division based on the staff_id
+            $division = DB::table('divisions')
+                ->whereJsonContains('staff_id', $request->requested_by_id)
+                ->select('id', 'division_name', 'office_location')
+                ->first();
+
+            // If division exists, get department
+            $department = null;
+            if ($division) {
+                $department = DB::table('departments')
+                    ->whereJsonContains('division_id', $division->id)
+                    ->select('department_name', 'acronym')
+                    ->first();
+            }
+
+            return [
+                'id' => $request->id,
+                'control_no' => $request->control_no,
+                'request_title' => $request->request_title,
+                'description' => $request->description,
+                'file_path' => $request->file_path,
+                'file_url' => $request->file_path ? asset($request->file_path) : null,
+                'file_completion' => $request->file_completion,
+                'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
+                'category_id' => $request->category_id,
+                'category_name' => $request->category_name,
+                'personnel' => $personnel->map(function ($p) {
+                    return [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'email' => $p->email,
+                    ];
+                }),
+                'feedback' => $request->feedback,
+                'rating' => $request->rating,
+                'status' => $request->status,
+                'requested_by' => [
+                    'id' => $request->requested_by_id,
+                    'full_name' => $request->requested_by_full_name,
+                    'division' => $division ? $division->division_name : null,
+                    'department' => $department ? $department->department_name : null,
+                ],
+                'date_requested' => $request->date_requested,
+                'date_completed' => $request->date_completed,
+            ];
+        });
+
+        return response()->json([
+            'isSuccess' => true,
+            'message' => 'Accepted requests retrieved successfully.',
+            'requests' => $formattedRequests,
+        ], 200);
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve accepted requests.',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+
     
-            // Attach personnel details using json_decode
+
+public function getAccomplishmentReport(Request $request)
+    {
+        try {
+            $userId = auth()->id();
+            $user = auth()->user();
+    
+            $requestsQuery = DB::table('requests')
+                ->join('users', 'users.id', '=', 'requests.requested_by')
+                ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
+                ->select(
+                    'requests.id',
+                    'requests.control_no',
+                    'requests.request_title',
+                    'requests.description',
+                    'requests.file_path',
+                    'requests.file_completion',
+                    'requests.category_id',
+                    'requests.feedback',
+                    'requests.rating',
+                    'requests.status',
+                    'requests.date_requested',
+                    'requests.date_completed',
+                    'requests.personnel_ids',
+                    'users.id as requested_by_id',
+                    'users.first_name as requested_by_first_name',
+                    'users.last_name as requested_by_last_name',
+                    DB::raw("CONCAT(users.first_name, ' ', users.last_name) as requested_by_full_name"),
+                    'categories.category_name'
+                );
+    
+            // If not admin, filter requests
+            if ($user->role_name !== 'Admin') {
+                $requestsQuery->where(function ($query) use ($userId) {
+                    $query->where('requests.team_lead_id', $userId)
+                          ->orWhereJsonContains('requests.personnel_ids', $userId);
+                });
+            }
+    
+            $requests = $requestsQuery->get();
+    
             $formattedRequests = $requests->map(function ($request) {
                 $personnelIds = json_decode($request->personnel_ids, true) ?? [];
+    
                 $personnel = DB::table('users')
                     ->whereIn('id', $personnelIds)
                     ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"), 'email')
                     ->get();
+    
+                // Find the division based on the staff_id
+                $division = DB::table('divisions')
+                    ->whereJsonContains('staff_id', $request->requested_by_id)
+                    ->select('id', 'division_name')
+                    ->first();
+    
+                // If division exists, get department
+                $department = null;
+                if ($division) {
+                    $department = DB::table('departments')
+                        ->whereJsonContains('division_id', $division->id)
+                        ->select('department_name')
+                        ->first();
+                }
     
                 return [
                     'id' => $request->id,
@@ -679,8 +727,9 @@ class RequestController extends Controller
                     'status' => $request->status,
                     'requested_by' => [
                         'id' => $request->requested_by_id,
-                        'first_name' => $request->requested_by_first_name,
-                        'last_name' => $request->requested_by_last_name,
+                        'full_name' => $request->requested_by_full_name,
+                        'division' => $division ? $division->division_name : null,
+                        'department' => $department ? $department->department_name : null,
                     ],
                     'date_requested' => $request->date_requested,
                     'date_completed' => $request->date_completed,
@@ -689,7 +738,7 @@ class RequestController extends Controller
     
             return response()->json([
                 'isSuccess' => true,
-                'message' => 'Accomplishment reports successfully retrieve.',
+                'message' => 'Accomplishment reports successfully retrieved.',
                 'data' => $formattedRequests
             ], 200);
     
@@ -701,6 +750,12 @@ class RequestController extends Controller
             ], 500);
         }
     }
+    
+
+    
+    
+    
+
     
     
     

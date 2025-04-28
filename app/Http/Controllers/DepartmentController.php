@@ -504,6 +504,43 @@ class DepartmentController extends Controller
     }
 }
 
+public function getdropdowndivisions()
+{
+    try {
+        // Get the authenticated user's ID
+        $authId = auth()->id();
+    
+        // Find the department for the authenticated head
+        $department = Department::where('head_id', $authId)->first();
+    
+        if (!$department) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'No department found for this user.'
+            ], 404);
+        }
+    
+        // Decode the division IDs assigned to the department
+        $divisionIds = json_decode($department->division_id, true) ?? [];
+    
+        // Fetch divisions tied to this department
+        $divisions = Division::whereIn('id', $divisionIds)
+            ->where('is_archived', 0)
+            ->get(['id', 'division_name']);
+    
+        return response()->json([
+            'isSuccess' => true,
+            'message' => 'Divisions for head fetched successfully.',
+            'divisions' => $divisions
+        ], 200);
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Error fetching divisions.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 
     
 
@@ -627,7 +664,8 @@ class DepartmentController extends Controller
     /**
      * Delete a college office.
      */
-    public function deleteOffice(Request $request)
+  
+     public function deleteOffice(Request $request)
 {
     try {
         // Get authenticated user
