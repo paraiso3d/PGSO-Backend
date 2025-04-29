@@ -440,7 +440,7 @@ class DepartmentController extends Controller
                         'id' => $user->id,
                         'first_name' => $user->first_name,
                         'last_name' => $user->last_name,
-                        'number' => $user->number
+                        'number' => $user->number,
                         'email' => $user->email,
                         'division' => $staffDivisionMap[$user->id] ?? null,
                     ];
