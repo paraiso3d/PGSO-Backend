@@ -15,12 +15,13 @@ class Department extends Model
         'head_id',
         'is_archived'
     ];
-    public function divisions()
-    {
-        return $this->belongsToMany(Division::class, 'department_division');
-    }
     public function head()
     {
         return $this->belongsTo(User::class, 'head_id');
     }
+
+    public function divisions()
+{
+    return $this->hasMany(Division::class, 'department_id');
+}
 }

@@ -33,8 +33,6 @@ class DepartmentController extends Controller
     
             $request->validate([
                 'department_name' => ['required', 'string', 'unique:departments,department_name'],
-                'division_id' => ['required', 'array'],
-                'division_id.*' => ['integer'],
                 'head_id' => ['required', 'integer', 'exists:users,id'],
             ]);
     
@@ -57,20 +55,6 @@ class DepartmentController extends Controller
                 ], 422);
             }
     
-            $conflictingDivisions = Department::whereNotNull('division_id')
-                ->get()
-                ->filter(function ($department) use ($request) {
-                    $existingDivisions = json_decode($department->division_id, true);
-                    return array_intersect($existingDivisions, $request->division_id);
-                });
-    
-            if ($conflictingDivisions->isNotEmpty()) {
-                return response()->json([
-                    'isSuccess' => false,
-                    'message' => 'One or more selected divisions are already assigned to another department.',
-                ], 422);
-            }
-    
             // Generate acronym from department name
             $words = preg_split("/[\s,]+/", $request->department_name);
             $acronym = strtoupper(implode('', array_map(fn($word) => $word[0], $words)));
@@ -78,12 +62,10 @@ class DepartmentController extends Controller
             // Create the new department with acronym
             $collegeOffice = Department::create([
                 'department_name' => $request->department_name,
-                'division_id' => json_encode($request->division_id),
                 'head_id' => $request->head_id,
                 'acronym' => $acronym,
             ]);
     
-            $divisions = Division::whereIn('id', $request->division_id)->get(['id', 'division_name']);
     
             AuditLogger::log('Created Office', 'N/A', 'Created Department: ' . $collegeOffice->department_name);
     
@@ -91,7 +73,6 @@ class DepartmentController extends Controller
                 'isSuccess' => true,
                 'message' => "Department successfully created.",
                 'department' => $collegeOffice,
-                'divisions' => $divisions,
                 'head' => $headUser,
             ], 200);
     
@@ -143,8 +124,6 @@ class DepartmentController extends Controller
                      'sometimes', 'string',
                      Rule::unique('departments', 'acronym')->ignore($id)
                  ],
-                 'division_id' => ['sometimes', 'array'],
-                 'division_id.*' => ['integer'],
                  'head_id' => ['sometimes', 'integer', 'exists:users,id'],
              ]);
      
@@ -172,22 +151,6 @@ class DepartmentController extends Controller
                  }
              }
      
-             if ($request->has('division_id')) {
-                 $duplicateDivisions = Department::where('id', '!=', $id)
-                     ->whereNotNull('division_id')
-                     ->get()
-                     ->filter(function ($dept) use ($request) {
-                         $existingDivisions = json_decode($dept->division_id, true);
-                         return count(array_intersect($existingDivisions, $request->division_id)) > 0;
-                     });
-     
-                 if ($duplicateDivisions->isNotEmpty()) {
-                     return response()->json([
-                         'isSuccess' => false,
-                         'message' => 'One or more of the selected divisions are already assigned to another department.',
-                     ], 422);
-                 }
-             }
      
              $oldData = $collegeOffice->toArray();
      
@@ -204,21 +167,16 @@ class DepartmentController extends Controller
              $updateData = array_filter([
                  'department_name' => $departmentName,
                  'acronym' => $acronym,
-                 'division_id' => $request->has('division_id') ? json_encode($request->division_id) : null,
                  'head_id' => $request->head_id,
              ], fn($value) => !is_null($value));
      
              $collegeOffice->update($updateData);
      
-             $divisions = $request->has('division_id')
-                 ? Division::whereIn('id', $request->division_id)->get(['id', 'division_name'])
-                 : Division::whereIn('id', json_decode($collegeOffice->division_id, true))->get(['id', 'division_name']);
      
              $response = [
                  'isSuccess' => true,
                  'message' => "Office successfully updated.",
                  'department' => $collegeOffice,
-                 'divisions' => $divisions,
              ];
      
              $this->logAPICalls('updateOffice', $user->email, $request->all(), [$response]);
@@ -286,22 +244,26 @@ class DepartmentController extends Controller
             $search = $request->input('search');
             $divisionId = $request->input('division_id');
     
+            // Query for departments with joins as before
             $query = Department::where('departments.is_archived', 0)
                 ->leftJoin('users as heads', 'departments.head_id', '=', 'heads.id')
+                ->leftJoin('divisions', 'departments.id', '=', 'divisions.department_id') // Use direct join on department_id
                 ->select(
                     'departments.id',
                     'departments.department_name',
                     'departments.acronym',
-                    'departments.division_id',
                     'departments.head_id',
                     'departments.created_at',
                     'departments.updated_at',
-                    'heads.first_name as head_first_name', // Aliasing first_name from heads table
-                    'heads.last_name as head_last_name',   // Aliasing last_name from heads table
-                    'heads.email as head_email'             // Aliasing email from heads table (if needed)
+                    'heads.first_name as head_first_name',
+                    'heads.last_name as head_last_name',
+                    'heads.email as head_email',
+                    'divisions.id as division_id',
+                    'divisions.division_name',
+                    'divisions.staff_id'
                 );
     
-            // Add search filters for department_name, head names, and acronym
+            // Apply search filter
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('departments.department_name', 'like', "%$search%")
@@ -311,49 +273,45 @@ class DepartmentController extends Controller
                 });
             }
     
-            // Filter by division
+            // Filter by division_id if provided
             if ($divisionId) {
-                $query->where(function ($q) use ($divisionId) {
-                    $q->whereJsonContains('departments.division_id', (int)$divisionId);
-                });
+                $query->where('divisions.id', $divisionId);
             }
     
+            // Pagination
             $paginatedDepartments = $query->paginate($perPage, ['*'], 'page', $page);
     
-            $departments = collect($paginatedDepartments->items())->map(function ($department) {
-                $divisionIds = json_decode($department->division_id, true) ?? [];
+            // Group by department ID and merge divisions and staff
+            $groupedDepartments = collect($paginatedDepartments->items())->groupBy('id')->map(function ($departmentGroup) {
+                // Assume the first record is representative of the department (all records will have the same basic department details)
+                $department = $departmentGroup->first();
     
-                $divisions = !empty($divisionIds)
-                    ? Division::whereIn('id', $divisionIds)
-                        ->where('is_archived', 0)
-                        ->get(['id', 'division_name', 'staff_id'])
-                    : collect();
+                // Merge all divisions
+                $divisions = $departmentGroup->flatMap(function ($department) {
+                    return $department->divisions;
+                })->unique('id'); // Remove duplicates
     
-                $staffIds = $divisions->flatMap(function ($div) {
-                    $ids = json_decode($div->staff_id, true);
-                    return is_array($ids) ? $ids : [];
-                })->filter()->unique();
+                // Merge all staff (staff_id references should be aggregated)
+                $staffIds = $departmentGroup->flatMap(function ($department) {
+                    return json_decode($department->staff_id, true);
+                })->unique();
     
+                // Fetch staff data
                 $staff = User::whereIn('id', $staffIds)
                     ->where('is_archived', 0)
                     ->get(['id', 'first_name', 'last_name', 'email']);
-    
-                $head = null;
-                if ($department->head_id) {
-                    $head = [
-                        'id' => $department->head_id,
-                        'first_name' => $department->head_first_name,
-                        'last_name' => $department->head_last_name,
-                    ];
-                }
     
                 return [
                     'id' => $department->id,
                     'department_name' => $department->department_name,
                     'acronym' => $department->acronym,
+                    'head' => [
+                        'id' => $department->head_id,
+                        'first_name' => $department->head_first_name,
+                        'last_name' => $department->head_last_name,
+                    ],
                     'divisions' => $divisions,
                     'staff' => $staff,
-                    'head' => $head,
                     'created_at' => $department->created_at,
                     'updated_at' => $department->updated_at
                 ];
@@ -362,7 +320,7 @@ class DepartmentController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => "Departments retrieved successfully.",
-                'departments' => $departments,
+                'departments' => $groupedDepartments->values(),
                 'pagination' => [
                     'current_page' => $paginatedDepartments->currentPage(),
                     'last_page' => $paginatedDepartments->lastPage(),
@@ -388,12 +346,81 @@ class DepartmentController extends Controller
     }
     
     
+    
+    
 
     
 
-
-
     public function getStaffsPersonnelForHead()
+{
+    try {
+        $authId = auth()->id();
+
+        // Find the department for the authenticated head
+        $department = Department::where('head_id', $authId)->first();
+
+        if (!$department) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'No department found for this user.'
+            ], 404);
+        }
+
+        // Fetch divisions assigned to this department
+        $divisions = Division::where('department_id', $department->id)
+            ->where('is_archived', 0)
+            ->get(['id', 'division_name', 'office_location', 'staff_id']);
+
+        // Prepare a mapping: staff_id => division info
+        $staffDivisionMap = [];
+        foreach ($divisions as $division) {
+            $staffIds = json_decode($division->staff_id, true) ?? [];
+            foreach ($staffIds as $staffId) {
+                $staffDivisionMap[$staffId] = [
+                    'division_id' => $division->id,
+                    'division_name' => $division->division_name,
+                    'office_location' => $division->office_location,
+                ];
+            }
+        }
+
+        // Get all unique staff IDs
+        $staffIds = array_keys($staffDivisionMap);
+
+        // Fetch the staff/personnel info
+        $staff = User::whereIn('id', $staffIds)
+            ->where('is_archived', 0)
+            ->get(['id', 'first_name', 'last_name', 'email'])
+            ->map(function ($user) use ($staffDivisionMap) {
+                return [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'division' => $staffDivisionMap[$user->id] ?? null,
+                ];
+            });
+
+        return response()->json([
+            'isSuccess' => true,
+            'message' => 'Staff and personnel fetched successfully.',
+            'department' => [
+                'id' => $department->id,
+                'department_name' => $department->department_name,
+            ],
+            'staff' => $staff
+        ], 200);
+    } catch (Throwable $e) {
+        return response()->json([
+            'isSuccess' => false,
+            'message' => 'Error fetching personnel.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+    public function getDivisionsForHead()
     {
         try {
             $authId = auth()->id();
@@ -408,126 +435,52 @@ class DepartmentController extends Controller
                 ], 404);
             }
     
-            $divisionIds = json_decode($department->division_id, true) ?? [];
-    
-            // Fetch divisions tied to this department
-            $divisions = Division::whereIn('id', $divisionIds)
+            // Fetch divisions tied to this department via department_id
+            $divisions = Division::where('department_id', $department->id)
                 ->where('is_archived', 0)
-                ->get(['id', 'division_name', 'office_location', 'staff_id']);
-    
-            // Prepare a mapping: staff_id => division info
-            $staffDivisionMap = [];
-            foreach ($divisions as $division) {
-                $staffIds = json_decode($division->staff_id, true) ?? [];
-                foreach ($staffIds as $staffId) {
-                    $staffDivisionMap[$staffId] = [
-                        'division_id' => $division->id,
-                        'division_name' => $division->division_name,
-                        'office_location' => $division->office_location,
-                    ];
-                }
-            }
-    
-            // Get all unique staff IDs
-            $staffIds = array_keys($staffDivisionMap);
-    
-            // Fetch the staff/personnel info
-            $staff = User::whereIn('id', $staffIds)
-                ->where('is_archived', 0)
-                ->get(['id', 'first_name', 'last_name', 'email'])
-                ->map(function ($user) use ($staffDivisionMap) {
-                    return [
-                        'id' => $user->id,
-                        'first_name' => $user->first_name,
-                        'last_name' => $user->last_name,
-                        'email' => $user->email,
-                        'division' => $staffDivisionMap[$user->id] ?? null,
-                    ];
-                });
+                ->get(['id', 'division_name', 'office_location']);
     
             return response()->json([
                 'isSuccess' => true,
-                'message' => 'Staff and personnel fetched successfully.',
+                'message' => 'Divisions fetched successfully.',
                 'department' => [
                     'id' => $department->id,
-                    'department_name' => $department->department_name, // assuming you have this column
+                    'department_name' => $department->department_name,
                 ],
-                'staff' => $staff
+                'divisions' => $divisions
             ], 200);
+    
         } catch (Throwable $e) {
             return response()->json([
                 'isSuccess' => false,
-                'message' => 'Error fetching personnel.',
+                'message' => 'Error fetching divisions.',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
-
-    public function getDivisionsForHead()
-{
-    try {
-        $authId = auth()->id();
-
-        // Find the department for the authenticated head
-        $department = Department::where('head_id', $authId)->first();
-
-        if (!$department) {
-            return response()->json([
-                'isSuccess' => false,
-                'message' => 'No department found for this user.'
-            ], 404);
-        }
-
-        $divisionIds = json_decode($department->division_id, true) ?? [];
-
-        // Fetch divisions tied to this department
-        $divisions = Division::whereIn('id', $divisionIds)
-            ->where('is_archived', 0)
-            ->get(['id', 'division_name', 'office_location']);
-
-        return response()->json([
-            'isSuccess' => true,
-            'message' => 'Divisions fetched successfully.',
-            'department' => [
-                'id' => $department->id,
-                'department_name' => $department->department_name,
-            ],
-            'divisions' => $divisions
-        ], 200);
-
-    } catch (Throwable $e) {
-        return response()->json([
-            'isSuccess' => false,
-            'message' => 'Error fetching divisions.',
-            'error' => $e->getMessage()
-        ], 500);
-    }
-}
+    
 
 public function getdropdowndivisions()
 {
     try {
         // Get the authenticated user's ID
         $authId = auth()->id();
-    
-        // Find the department for the authenticated head
+
+        // Find the department where the authenticated user is the head
         $department = Department::where('head_id', $authId)->first();
-    
+
         if (!$department) {
             return response()->json([
                 'isSuccess' => false,
                 'message' => 'No department found for this user.'
             ], 404);
         }
-    
-        // Decode the division IDs assigned to the department
-        $divisionIds = json_decode($department->division_id, true) ?? [];
-    
-        // Fetch divisions tied to this department
-        $divisions = Division::whereIn('id', $divisionIds)
+
+        // Fetch divisions belonging to this department
+        $divisions = Division::where('department_id', $department->id)
             ->where('is_archived', 0)
             ->get(['id', 'division_name']);
-    
+
         return response()->json([
             'isSuccess' => true,
             'message' => 'Divisions for head fetched successfully.',
@@ -541,6 +494,7 @@ public function getdropdowndivisions()
         ], 500);
     }
 }
+
 
     
 

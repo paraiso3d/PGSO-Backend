@@ -19,7 +19,7 @@ class Division extends Model
         'division_name',
         'office_location',
         'staff_id',
-        'personnel_id',
+        'department_id',
         'is_archived',
     ];
 
@@ -31,6 +31,11 @@ class Division extends Model
 public function staff()
 {
     return $this->belongsTo(User::class, 'staff_id');
+}
+
+public function department()
+{
+    return $this->belongsTo(Department::class, 'department_id');
 }
 
 

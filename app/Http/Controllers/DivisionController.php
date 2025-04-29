@@ -34,10 +34,9 @@ class DivisionController extends Controller
             $request->validate([
                 'division_name' => 'required|string|unique:divisions,division_name',
                 'office_location' => 'required|string',
+                'department_id' => 'required|exists:departments,id',
                 'staff_id' => 'nullable|array',
                 'staff_id.*' => 'exists:users,id',
-                'personnel_id' => 'nullable|array',
-                'personnel_id.*' => 'exists:users,id',
             ]);
     
             // Handle Staff
@@ -79,62 +78,25 @@ class DivisionController extends Controller
                 })->toArray();
             }
     
-            // Handle Personnel
-            $personnelDetails = [];
-            if (!empty($request->personnel_id)) {
-                $personnelUsers = User::whereIn('id', $request->personnel_id)->get(['id', 'first_name', 'last_name', 'role_name']);
-    
-                $invalidPersonnel = $personnelUsers->where('role_name', '!=', 'personnel')->pluck('id')->toArray();
-                if (!empty($invalidPersonnel)) {
-                    AuditLogger::log('Failed Division Creation - Invalid Personnel Role', 'N/A', 'N/A');
-                    return response()->json([
-                        'isSuccess' => false,
-                        'message' => 'One or more selected users are not assigned the "personnel" role.',
-                        'invalid_users' => $invalidPersonnel,
-                    ], 400);
-                }
-    
-                $alreadyAssignedPersonnel = Division::whereNotNull('personnel_id')
-                    ->where(function ($query) use ($request) {
-                        foreach ($request->personnel_id as $personnelId) {
-                            $query->orWhereRaw("JSON_CONTAINS(personnel_id, ?)", [json_encode($personnelId)]);
-                        }
-                    })->exists();
-    
-                if ($alreadyAssignedPersonnel) {
-                    AuditLogger::log('Failed Division Creation - Personnel Already Assigned', 'N/A', 'N/A');
-                    return response()->json([
-                        'isSuccess' => false,
-                        'message' => 'One or more selected personnel are already assigned to another division.',
-                    ], 400);
-                }
-    
-                $personnelDetails = $personnelUsers->map(function ($person) {
-                    return [
-                        'id' => $person->id,
-                        'first_name' => $person->first_name,
-                        'last_name' => $person->last_name,
-                    ];
-                })->toArray();
-            }
-    
             // Save division
             $division = Division::create([
                 'division_name' => $request->division_name,
                 'office_location' => $request->office_location,
+                'department_id' => $request->department_id,
                 'staff_id' => json_encode(array_column($staffDetails, 'id')),
-                'personnel_id' => json_encode(array_column($personnelDetails, 'id')),
             ]);
     
-            $response = [
+                    $response = [
                 'isSuccess' => true,
                 'message' => 'Division successfully created.',
                 'division' => [
                     'id' => $division->id,
                     'division_name' => $division->division_name,
                     'office_location' => $division->office_location,
+                    'department_id' => $division->department_id,
                     'staff' => $staffDetails,
-                    'personnel' => $personnelDetails,
+                    'created_at' => $division->created_at,
+                    'updated_at' => $division->updated_at,
                 ],
             ];
     
@@ -169,6 +131,7 @@ class DivisionController extends Controller
     
     
     
+    
     /**
      * Update an existing college office.
      */
@@ -192,16 +155,15 @@ class DivisionController extends Controller
                 'office_location' => 'sometimes|required|string',
                 'staff_id' => 'nullable|array',
                 'staff_id.*' => 'exists:users,id',
-                'personnel_id' => 'nullable|array',
-                'personnel_id.*' => 'exists:users,id',
+                'department_id' => 'required|exists:departments,id',
             ]);
     
-            // ✅ Staff validation
+            // Handle Staff validation
             $staffDetails = [];
             if (!empty($request->staff_id)) {
                 $staffUsers = User::whereIn('id', $request->staff_id)->get(['id', 'first_name', 'last_name', 'role_name']);
-                $invalidStaff = $staffUsers->where('role_name', '!=', 'staff')->pluck('id')->toArray();
     
+                $invalidStaff = $staffUsers->where('role_name', '!=', 'staff')->pluck('id')->toArray();
                 if (!empty($invalidStaff)) {
                     return response()->json([
                         'isSuccess' => false,
@@ -231,53 +193,19 @@ class DivisionController extends Controller
                 })->toArray();
             }
     
-            // ✅ Personnel validation
-            $personnelDetails = [];
-            if (!empty($request->personnel_id)) {
-                $personnelUsers = User::whereIn('id', $request->personnel_id)->get(['id', 'first_name', 'last_name', 'role_name']);
-                $invalidPersonnel = $personnelUsers->where('role_name', '!=', 'personnel')->pluck('id')->toArray();
-    
-                if (!empty($invalidPersonnel)) {
-                    return response()->json([
-                        'isSuccess' => false,
-                        'message' => 'One or more selected users are not assigned the "personnel" role.',
-                        'invalid_users' => $invalidPersonnel,
-                    ], 400);
-                }
-    
-                $alreadyAssignedPersonnel = Division::whereNotNull('personnel_id')
-                    ->where('id', '!=', $id)
-                    ->whereRaw("JSON_CONTAINS(personnel_id, ?)", [json_encode($request->personnel_id)])
-                    ->exists();
-    
-                if ($alreadyAssignedPersonnel) {
-                    return response()->json([
-                        'isSuccess' => false,
-                        'message' => 'One or more selected personnel are already assigned to another division.',
-                    ], 400);
-                }
-    
-                $personnelDetails = $personnelUsers->map(function ($person) {
-                    return [
-                        'id' => $person->id,
-                        'first_name' => $person->first_name,
-                        'last_name' => $person->last_name,
-                    ];
-                })->toArray();
-            }
-    
             $statusBefore = $division->status;
     
-            // ✅ Update division with staff and personnel
+            // Update division with staff
             $division->update([
                 'division_name' => $request->division_name ?? $division->division_name,
                 'office_location' => $request->office_location ?? $division->office_location,
+                'department_id' => $request->department_id ?? $division->department_id,
                 'staff_id' => json_encode(array_column($staffDetails, 'id') ?? json_decode($division->staff_id, true)),
-                'personnel_id' => json_encode(array_column($personnelDetails, 'id') ?? json_decode($division->personnel_id, true)),
             ]);
     
-            $afterUpdate = $division->only(['id', 'division_name', 'office_location', 'staff_id', 'personnel_id']);
+            $afterUpdate = $division->only(['id', 'division_name', 'office_location', 'staff_id', 'department_id']);
     
+            // Log the update
             AuditLogger::log(
                 'updateDivision',
                 json_encode($beforeUpdate),
@@ -292,8 +220,8 @@ class DivisionController extends Controller
                     'id' => $division->id,
                     'division_name' => $division->division_name,
                     'office_location' => $division->office_location,
+                    'department_id' => $division->department_id,
                     'staff' => $staffDetails,
-                    'personnel' => $personnelDetails,
                 ],
             ];
     
@@ -317,6 +245,7 @@ class DivisionController extends Controller
             return response()->json($response, 500);
         }
     }
+    
     
     
 
@@ -416,52 +345,45 @@ class DivisionController extends Controller
             $perPage = $request->input('per_page', 10);
             $page = $request->input('page', 1);
     
-            // Get all non-archived divisions
-            $divisions = Division::where('is_archived', 0)->get();
+            // Get all non-archived divisions with department relation
+            $divisions = Division::with('department')
+                ->where('is_archived', 0)
+                ->get();
     
             // Filter and transform divisions
             $filteredDivisions = $divisions->map(function ($division) use ($search) {
                 $staffIds = json_decode($division->staff_id, true) ?? [];
-                $personnelIds = json_decode($division->personnel_id, true) ?? [];
     
                 $staffDetails = User::whereIn('id', $staffIds)
                     ->where('is_archived', 0)
                     ->get(['id', 'first_name', 'last_name', 'email']);
     
-                $personnelDetails = User::whereIn('id', $personnelIds)
-                    ->where('is_archived', 0)
-                    ->get(['id', 'first_name', 'last_name', 'email']);
-    
-                // Check if any match in staff
+                // Search matching staff
                 $matchedStaff = $staffDetails->filter(function ($user) use ($search) {
                     return str_contains(strtolower($user->first_name), $search) ||
                            str_contains(strtolower($user->last_name), $search);
                 });
     
-                // Check if any match in personnel
-                $matchedPersonnel = $personnelDetails->filter(function ($user) use ($search) {
-                    return str_contains(strtolower($user->first_name), $search) ||
-                           str_contains(strtolower($user->last_name), $search);
-                });
-    
+                // Search for matching division name, office location, or department name
                 $divisionMatches = str_contains(strtolower($division->division_name), $search) ||
-                                   str_contains(strtolower($division->office_location), $search);
+                                   (optional($division->department)->department_name && 
+                                    str_contains(strtolower(optional($division->department)->department_name), $search));
     
-                // Only include divisions that match by name/location or staff/personnel
-                if ($search && !$divisionMatches && $matchedStaff->isEmpty() && $matchedPersonnel->isEmpty()) {
-                    return null;
+                if ($search && !$divisionMatches && $matchedStaff->isEmpty()) {
+                    return null;  // If no match is found, return null
                 }
     
                 return [
                     'id' => $division->id,
                     'division_name' => $division->division_name,
                     'office_location' => $division->office_location,
+                    'department_id' => $division->department_id,
+                    'department_name' => optional($division->department)->department_name,
                     'staff' => $matchedStaff->isNotEmpty() ? $matchedStaff->values() : $staffDetails->values(),
-                    'personnel' => $matchedPersonnel->isNotEmpty() ? $matchedPersonnel->values() : $personnelDetails->values(),
                     'created_at' => $division->created_at,
                     'updated_at' => $division->updated_at,
                 ];
-            })->filter()->values(); // Remove nulls
+            })->filter()->values();
     
             // Manual pagination
             $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -475,13 +397,11 @@ class DivisionController extends Controller
             $response = [
                 'isSuccess' => true,
                 'message' => 'Divisions retrieved successfully.',
-                'divisions' => [
-                    'data' => $paginated->items(),
-                    'current_page' => $paginated->currentPage(),
-                    'last_page' => $paginated->lastPage(),
-                    'total' => $paginated->total(),
-                    'per_page' => $paginated->perPage(),
-                ],
+                'divisions' => $paginated->items(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
             ];
     
             $this->logAPICalls('getDivisions', $user->email, $request->all(), [$response]);
@@ -502,7 +422,7 @@ class DivisionController extends Controller
     
     
     
-
+    
     public function getDivisionsArchive(Request $request)
     {
         try {

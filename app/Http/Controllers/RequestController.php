@@ -375,6 +375,7 @@ class RequestController extends Controller
         // Role-based filtering
         switch ($role) {
             case 'admin':
+            $query->where('requests.status', '!=', 'Completed');
                 break;
             case 'head':
                 $divisionIds = collect(DB::table('departments')
@@ -412,10 +413,10 @@ class RequestController extends Controller
                     $categoryIds = $categories->pluck('id');
 
                     $query->whereIn('requests.category_id', $categoryIds)
-                        ->whereIn('requests.status', ['For Assign', 'For Completion', 'For Review', 'Completed']);
+                        ->whereIn('requests.status', ['For Assignment', 'Queued', 'For Review', 'Completed']);
                 } else {
                     $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)])
-                    ->whereIn('requests.status', ['For Completion']);
+                    ->whereIn('requests.status', ['Queued']);
                 }
                 break;
             case 'team_lead':
@@ -467,16 +468,16 @@ class RequestController extends Controller
 
                 $division = DB::table('divisions')
                 ->whereJsonContains('staff_id', $request->requested_by_id)
-                ->select('id','division_name')
+                ->select('id','division_name', 'department_id') // Ensure you're selecting department_id
                 ->first();
-
-                $department = null;
-                if ($division) {
-                    $department = DB::table('departments')
-                        ->whereJsonContains('division_id', $division->id)
-                        ->select('department_name', 'acronym')
-                        ->first();
-                }
+            
+            $department = null;
+            if ($division) {
+                $department = DB::table('departments')
+                    ->where('id', $division->department_id) // Use department_id from divisions
+                    ->select('department_name', 'acronym')
+                    ->first();
+            }
 
             return [
                 'id' => $request->id,
@@ -607,18 +608,17 @@ public function getAcceptedRequestsByHead()
 
             // Find the division based on the staff_id
             $division = DB::table('divisions')
-                ->whereJsonContains('staff_id', $request->requested_by_id)
-                ->select('id', 'division_name', 'office_location')
+            ->whereJsonContains('staff_id', $request->requested_by_id)
+            ->select('id','division_name', 'department_id') // Ensure you're selecting department_id
+            ->first();
+        
+        $department = null;
+        if ($division) {
+            $department = DB::table('departments')
+                ->where('id', $division->department_id) // Use department_id from divisions
+                ->select('department_name', 'acronym')
                 ->first();
-
-            // If division exists, get department
-            $department = null;
-            if ($division) {
-                $department = DB::table('departments')
-                    ->whereJsonContains('division_id', $division->id)
-                    ->select('department_name', 'acronym')
-                    ->first();
-            }
+        }
 
             return [
                 'id' => $request->id,
@@ -739,18 +739,16 @@ public function getAccomplishmentReport(Request $request)
                     ->get();
                     
     
-                // Find the division based on the staff_id
-                $division = DB::table('divisions')
+                    $division = DB::table('divisions')
                     ->whereJsonContains('staff_id', $request->requested_by_id)
-                    ->select('id', 'division_name')
+                    ->select('id','division_name', 'department_id') // Ensure you're selecting department_id
                     ->first();
-    
-                // If division exists, get department
+                
                 $department = null;
                 if ($division) {
                     $department = DB::table('departments')
-                        ->whereJsonContains('division_id', $division->id)
-                        ->select('department_name')
+                        ->where('id', $division->department_id) // Use department_id from divisions
+                        ->select('department_name', 'acronym')
                         ->first();
                 }
     
@@ -861,7 +859,7 @@ if ($alreadyAssigned) {
     
             // Update request with the single team lead
             $requests->update([
-                'status' => 'For Assign',
+                'status' => 'For Assignment',
                 'category_id' => $validatedData['category_id'],
                 'team_lead_id' => $validatedData['team_lead_id'],
             ]);
@@ -989,7 +987,7 @@ if ($alreadyAssigned) {
                 $teamLeadData = User::find($requests->team_lead_id);
             }
     
-            $statusToUpdate = $validatedData['status'] ?? 'For Completion';
+            $statusToUpdate = $validatedData['status'] ?? 'Queued';
     
             // Update request (category_id is untouched)
             $requests->update([
