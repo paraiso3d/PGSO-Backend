@@ -434,7 +434,7 @@ class DepartmentController extends Controller
             // Fetch the staff/personnel info
             $staff = User::whereIn('id', $staffIds)
                 ->where('is_archived', 0)
-                ->get(['id', 'first_name', 'last_name', 'email'])
+                ->get(['id', 'first_name', 'last_name', 'number', 'email'])
                 ->map(function ($user) use ($staffDivisionMap) {
                     return [
                         'id' => $user->id,
