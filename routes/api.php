@@ -170,7 +170,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Review Routes
     Route::prefix('request')->group(function () {
-
         // Request Routes
         Route::post('create', [RequestController::class, 'createRequest']);
         Route::post('accept/{id}', [RequestController::class, 'acceptRequest']);
@@ -181,6 +180,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('completion/{id}', [RequestController::class, 'submitCompletion']);
         Route::post('feedback/{id}', [RequestController::class, 'submitFeedback']);
         Route::get('head/reports', [RequestController::class, 'getAcceptedRequestsByHead']);
+        Route::get('admin/reports', [RequestController::class, 'getAllAccomplishmentReportsForAdmin']);
         Route::get('accomplishment', [RequestController::class, 'getAccomplishmentReport']);
         Route::get('list', [RequestController::class, 'getRequests']);
         Route::get('list/{id}', [RequestController::class, 'getRequestById']);
@@ -255,6 +255,8 @@ Route::prefix('dropdown')->group(function () {
     Route::get('review-office', [ReviewController::class, 'getDropdownOptionsReviewoffice']);
     Route::get('review-location', [ReviewController::class, 'getDropdownOptionsReviewlocation']);
     Route::get('manpower', [ActualWorkController::class, 'getDropdownOptionsActualwork']);
+    Route::get('departments', [DepartmentController::class, 'getDropdownDepartments']);
+    
 });
 
 /*

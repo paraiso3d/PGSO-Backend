@@ -807,7 +807,115 @@ public function getAccomplishmentReport(Request $request)
     }
     
 
+
+    public function getAllAccomplishmentReportsForAdmin()
+    {
+        try {
+            $requests = DB::table('requests')
+                ->join('users', 'users.id', '=', 'requests.requested_by')
+                ->leftJoin('categories', 'categories.id', '=', 'requests.category_id')
+                ->select(
+                    'requests.id',
+                    'requests.control_no',
+                    'requests.request_title',
+                    'requests.description',
+                    'requests.file_path',
+                    'requests.file_completion',
+                    'requests.category_id',
+                    'requests.feedback',
+                    'requests.rating',
+                    'requests.status',
+                    'requests.team_lead_id',
+                    'requests.date_requested',
+                    'requests.date_completed',
+                    'requests.personnel_ids',
+                    'users.id as requested_by_id',
+                    'users.first_name as requested_by_first_name',
+                    'users.last_name as requested_by_last_name',
+                    DB::raw("CONCAT(users.first_name, ' ', users.last_name) as requested_by_full_name"),
+                    'categories.category_name'
+                )
+                ->get();
     
+            $formattedRequests = $requests->map(function ($request) {
+                $personnelIds = json_decode($request->personnel_ids, true) ?? [];
+    
+                $teamLead = null;
+                if ($request->team_lead_id) {
+                    $teamLead = DB::table('users')
+                        ->where('id', $request->team_lead_id)
+                        ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as full_name"), 'email')
+                        ->first();
+                }
+    
+                $personnel = DB::table('users')
+                    ->whereIn('id', $personnelIds)
+                    ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"), 'email')
+                    ->get();
+    
+                $division = DB::table('divisions')
+                    ->whereJsonContains('staff_id', $request->requested_by_id)
+                    ->select('id', 'division_name', 'department_id')
+                    ->first();
+    
+                $department = null;
+                if ($division) {
+                    $department = DB::table('departments')
+                        ->where('id', $division->department_id)
+                        ->select('department_name', 'acronym')
+                        ->first();
+                }
+    
+                return [
+                    'id' => $request->id,
+                    'control_no' => $request->control_no,
+                    'request_title' => $request->request_title,
+                    'description' => $request->description,
+                    'file_path' => $request->file_path,
+                    'file_url' => $request->file_path ? asset($request->file_path) : null,
+                    'file_completion' => $request->file_completion,
+                    'file_completion_url' => $request->file_completion ? asset($request->file_completion) : null,
+                    'category_id' => $request->category_id,
+                    'category_name' => $request->category_name,
+                    'personnel' => $personnel->map(fn($p) => [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'email' => $p->email,
+                    ]),
+                    'team_lead' => $teamLead ? [
+                        'id' => $teamLead->id,
+                        'full_name' => $teamLead->full_name,
+                        'email' => $teamLead->email,
+                    ] : null,
+                    'feedback' => $request->feedback,
+                    'rating' => $request->rating,
+                    'status' => $request->status,
+                    'requested_by' => [
+                        'id' => $request->requested_by_id,
+                        'full_name' => $request->requested_by_full_name,
+                        'division' => $division->division_name ?? null,
+                        'department' => $department->department_name ?? null,
+                    ],
+                    'date_requested' => $request->date_requested,
+                    'date_completed' => $request->date_completed,
+                ];
+            });
+    
+            return response()->json([
+                'isSuccess' => true,
+                'message' => 'All accomplishment reports retrieved successfully.',
+                'data' => $formattedRequests
+            ], 200);
+    
+        } catch (\Throwable $e) {
+            return response()->json([
+                'isSuccess' => false,
+                'message' => 'Failed to retrieve reports.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+        
     
     
 
@@ -1331,8 +1439,6 @@ if ($alreadyAssigned) {
             ], 500);
         }
     }
-
-
 
 
 

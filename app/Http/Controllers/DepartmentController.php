@@ -460,6 +460,35 @@ class DepartmentController extends Controller
             ], 500);
         }
     }
+
+    public function getDropdownDepartments(Request $request)
+{
+    try {
+        $departments = DB::table('departments')
+            ->select('id', 'department_name')
+            ->where('is_archived', '0')
+            ->get();
+
+        $response = [
+            'isSuccess' => true,
+            'message' => 'Department dropdown options retrieved successfully.',
+            'department' => $departments,
+        ];
+
+        $this->logAPICalls('getDropdownDepartments', "", [], [$response]);
+
+        return response()->json($response, 200);
+    } catch (\Throwable $e) {
+        $response = [
+            'isSuccess' => false,
+            'message' => 'Failed to retrieve department dropdown options.',
+            'error' => $e->getMessage(),
+        ];
+        $this->logAPICalls('getDropdownDepartments', "", [], [$response]);
+        return response()->json($response, 500);
+    }
+}
+
     
 
 public function getdropdowndivisions()
