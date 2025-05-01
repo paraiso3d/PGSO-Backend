@@ -378,29 +378,34 @@ class RequestController extends Controller
             $query->where('requests.status', '!=', 'Completed');
                 break;
             case 'head':
-                $divisionIds = collect(DB::table('departments')
-                ->where('head_id', $userId)
-                ->pluck('division_id'))
-                ->flatMap(function ($json) {
-                    $decoded = json_decode($json, true);
-                    return is_array($decoded) ? $decoded : [];
-                });
+                // Step 1: Get all department IDs where this user is the head
+                $departmentIds = DB::table('departments')
+                    ->where('head_id', $userId)
+                    ->pluck('id');
             
-            Log::info('Head '.$userId.' has divisions:', $divisionIds->toArray());
+                Log::info('Head ' . $userId . ' has departments:', $departmentIds->toArray());
             
-            $staffIds = collect(DB::table('divisions')
-                ->whereIn('id', $divisionIds)
-                ->pluck('staff_id'))
-                ->flatMap(function ($json) {
-                    $decoded = json_decode($json, true);
-                    return is_array($decoded) ? $decoded : [];
-                });
+                // Step 2: Get all division IDs under those departments
+                $divisionIds = DB::table('divisions')
+                    ->whereIn('department_id', $departmentIds)
+                    ->pluck('id');
             
-            Log::info('Head '.$userId.' has staff:', $staffIds->toArray());
-
+                Log::info('Head ' . $userId . ' has divisions:', $divisionIds->toArray());
+            
+                // Step 3: Get all staff IDs from those divisions
+                $staffIds = DB::table('divisions')
+                    ->whereIn('id', $divisionIds)
+                    ->pluck('staff_id')
+                    ->flatMap(function ($json) {
+                        $decoded = json_decode($json, true);
+                        return is_array($decoded) ? $decoded : [];
+                    });
+            
+                Log::info('Head ' . $userId . ' has staff:', $staffIds->toArray());
+            
+                // Step 4: Filter the requests
                 $query->whereIn('requests.requested_by', $staffIds)
-                ->whereIn('requests.status', ['Pending', 'For Assign', 'For Completion', 'Completed']);
-
+                    ->whereIn('requests.status', ['Pending', 'For Assignment', 'Queued', 'Completed']);
                 break;
             case 'staff':
                 $query->where('requests.requested_by', $userId);
