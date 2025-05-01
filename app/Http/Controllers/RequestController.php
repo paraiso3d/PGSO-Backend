@@ -405,7 +405,7 @@ class RequestController extends Controller
             
                 // Step 4: Filter the requests
                 $query->whereIn('requests.requested_by', $staffIds)
-                    ->whereIn('requests.status', ['Pending', 'For Assignment', 'Queued', 'Completed']);
+                    ->whereIn('requests.status', ['Pending', 'For Assignment', 'Queued']);
                 break;
             case 'staff':
                 $query->where('requests.requested_by', $userId);
@@ -418,7 +418,7 @@ class RequestController extends Controller
                     $categoryIds = $categories->pluck('id');
 
                     $query->whereIn('requests.category_id', $categoryIds)
-                        ->whereIn('requests.status', ['For Assignment', 'Queued', 'For Review', 'Completed']);
+                        ->whereIn('requests.status', ['For Assignment', 'Queued', 'For Review']);
                 } else {
                     $query->whereRaw("JSON_CONTAINS(requests.personnel_ids, ?)", [json_encode((int) $userId)])
                     ->whereIn('requests.status', ['Queued']);
