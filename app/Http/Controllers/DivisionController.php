@@ -155,7 +155,7 @@ class DivisionController extends Controller
                 'office_location' => 'sometimes|required|string',
                 'staff_id' => 'nullable|array',
                 'staff_id.*' => 'exists:users,id',
-                'department_id' => 'required|exists:departments,id',
+                'department_id' => 'sometimes|exists:departments,id',
             ]);
     
             // Handle Staff validation
